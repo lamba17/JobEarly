@@ -997,6 +997,10 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .dash-stat-card .num { font-size: 30px; font-weight: 700; letter-spacing: -0.03em; margin-bottom: 5px; }
 .dash-stat-card .delta { font-size: 11.5px; color: var(--accent); }
 .dash-bottom { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.dash-empty { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 24px 12px; }
+.dash-empty-icon { width: 44px; height: 44px; border-radius: 12px; background: var(--blue-50); color: var(--accent); display: grid; place-items: center; margin-bottom: 10px; }
+.dash-empty-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.dash-empty-sub { font-size: 12.5px; color: var(--text-mute); line-height: 1.5; max-width: 220px; }
 .dash-section { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
 .dash-section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .dash-section-head h4 { font-size: 14.5px; font-weight: 600; margin: 0; }

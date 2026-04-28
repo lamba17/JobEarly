@@ -1,9 +1,19 @@
 import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
+import { addResume } from '../../lib/userStore'
 import { IconSparkle, IconUser, IconDoc, IconUndo, IconRedo, IconDownload, IconShare, IconCustomize, IconZoomIn, IconZoomOut } from '../../icons'
 
 export default function ResumeBuilder() {
   const { user } = useAuth()
+  const [saved, setSaved] = useState(false)
+
+  const handleSaveDraft = () => {
+    if (!user) return
+    const atsScore = Math.floor(Math.random() * 10) + 88
+    addResume(user.email, `${title} — ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}.pdf`, atsScore)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2500)
+  }
   const [summary, setSummary] = useState(
     `Strategic ${user?.jobTitle ?? 'Product Designer'} with 8+ years of experience in creating human-centric digital experiences. Proven track record of leading design systems for Fortune 500 fintech companies, resulting in increased operational efficiency and user satisfaction across multiple platforms.`
   )
@@ -72,8 +82,11 @@ export default function ResumeBuilder() {
             <button title="Redo"><IconRedo size={13} /></button>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button style={{ height: 38, padding: '0 14px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--text-soft)', fontSize: 13, cursor: 'pointer' }}>
-              Save Draft
+            <button
+              onClick={handleSaveDraft}
+              style={{ height: 38, padding: '0 14px', borderRadius: 9, border: '1px solid var(--border)', background: saved ? 'var(--blue-50)' : 'var(--card)', color: saved ? 'var(--accent)' : 'var(--text-soft)', fontSize: 13, cursor: 'pointer', transition: 'all .2s', fontFamily: 'inherit' }}
+            >
+              {saved ? '✓ Saved!' : 'Save Draft'}
             </button>
             <button className="btn-download"><IconDownload size={13} /> Download PDF</button>
           </div>
