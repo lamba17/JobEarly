@@ -887,13 +887,14 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .form-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
 .form-group label { font-size: 13.5px; font-weight: 500; }
 .form-input {
-  height: 42px; padding: 0 14px; border: 1px solid var(--border-strong);
+  width: 100%; height: 42px; padding: 0 14px; border: 1px solid var(--border-strong);
   border-radius: 9px; background: var(--bg); color: var(--text);
   font-size: 14px; font-family: inherit; outline: none; transition: border-color .15s;
 }
 .form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
 .form-input::placeholder { color: var(--text-mute); }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-row > * { min-width: 0; }
 .auth-submit {
   width: 100%; height: 44px; border-radius: 10px; background: var(--accent); color: #fff;
   font-weight: 600; font-size: 14.5px; cursor: pointer; border: none;
