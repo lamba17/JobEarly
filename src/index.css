@@ -1028,6 +1028,227 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
    RESUME BUILDER
 ═══════════════════════════════════════════════ */
 .builder-layout { display: flex; height: calc(100vh - 56px); overflow: hidden; margin: -24px -28px; }
+
+/* Tab switcher */
+.rb-tabs {
+  display: flex; border-bottom: 1px solid var(--border);
+  padding: 0 6px; gap: 2px; flex-shrink: 0; background: var(--card);
+}
+.rb-tab {
+  display: inline-flex; align-items: center; gap: 6px; position: relative;
+  height: 44px; padding: 0 14px; font-size: 13px; font-weight: 500;
+  color: var(--text-soft); border: none; background: none; cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px; font-family: inherit;
+  transition: color .15s;
+}
+.rb-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.rb-tab:hover:not(.active) { color: var(--text); }
+.rb-tab-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+/* Tab content area */
+.rb-tab-content {
+  flex: 1; overflow-y: auto; padding: 18px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+
+/* OR divider */
+.rb-or-divider {
+  display: flex; align-items: center; gap: 10; color: var(--text-mute);
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+}
+.rb-or-divider::before, .rb-or-divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+.rb-or-divider span { padding: 0 10px; }
+
+/* Analyse button */
+.rb-analyse-btn {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  width: 100%; height: 42px; border-radius: 10px;
+  background: var(--accent); color: #fff;
+  font-size: 13.5px; font-weight: 600; font-family: inherit;
+  border: none; cursor: pointer; transition: background .15s;
+  box-shadow: 0 4px 12px -4px rgba(37,99,235,.45);
+}
+.rb-analyse-btn:hover:not(:disabled) { background: var(--accent-2); }
+.rb-analyse-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Spinner */
+.rb-spinner {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.3); border-top-color: #fff;
+  animation: rb-spin .7s linear infinite; flex-shrink: 0;
+}
+@keyframes rb-spin { to { transform: rotate(360deg); } }
+
+/* ATS Score card */
+.ats-score-card {
+  background: var(--bg-soft); border: 1px solid var(--border);
+  border-radius: 14px; padding: 16px;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 14px;
+}
+.ats-ring-wrap { display: flex; align-items: center; gap: 14px; }
+.ats-ring-lg {
+  width: 80px; height: 80px; border-radius: 50%;
+  display: grid; place-items: center; position: relative; flex-shrink: 0;
+}
+.ats-ring-inner {
+  position: absolute; inset: 8px; border-radius: 50%;
+  background: var(--bg-soft); display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+}
+.ats-num { font-size: 22px; font-weight: 800; line-height: 1; letter-spacing: -0.03em; }
+.ats-denom { font-size: 9.5px; font-weight: 600; color: var(--text-mute); margin-top: 1px; }
+.ats-title-label { font-size: 9.5px; font-weight: 700; letter-spacing: .1em; color: var(--text-mute); margin-bottom: 5px; }
+.ats-verdict { font-size: 12.5px; font-weight: 700; }
+.rb-change-jd {
+  font-size: 11.5px; font-weight: 600; color: var(--text-soft);
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 7px; padding: 5px 10px; cursor: pointer; font-family: inherit;
+  white-space: nowrap; transition: all .15s; height: fit-content;
+}
+.rb-change-jd:hover { color: var(--accent); border-color: var(--blue-200); }
+
+/* Keyword sections */
+.ats-kw-section { display: flex; flex-direction: column; gap: 9px; }
+.ats-kw-head {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .08em; color: var(--text-mute);
+}
+.ats-kw-count {
+  font-size: 10.5px; font-weight: 700; padding: 1px 7px; border-radius: 999px;
+}
+.ats-kw-count.good { background: #ECFDF5; color: #10B981; }
+.ats-kw-count.bad  { background: #FEF2F2; color: #DC2626; }
+.ats-kw-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.ats-kw-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 600; padding: 4px 9px; border-radius: 6px;
+}
+.ats-kw-chip.found  { background: #ECFDF5; color: #10B981; border: 1px solid #A7F3D0; }
+.ats-kw-chip.missing {
+  background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA;
+  cursor: pointer; font-family: inherit;
+  transition: all .12s;
+}
+.ats-kw-chip.missing:hover { background: #DC2626; color: #fff; }
+
+/* Format checks */
+.ats-format-list { display: flex; flex-direction: column; gap: 7px; }
+.ats-format-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-soft); }
+.ats-format-ico {
+  width: 18px; height: 18px; border-radius: 50%;
+  display: grid; place-items: center; flex-shrink: 0;
+}
+.ats-format-ico.pass { background: #ECFDF5; color: #10B981; }
+.ats-format-ico.warn { background: #FEF3C7; color: #D97706; }
+
+/* Tailor button */
+.rb-tailor-btn {
+  display: flex; align-items: center; gap: 7px;
+  width: 100%; height: 40px; border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #fff; font-size: 13px; font-weight: 600; font-family: inherit;
+  border: none; cursor: pointer; transition: opacity .15s;
+  box-shadow: 0 4px 12px -4px rgba(37,99,235,.45);
+  justify-content: center;
+}
+.rb-tailor-btn:hover { opacity: .9; }
+
+.rb-tailored-notice {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600; color: #10B981;
+  background: #ECFDF5; border: 1px solid #A7F3D0;
+  border-radius: 8px; padding: 9px 12px;
+}
+
+.rb-edit-resume-btn {
+  display: flex; align-items: center; gap: 6px; justify-content: center;
+  width: 100%; height: 36px; border-radius: 8px;
+  background: var(--bg-soft); color: var(--text-soft);
+  border: 1px solid var(--border); font-size: 13px; font-weight: 500;
+  cursor: pointer; font-family: inherit; transition: all .15s;
+}
+.rb-edit-resume-btn:hover { color: var(--accent); border-color: var(--blue-200); background: var(--blue-50); }
+
+/* Skill chips editor */
+.rb-skill-chips {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 10px; background: var(--bg-soft);
+  border: 1px solid var(--border); border-radius: 10px;
+}
+.rb-skill-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11.5px; font-weight: 500; padding: 4px 8px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text-soft);
+}
+.rb-skill-chip.matched {
+  background: var(--blue-50); color: var(--accent);
+  border-color: var(--blue-200); font-weight: 600;
+}
+.rb-skill-chip button {
+  background: none; border: none; cursor: pointer;
+  color: currentColor; display: flex; align-items: center; opacity: 0.6;
+}
+.rb-skill-chip button:hover { opacity: 1; }
+.rb-skill-add { display: flex; align-items: center; }
+.rb-skill-input {
+  border: none; outline: none; background: none; font-family: inherit;
+  font-size: 11.5px; color: var(--text); width: 90px;
+}
+.rb-skill-input::placeholder { color: var(--text-mute); }
+
+/* Experience accordion */
+.rb-exp-entry {
+  background: var(--bg-soft); border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden; margin-bottom: 8px;
+}
+.rb-exp-header {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 13px; background: none; border: none; cursor: pointer;
+  font-family: inherit; text-align: left;
+}
+.rb-exp-header:hover { background: rgba(0,0,0,.02); }
+.rb-exp-role { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.rb-exp-co { font-size: 11.5px; color: var(--text-mute); }
+.rb-exp-chev { color: var(--text-mute); transition: transform .2s; display: flex; }
+.rb-exp-chev.open { transform: rotate(180deg); }
+.rb-exp-body { padding: 4px 13px 14px; border-top: 1px solid var(--border); }
+.rb-add-bullet {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11.5px; font-weight: 500; color: var(--accent);
+  background: none; border: none; cursor: pointer; font-family: inherit; padding: 0;
+}
+.rb-add-exp {
+  display: flex; align-items: center; gap: 6px;
+  width: 100%; height: 34px; border-radius: 8px;
+  background: var(--bg-soft); color: var(--text-soft);
+  border: 1px dashed var(--border-strong); font-size: 12.5px; font-weight: 500;
+  cursor: pointer; font-family: inherit; justify-content: center;
+  transition: all .15s;
+}
+.rb-add-exp:hover { color: var(--accent); border-color: var(--accent); background: var(--blue-50); }
+
+/* Mini ATS indicator in toolbar */
+.rb-ats-mini {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 10px; border: 1.5px solid var(--border);
+  border-radius: 8px; background: var(--card);
+}
+.rb-ats-mini-ring {
+  width: 26px; height: 26px; border-radius: 50%;
+  display: grid; place-items: center; position: relative; flex-shrink: 0;
+}
+.rb-ats-mini-inner {
+  position: absolute; inset: 4px; background: var(--card); border-radius: 50%;
+}
+
+/* Resume skill — highlight matched keywords */
+.resume-skill.matched {
+  background: #DBEAFE; color: #1D4ED8;
+  border: 1px solid #BFDBFE; font-weight: 600;
+}
 .builder-left {
   width: 320px; flex-shrink: 0; background: var(--card); border-right: 1px solid var(--border);
   overflow-y: auto; padding: 22px; display: flex; flex-direction: column; gap: 18px;
