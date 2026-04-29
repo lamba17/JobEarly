@@ -1,7 +1,7 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import {
-  IconRocket, IconDoc, IconBriefcase, IconChart, IconTarget,
+  IconRocket, IconDoc, IconBriefcase, IconChart, IconSend,
   IconHelp, IconSettings, IconLogOut, IconSun, IconMoon, IconArrowRight,
 } from '../../icons'
 
@@ -48,7 +48,7 @@ export default function AppLayout({ theme, toggleTheme }: { theme: string; toggl
           <SidebarItem to="/app/resume-builder" icon={<IconDoc size={15} />}       label="Resumes" />
           <SidebarItem to="/app/job-match"      icon={<IconBriefcase size={15} />} label="Job Matches" />
           <SidebarItem to="/app/performance"    icon={<IconChart size={15} />}     label="Analytics" />
-          <SidebarItem to="/app/job-match"      icon={<IconTarget size={15} />}    label="Outreach" />
+          <SidebarItem to="/app/outreach"       icon={<IconSend size={15} />}      label="Outreach" />
 
           <div className="sidebar-divider" />
 
@@ -81,6 +81,7 @@ export default function AppLayout({ theme, toggleTheme }: { theme: string; toggl
             <NavLink to="/app/resume-builder" className={({ isActive }) => `app-tab${isActive ? ' active' : ''}`}>Resume Builder</NavLink>
             <NavLink to="/app/job-match"      className={({ isActive }) => `app-tab${isActive ? ' active' : ''}`}>Job Match</NavLink>
             <NavLink to="/app/performance"    className={({ isActive }) => `app-tab${isActive ? ' active' : ''}`}>Analytics</NavLink>
+            <NavLink to="/app/outreach"       className={({ isActive }) => `app-tab${isActive ? ' active' : ''}`}>Outreach</NavLink>
           </div>
           <div className="app-topnav-right">
             <button className="theme-toggle" onClick={toggleTheme} aria-label="Toggle theme" style={{ width: 34, height: 34 }}>

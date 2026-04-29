@@ -9,6 +9,7 @@ import Dashboard from './pages/app/Dashboard'
 import ResumeBuilder from './pages/app/ResumeBuilder'
 import JobMatch from './pages/app/JobMatch'
 import Performance from './pages/app/Performance'
+import Outreach from './pages/app/Outreach'
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user } = useAuth()
@@ -47,6 +48,7 @@ export default function App() {
             <Route path="resume-builder" element={<ResumeBuilder />} />
             <Route path="job-match" element={<JobMatch />} />
             <Route path="performance" element={<Performance />} />
+            <Route path="outreach" element={<Outreach />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
