@@ -291,9 +291,47 @@ export default function ResumeBuilder() {
     }
   }
 
+  const openPrintWindow = () => {
+    const resumeEl = document.querySelector('.resume-doc') as HTMLElement | null
+    if (!resumeEl) return
+
+    let cssText = ''
+    Array.from(document.styleSheets).forEach(sheet => {
+      try {
+        cssText += Array.from(sheet.cssRules).map(r => r.cssText).join('\n')
+      } catch { /* cross-origin sheet, skip */ }
+    })
+
+    const win = window.open('', '_blank', 'width=900,height=1200')
+    if (!win) return
+    win.document.write(`<!DOCTYPE html>
+<html><head>
+  <meta charset="utf-8">
+  <title>${name} — Resume</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+${cssText}
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; padding: 0; background: #fff; }
+.resume-doc {
+  width: 210mm; min-height: 297mm;
+  box-shadow: none !important;
+  transform: none !important;
+  border-radius: 0 !important;
+  margin: 0 auto;
+}
+@page { size: A4; margin: 0; }
+  </style>
+</head>
+<body>${resumeEl.outerHTML}</body>
+</html>`)
+    win.document.close()
+    setTimeout(() => { win.focus(); win.print() }, 600)
+  }
+
   const handlePrint = () => {
     setShowShare(false)
-    setTimeout(() => window.print(), 200)
+    setTimeout(openPrintWindow, 100)
   }
 
   const handleEmail = () => {
@@ -576,7 +614,7 @@ export default function ResumeBuilder() {
               color: saved ? 'var(--accent)' : 'var(--text-soft)',
               fontSize: 13, cursor: 'pointer', transition: 'all .2s', fontFamily: 'inherit',
             }}>{saved ? '✓ Saved!' : 'Save Draft'}</button>
-            <button className="btn-download" onClick={() => window.print()}><IconDownload size={13} /> Download PDF</button>
+            <button className="btn-download" onClick={openPrintWindow}><IconDownload size={13} /> Download PDF</button>
           </div>
         </div>
       </div>

@@ -2074,38 +2074,3 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 }
 .rb-font-opt.active .rb-font-name { color: var(--accent); }
 
-/* ═══════════════════════════════════════════════
-   PRINT / DOWNLOAD PDF
-   Hides the entire app shell and renders only the
-   resume document at A4 size with no UI chrome.
-═══════════════════════════════════════════════ */
-@media print {
-  /* Hide everything */
-  body > * { display: none !important; }
-
-  /* Show only the resume doc */
-  body .resume-doc {
-    display: block !important;
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-    height: auto !important;
-    transform: none !important;
-    box-shadow: none !important;
-    border-radius: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    z-index: 99999 !important;
-    background: #fff !important;
-    color: #000 !important;
-  }
-
-  /* Ensure all resume children are visible */
-  body .resume-doc * { display: revert !important; }
-
-  @page {
-    size: A4;
-    margin: 0;
-  }
-}
