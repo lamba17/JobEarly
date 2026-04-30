@@ -576,7 +576,7 @@ export default function ResumeBuilder() {
               color: saved ? 'var(--accent)' : 'var(--text-soft)',
               fontSize: 13, cursor: 'pointer', transition: 'all .2s', fontFamily: 'inherit',
             }}>{saved ? '✓ Saved!' : 'Save Draft'}</button>
-            <button className="btn-download"><IconDownload size={13} /> Download PDF</button>
+            <button className="btn-download" onClick={() => window.print()}><IconDownload size={13} /> Download PDF</button>
           </div>
         </div>
       </div>
