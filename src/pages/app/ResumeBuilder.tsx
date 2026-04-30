@@ -295,29 +295,42 @@ export default function ResumeBuilder() {
     const resumeEl = document.querySelector('.resume-doc') as HTMLElement | null
     if (!resumeEl) return
 
+    // Capture current theme so CSS variables resolve correctly
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'light'
+
+    // Extract all CSS rules from same-origin stylesheets
     let cssText = ''
     Array.from(document.styleSheets).forEach(sheet => {
       try {
         cssText += Array.from(sheet.cssRules).map(r => r.cssText).join('\n')
-      } catch { /* cross-origin sheet, skip */ }
+      } catch { /* cross-origin (Google Fonts), skip */ }
     })
 
     const win = window.open('', '_blank', 'width=900,height=1200')
     if (!win) return
     win.document.write(`<!DOCTYPE html>
-<html><head>
+<html data-theme="${currentTheme}"><head>
   <meta charset="utf-8">
   <title>${name} — Resume</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
   <style>
 ${cssText}
-*, *::before, *::after { box-sizing: border-box; }
+/* ── Print overrides ── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+  color-adjust: exact !important;
+}
 body { margin: 0; padding: 0; background: #fff; }
 .resume-doc {
-  width: 210mm; min-height: 297mm;
+  width: 210mm;
+  min-height: 297mm;
+  max-width: none !important;
   box-shadow: none !important;
   transform: none !important;
   border-radius: 0 !important;
+  border: none !important;
   margin: 0 auto;
 }
 @page { size: A4; margin: 0; }
@@ -326,7 +339,8 @@ body { margin: 0; padding: 0; background: #fff; }
 <body>${resumeEl.outerHTML}</body>
 </html>`)
     win.document.close()
-    setTimeout(() => { win.focus(); win.print() }, 600)
+    // Wait for fonts + styles to fully load before triggering print
+    setTimeout(() => { win.focus(); win.print() }, 1200)
   }
 
   const handlePrint = () => {
