@@ -627,22 +627,23 @@ export default function ResumeBuilder() {
 
               {showShare && (
                 <div className="rb-share-pop">
+                  <div className="rb-share-header">Export &amp; Share</div>
                   <button className="rb-share-item" onClick={handleCopyLink}>
-                    <IcoLink2 size={14} />
+                    <span className="rb-share-icon blue"><IcoLink2 size={14} /></span>
                     <div>
                       <div className="rb-share-item-title">{copied ? '✓ Link copied!' : 'Copy shareable link'}</div>
                       <div className="rb-share-item-sub">Share your resume page</div>
                     </div>
                   </button>
                   <button className="rb-share-item" onClick={handlePrint}>
-                    <IcoPrint size={14} />
+                    <span className="rb-share-icon green"><IcoPrint size={14} /></span>
                     <div>
                       <div className="rb-share-item-title">Print / Save as PDF</div>
-                      <div className="rb-share-item-sub">Use browser print dialog</div>
+                      <div className="rb-share-item-sub">Download via browser dialog</div>
                     </div>
                   </button>
                   <button className="rb-share-item" onClick={handleEmail}>
-                    <IcoMail size={14} />
+                    <span className="rb-share-icon amber"><IcoMail size={14} /></span>
                     <div>
                       <div className="rb-share-item-title">Email resume</div>
                       <div className="rb-share-item-sub">Opens your email client</div>
@@ -650,7 +651,7 @@ export default function ResumeBuilder() {
                   </button>
                   <div className="rb-share-divider" />
                   <button className="rb-share-item" onClick={() => { handleSave(); setShowShare(false) }}>
-                    <IconDownload size={14} />
+                    <span className="rb-share-icon slate"><IconDownload size={14} /></span>
                     <div>
                       <div className="rb-share-item-title">Save draft</div>
                       <div className="rb-share-item-sub">Save to your dashboard</div>
