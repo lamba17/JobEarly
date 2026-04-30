@@ -17,6 +17,7 @@ interface Job {
   requirements: string[]
   type: string
   portals: ('linkedin' | 'indeed' | 'naukri')[]
+  postedDaysAgo: number
 }
 
 const INDIA_JOBS: Job[] = [
@@ -44,6 +45,22 @@ const INDIA_JOBS: Job[] = [
   { id: 22, role: 'Product Manager – Ads',        company: 'ShareChat',        loc: 'Bangalore',  match: 79, type: 'Full-time',  color: '#0FAAD0', domain: 'sharechat.com',       linkedinSlug: 'sharechat',                    portals: ['linkedin','indeed','naukri'],  salary: '₹30–₹50 LPA', period: 'per year', tags: ['Ads Tech','Monetisation','Analytics'],          desc: 'Own ShareChat\'s ads monetisation product across vernacular social media reaching 400M+ Indian users.', requirements: ['3+ years PM experience','Ads or monetisation background','Data-driven mindset','Understanding of Indian internet users','SQL proficiency'] },
   { id: 23, role: 'Consultant – Strategy',        company: 'Deloitte India',   loc: 'Mumbai',     match: 83, type: 'Full-time',  color: '#86BC25', domain: 'deloitte.com',        linkedinSlug: 'deloitte',                     portals: ['linkedin','indeed','naukri'],  salary: '₹18–₹32 LPA', period: 'per year', tags: ['Strategy','Business Consulting','BFSI'],        desc: 'Deliver strategy and operations consulting for leading BFSI and technology clients across India and SEA.', requirements: ['2+ years consulting experience','MBA or equivalent','Structured problem solving','Excellent presentation skills','BFSI domain a plus'] },
   { id: 24, role: 'Machine Learning Engineer',    company: 'Freshworks',       loc: 'Chennai',    match: 81, type: 'Full-time',  color: '#f5871f', domain: 'freshworks.com',      linkedinSlug: 'freshworks',                   portals: ['linkedin','indeed','naukri'],  salary: '₹28–₹50 LPA', period: 'per year', tags: ['NLP','Python','SaaS'],                          desc: 'Build AI-powered features for Freshworks\' CRM and support products used by 60,000+ businesses globally.', requirements: ['3+ years ML engineering','NLP and LLM experience','Python expertise','SaaS product understanding','API design skills'] },
+
+  // ── Remote jobs ────────────────────────────────────────────────────────────
+  { id: 25, role: 'Senior Frontend Engineer',      company: 'GitLab',           loc: 'Remote',     match: 92, type: 'Remote',      color: '#FC6D26', domain: 'gitlab.com',          linkedinSlug: 'gitlab-com',                   portals: ['linkedin','indeed'],          salary: '₹60–₹100 LPA',period: 'per year', tags: ['Vue.js','TypeScript','Open Source'],            desc: 'Build GitLab\'s web interface used by 30M+ developers. Fully remote, async-first culture with engineers across 65+ countries.', requirements: ['5+ years frontend engineering','Vue.js or React expertise','TypeScript proficiency','Open source contributions a plus','Strong async communication'] },
+  { id: 26, role: 'Staff Software Engineer',       company: 'Automattic',       loc: 'Remote',     match: 89, type: 'Remote',      color: '#0675C4', domain: 'automattic.com',      linkedinSlug: 'automattic',                   portals: ['linkedin','indeed'],          salary: '₹55–₹90 LPA', period: 'per year', tags: ['PHP','React','Distributed Teams'],              desc: 'Work on WordPress.com, WooCommerce, or Jetpack — powering 43% of the web. 100% distributed team, fully async.', requirements: ['6+ years engineering','PHP or JavaScript expertise','Remote work experience','Strong written communication','Open source background preferred'] },
+  { id: 27, role: 'Product Manager',               company: 'Postman',          loc: 'Remote',     match: 87, type: 'Remote',      color: '#FF6C37', domain: 'postman.com',         linkedinSlug: 'postman',                      portals: ['linkedin','indeed','naukri'],  salary: '₹40–₹70 LPA', period: 'per year', tags: ['API Platform','Developer Tools','PLG'],         desc: 'Drive product for Postman\'s API collaboration platform used by 25M+ developers worldwide. India-friendly remote role.', requirements: ['4+ years PM experience','Developer tools or API background','PLG expertise','Data-driven decisions','Excellent writing skills'] },
+  { id: 28, role: 'Senior QA Engineer',            company: 'BrowserStack',     loc: 'Remote',     match: 84, type: 'Remote',      color: '#FF6600', domain: 'browserstack.com',    linkedinSlug: 'browserstack',                 portals: ['linkedin','indeed','naukri'],  salary: '₹25–₹45 LPA', period: 'per year', tags: ['Selenium','Appium','Test Automation'],          desc: 'Shape quality for BrowserStack\'s cloud-based browser testing platform used by Netflix, Twitter, and 50,000+ customers.', requirements: ['4+ years QA automation','Selenium and Appium expertise','JavaScript or Python','CI/CD integration','API testing skills'] },
+  { id: 29, role: 'Backend Engineer – GraphQL',    company: 'Hasura',           loc: 'Remote',     match: 88, type: 'Remote',      color: '#1EB4D4', domain: 'hasura.io',           linkedinSlug: 'hasura',                       portals: ['linkedin','indeed'],          salary: '₹40–₹75 LPA', period: 'per year', tags: ['GraphQL','Haskell','PostgreSQL'],               desc: 'Build the core GraphQL engine at Hasura — a remote-first company whose open-source product powers 100,000+ apps.', requirements: ['4+ years backend engineering','GraphQL expertise','PostgreSQL deep knowledge','Haskell or functional programming a plus','Open source contributions'] },
+  { id: 30, role: 'Revenue Operations Analyst',    company: 'Chargebee',        loc: 'Remote',     match: 80, type: 'Remote',      color: '#E65100', domain: 'chargebee.com',       linkedinSlug: 'chargebee',                    portals: ['linkedin','indeed','naukri'],  salary: '₹18–₹32 LPA', period: 'per year', tags: ['Salesforce','Revenue Analytics','SaaS Metrics'], desc: 'Support Chargebee\'s global revenue engine — owned by data, powered by subscriptions. Remote-first SaaS company.', requirements: ['2+ years RevOps or analytics','Salesforce or HubSpot experience','Advanced SQL','SaaS metrics fluency','Subscription billing knowledge'] },
+  { id: 31, role: 'UX/UI Designer',               company: 'InVideo',          loc: 'Remote',     match: 83, type: 'Remote',      color: '#7C3AED', domain: 'invideo.io',          linkedinSlug: 'invideo-ai',                   portals: ['linkedin','indeed','naukri'],  salary: '₹20–₹38 LPA', period: 'per year', tags: ['Figma','Motion Design','SaaS'],                 desc: 'Design delightful experiences for InVideo\'s AI-powered video editor used by 7M+ creators in 190 countries.', requirements: ['3+ years UI/UX design','Figma and Principle proficiency','Motion/animation design skills','Consumer SaaS portfolio','Async collaboration experience'] },
+  { id: 32, role: 'Data Analyst',                 company: 'Wingify (VWO)',    loc: 'Remote',     match: 79, type: 'Remote',      color: '#00B4CC', domain: 'vwo.com',             linkedinSlug: 'wingify',                      portals: ['linkedin','indeed','naukri'],  salary: '₹15–₹28 LPA', period: 'per year', tags: ['SQL','A/B Testing','Analytics'],                desc: 'Drive data insights for VWO\'s A/B testing platform used by 3,000+ businesses. Remote-first with no micromanagement.', requirements: ['2+ years data analysis','SQL and Python proficiency','A/B testing understanding','Analytics tool experience','Strong visualisation skills'] },
+  { id: 33, role: 'Customer Success Manager',      company: 'Zoho',             loc: 'Remote',     match: 77, type: 'Remote',      color: '#E42527', domain: 'zoho.com',            linkedinSlug: 'zoho',                         portals: ['linkedin','indeed','naukri'],  salary: '₹12–₹22 LPA', period: 'per year', tags: ['CRM','Customer Success','SaaS'],                desc: 'Own the success journey for Zoho\'s enterprise customers across APAC. Fully remote, flexible hours, India-based team.', requirements: ['2+ years customer success','CRM software knowledge','B2B SaaS experience','Excellent communication','Renewals and upsell experience'] },
+  { id: 34, role: 'Full Stack Engineer',           company: 'Springworks',      loc: 'Remote',     match: 82, type: 'Remote',      color: '#6C63FF', domain: 'springworks.in',      linkedinSlug: 'springworks-in',               portals: ['linkedin','indeed','naukri'],  salary: '₹18–₹35 LPA', period: 'per year', tags: ['React','Node.js','HR Tech'],                    desc: 'Build remote-first HR tech products at Springworks — one of India\'s fastest-growing distributed teams.', requirements: ['3+ years full-stack','React and Node.js proficiency','TypeScript experience','API design skills','Remote work track record'] },
+  { id: 35, role: 'Senior Content Strategist',     company: 'upGrad',           loc: 'Remote',     match: 75, type: 'Remote',      color: '#FB7903', domain: 'upgrad.com',          linkedinSlug: 'upgrad-edtech',                portals: ['linkedin','indeed','naukri'],  salary: '₹14–₹26 LPA', period: 'per year', tags: ['Content Strategy','EdTech','SEO'],              desc: 'Shape the content strategy for India\'s largest online higher-education platform reaching 3M+ learners.', requirements: ['4+ years content strategy','EdTech or B2B content background','SEO proficiency','Strong editorial judgement','Data-driven content planning'] },
+  { id: 36, role: 'DevOps / SRE',                 company: 'Dukaan',           loc: 'Remote',     match: 81, type: 'Remote',      color: '#4CAF50', domain: 'mydukaan.io',         linkedinSlug: 'dukaan',                       portals: ['linkedin','indeed','naukri'],  salary: '₹22–₹42 LPA', period: 'per year', tags: ['Kubernetes','GCP','CI/CD'],                     desc: 'Keep Dukaan\'s e-commerce infrastructure resilient for 10M+ small businesses. Fully remote with an async culture.', requirements: ['3+ years DevOps/SRE','Kubernetes and Docker expertise','GCP or AWS experience','Terraform/IaC proficiency','On-call experience'] },
+  { id: 37, role: 'Product Designer',              company: 'Razorpay',         loc: 'Remote',     match: 85, type: 'Remote',      color: '#2EB5C9', domain: 'razorpay.com',        linkedinSlug: 'razorpay',                     portals: ['linkedin','indeed','naukri'],  salary: '₹25–₹45 LPA', period: 'per year', tags: ['Figma','FinTech','Design Systems'],              desc: 'Design seamless payment experiences at Razorpay. This is a remote-first opening across their product design team.', requirements: ['3+ years product design','Figma expertise','FinTech or payments portfolio','User research skills','System thinking'] },
+  { id: 38, role: 'Growth Marketer',               company: 'CleverTap',        loc: 'Remote',     match: 78, type: 'Remote',      color: '#E74C3C', domain: 'clevertap.com',       linkedinSlug: 'clevertap',                    portals: ['linkedin','indeed','naukri'],  salary: '₹16–₹30 LPA', period: 'per year', tags: ['Performance Marketing','SaaS','Analytics'],    desc: 'Drive demand generation for CleverTap\'s customer engagement platform used by 10,000+ apps. Fully remote role.', requirements: ['3+ years growth or performance marketing','B2B SaaS marketing experience','Google/Meta ads proficiency','Marketing analytics skills','Content and campaign management'] },
 ]
 
 const GLOBAL_JOBS: Job[] = [
@@ -69,11 +86,10 @@ function matchColor(pct: number) {
 function toSlug(s: string) { return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') }
 
 function getPortalUrl(key: string, job: Job, isIndia: boolean) {
-  const roleQ   = encodeURIComponent(job.role)
   const combined = encodeURIComponent(`${job.role} ${job.company}`)
   const citySlug = toSlug(job.loc.split(',')[0].trim())
   const cityEnc  = encodeURIComponent(job.loc.split(',')[0].trim())
-  if (key === 'linkedin') return `https://www.linkedin.com/company/${job.linkedinSlug}/jobs/?keywords=${roleQ}`
+  if (key === 'linkedin') return `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(`${job.role} ${job.company}`)}&location=${encodeURIComponent(job.loc)}&f_TPR=r2592000`
   if (key === 'indeed')   return isIndia ? `https://in.indeed.com/jobs?q=${combined}&l=${cityEnc}` : `https://www.indeed.com/jobs?q=${combined}&l=${encodeURIComponent(job.loc)}`
   if (key === 'naukri')   return `https://www.naukri.com/${toSlug(job.role)}-${toSlug(job.company)}-jobs-in-${citySlug}`
   return '#'
@@ -123,7 +139,7 @@ const PORTAL_META = {
 } as const
 
 const FILTERS = ['All Opportunities', 'Remote Only', 'Best Match', 'Latest']
-const INDIA_CITIES = ['All Locations', 'Bangalore', 'Mumbai', 'Gurugram', 'Pune', 'Hyderabad', 'Noida', 'Chennai']
+const INDIA_CITIES = ['All Locations', 'Remote', 'Bangalore', 'Mumbai', 'Gurugram', 'Pune', 'Hyderabad', 'Noida', 'Chennai']
 
 export default function JobMatch() {
   const { user } = useAuth()
@@ -156,8 +172,9 @@ export default function JobMatch() {
     return true
   })
 
-  const highMatches = allJobs.filter(j => j.match >= 85).length
-  const avgMatch    = Math.round(allJobs.reduce((s, j) => s + j.match, 0) / allJobs.length)
+  const highMatches  = allJobs.filter(j => j.match >= 85).length
+  const remoteCount  = allJobs.filter(j => j.loc.toLowerCase().includes('remote')).length
+  const avgMatch     = Math.round(allJobs.reduce((s, j) => s + j.match, 0) / allJobs.length)
 
   const openPortal = (key: string, job: Job) => {
     window.open(getPortalUrl(key, job, isIndia), '_blank')
@@ -173,7 +190,7 @@ export default function JobMatch() {
           <div className="jm-stat-pill"><div className="jm-num">{highMatches}</div><div className="jm-lbl">HIGH MATCHES</div></div>
           <div className="jm-stat-pill"><div className="jm-num">{avgMatch}%</div><div className="jm-lbl">PROFILE FIT</div></div>
           <div className="jm-stat-pill"><div className="jm-num">{allJobs.length}</div><div className="jm-lbl">TOTAL ROLES</div></div>
-          {isIndia && <div className="jm-stat-pill"><div className="jm-num">🇮🇳</div><div className="jm-lbl">INDIA JOBS</div></div>}
+          <div className="jm-stat-pill" style={{ cursor: 'pointer' }} onClick={() => setActiveFilter('Remote Only')}><div className="jm-num" style={{ color: '#10B981' }}>{remoteCount}</div><div className="jm-lbl">REMOTE JOBS</div></div>
         </div>
       </div>
 
