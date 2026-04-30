@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { addResume } from '../../lib/userStore'
 import {
@@ -47,6 +47,45 @@ const IcoEditPen = ({ size = 13 }: { size?: number }) => (
     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
   </svg>
 )
+const IcoPrint = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+    <path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/>
+    <rect x="6" y="14" width="12" height="8" rx="1"/>
+  </svg>
+)
+const IcoMail = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <rect width="20" height="16" x="2" y="4" rx="2"/>
+    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+  </svg>
+)
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const TEMPLATES = [
+  { id: 'editorial', name: 'Editorial Pro',    headerBg: '#0f172a' },
+  { id: 'navy',      name: 'Navy Executive',   headerBg: '#1e3a8a' },
+  { id: 'charcoal',  name: 'Charcoal Modern',  headerBg: '#374151' },
+  { id: 'forest',    name: 'Forest',           headerBg: '#064e3b' },
+  { id: 'burgundy',  name: 'Burgundy',         headerBg: '#7f1d1d' },
+  { id: 'slate',     name: 'Slate',            headerBg: '#334155' },
+]
+
+const ACCENT_COLORS = [
+  { label: 'Blue',   value: '#2563EB' },
+  { label: 'Indigo', value: '#4F46E5' },
+  { label: 'Violet', value: '#7C3AED' },
+  { label: 'Teal',   value: '#0D9488' },
+  { label: 'Green',  value: '#16A34A' },
+  { label: 'Rose',   value: '#E11D48' },
+]
+
+const FONT_OPTIONS = [
+  { id: 'georgia',   name: 'Georgia',    family: 'Georgia, serif' },
+  { id: 'helvetica', name: 'Helvetica',  family: "'Helvetica Neue', Arial, sans-serif" },
+  { id: 'times',     name: 'Times New Roman', family: "'Times New Roman', serif" },
+]
 
 // ── ATS logic ─────────────────────────────────────────────────────────────────
 
@@ -80,25 +119,20 @@ function extractJDKeywords(jd: string): string[] {
   const freq: Record<string, number> = {}
   for (const w of words) freq[w] = (freq[w] || 0) + 1
   const raw = Object.entries(freq)
-    .filter(([, c]) => c >= 2)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 8)
-    .map(([w]) => w)
+    .filter(([, c]) => c >= 2).sort(([, a], [, b]) => b - a).slice(0, 8).map(([w]) => w)
   return [...new Set([...multi, ...raw])].slice(0, 16)
 }
 
 function splitKeywords(kws: string[], resumeText: string) {
   const rt = resumeText.toLowerCase()
-  const found: string[] = []
-  const missing: string[] = []
+  const found: string[] = [], missing: string[] = []
   for (const kw of kws) (rt.includes(kw.toLowerCase()) ? found : missing).push(kw)
   return { found, missing }
 }
 
 function computeScore(found: number, total: number, hasJD: boolean) {
   if (!hasJD || total === 0) return 72
-  const ratio = found / total
-  return Math.min(98, Math.round(52 + ratio * 40 + (found >= 6 ? 6 : 0)))
+  return Math.min(98, Math.round(52 + (found / total) * 40 + (found >= 6 ? 6 : 0)))
 }
 
 const FORMAT_CHECKS = [
@@ -119,77 +153,90 @@ interface EduEntry { id: number; degree: string; school: string; period: string 
 
 export default function ResumeBuilder() {
   const { user } = useAuth()
-  const [saved, setSaved] = useState(false)
-  const [activeTab, setActiveTab] = useState<'jd' | 'editor'>('jd')
+
+  // UI state
+  const [saved, setSaved]               = useState(false)
+  const [activeTab, setActiveTab]       = useState<'jd' | 'editor'>('jd')
+  const [showCustomize, setShowCustomize] = useState(false)
+  const [showShare, setShowShare]       = useState(false)
+  const [copied, setCopied]             = useState(false)
+  const shareRef                        = useRef<HTMLDivElement>(null)
+
+  // Customization state
+  const [selectedTemplate, setSelectedTemplate] = useState('editorial')
+  const [headerColor, setHeaderColor]   = useState('#0f172a')
+  const [resumeAccent, setResumeAccent] = useState('#2563EB')
+  const [selectedFont, setSelectedFont] = useState('georgia')
+
+  const resumeFont = FONT_OPTIONS.find(f => f.id === selectedFont)?.family ?? 'Georgia, serif'
+  const templateName = TEMPLATES.find(t => t.id === selectedTemplate)?.name ?? 'Editorial Pro'
 
   // Job target state
-  const [jobUrl, setJobUrl] = useState('')
-  const [jobDesc, setJobDesc] = useState('')
+  const [jobUrl, setJobUrl]     = useState('')
+  const [jobDesc, setJobDesc]   = useState('')
   const [analysed, setAnalysed] = useState(false)
   const [analysing, setAnalysing] = useState(false)
   const [tailored, setTailored] = useState(false)
   const [keywords, setKeywords] = useState<{ found: string[]; missing: string[] }>({ found: [], missing: [] })
 
   // Resume fields
-  const [name, setName] = useState(user?.name ?? 'Akash Lamba')
+  const [name,     setName]     = useState(user?.name ?? 'Akash Lamba')
   const [jobTitle, setJobTitle] = useState(user?.jobTitle ?? 'Product Designer')
-  const [email, setEmail] = useState(user?.email ?? 'lamba.akash1994@gmail.com')
+  const [email,    setEmail]    = useState(user?.email ?? 'lamba.akash1994@gmail.com')
   const [location, setLocation] = useState('Bangalore, India')
   const [linkedin, setLinkedin] = useState('linkedin.com/in/akshlamba')
-  const [summary, setSummary] = useState(
+  const [summary,  setSummary]  = useState(
     `${user?.jobTitle ?? 'Product Designer'} with 6+ years of experience building user-centric digital products. Led end-to-end design for consumer apps reaching 2M+ users. Proven track record of cross-functional collaboration with engineering and product stakeholders to ship high-impact features on time.`
   )
-  const [skills, setSkills] = useState([
+  const [skills,   setSkills]   = useState([
     'Product Strategy', 'UX Research', 'Figma', 'Design Systems',
     'Prototyping', 'A/B Testing', 'User Interviews', 'Data Analysis',
   ])
   const [newSkill, setNewSkill] = useState('')
-
-  const [workExp, setWorkExp] = useState<WorkExp[]>([
-    {
-      id: 1, title: 'Senior Product Designer', company: 'Razorpay', period: '2021 — PRESENT',
-      bullets: [
-        'Led redesign of the merchant onboarding flow, reducing drop-off by 34% and increasing activation by 28%.',
-        'Built and maintained a cross-platform design system used by 20+ engineers across 3 products.',
-      ],
-    },
-    {
-      id: 2, title: 'Product Designer', company: 'Swiggy', period: '2018 — 2021',
-      bullets: [
-        'Designed the restaurant discovery experience used by 8M+ daily active users across India.',
-        'Ran 12 A/B tests per quarter; shipped variants that increased order conversion by 18%.',
-      ],
-    },
+  const [workExp, setWorkExp]   = useState<WorkExp[]>([
+    { id: 1, title: 'Senior Product Designer', company: 'Razorpay', period: '2021 — PRESENT', bullets: [
+      'Led redesign of the merchant onboarding flow, reducing drop-off by 34% and increasing activation by 28%.',
+      'Built and maintained a cross-platform design system used by 20+ engineers across 3 products.',
+    ]},
+    { id: 2, title: 'Product Designer', company: 'Swiggy', period: '2018 — 2021', bullets: [
+      'Designed the restaurant discovery experience used by 8M+ daily active users across India.',
+      'Ran 12 A/B tests per quarter; shipped variants that increased order conversion by 18%.',
+    ]},
   ])
   const [openExp, setOpenExp] = useState<number | null>(1)
-
   const [education] = useState<EduEntry[]>([
     { id: 1, degree: 'B.Des — Interaction Design', school: 'National Institute of Design', period: '2014 — 2018' },
   ])
 
-  // Derived values
+  // Derived
   const resumeText = useMemo(() => [
     name, jobTitle, summary, skills.join(' '),
     ...workExp.flatMap(e => [e.title, e.company, ...e.bullets]),
     ...education.flatMap(e => [e.degree, e.school]),
   ].join(' '), [name, jobTitle, summary, skills, workExp, education])
 
-  const atsScore = useMemo(
-    () => computeScore(keywords.found.length, keywords.found.length + keywords.missing.length, analysed),
-    [keywords, analysed]
-  )
-
+  const atsScore   = useMemo(() => computeScore(keywords.found.length, keywords.found.length + keywords.missing.length, analysed), [keywords, analysed])
   const scoreColor = atsScore >= 85 ? '#10B981' : atsScore >= 65 ? '#F59E0B' : '#EF4444'
-  const scorePct = `${atsScore}%`
+  const scorePct   = `${atsScore}%`
   const matchedKwSet = useMemo(() => new Set(keywords.found.map(k => k.toLowerCase())), [keywords.found])
+
+  // Close share popover on outside click
+  useEffect(() => {
+    if (!showShare) return
+    const handler = (e: MouseEvent) => {
+      if (shareRef.current && !shareRef.current.contains(e.target as Node)) setShowShare(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showShare])
 
   // Handlers
   const handleAnalyse = () => {
     if (!jobDesc.trim() && !jobUrl.trim()) return
     setAnalysing(true)
     setTimeout(() => {
-      const fallbackJD = `${jobTitle} role. Requirements: UX Research, Figma, Design Systems, Prototyping, Stakeholder Management, Data Analysis, A/B Testing, Cross-functional, Roadmap, User Research, Product Strategy, Agile, Metrics.`
-      const kws = extractJDKeywords(jobDesc.trim() || fallbackJD)
+      const fallback = `${jobTitle} role. Requirements: UX Research, Figma, Design Systems, Prototyping, Stakeholder Management, Data Analysis, A/B Testing, Cross-functional, Roadmap, User Research, Product Strategy, Agile, Metrics.`
+      const kws = extractJDKeywords(jobDesc.trim() || fallback)
       setKeywords(splitKeywords(kws, resumeText))
       setAnalysed(true)
       setAnalysing(false)
@@ -201,10 +248,7 @@ export default function ResumeBuilder() {
     if (topMissing.length > 0) {
       const additions = topMissing.map(k => k.charAt(0).toUpperCase() + k.slice(1)).join(', ')
       setSummary(prev => prev.replace(/\.$/, '') + `. Skilled in ${additions}.`)
-      setKeywords(prev => ({
-        found: [...prev.found, ...prev.missing.slice(0, 3)],
-        missing: prev.missing.slice(3),
-      }))
+      setKeywords(prev => ({ found: [...prev.found, ...prev.missing.slice(0, 3)], missing: prev.missing.slice(3) }))
     }
     setTailored(true)
     setActiveTab('editor')
@@ -235,7 +279,35 @@ export default function ResumeBuilder() {
     setTimeout(() => setSaved(false), 2500)
   }
 
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  const handlePrint = () => {
+    setShowShare(false)
+    setTimeout(() => window.print(), 200)
+  }
+
+  const handleEmail = () => {
+    setShowShare(false)
+    const subject = encodeURIComponent(`${name} — Resume`)
+    const body = encodeURIComponent(`Hi,\n\nPlease find my resume attached.\n\nBest regards,\n${name}`)
+    window.open(`mailto:?subject=${subject}&body=${body}`)
+  }
+
   const resetAnalysis = () => { setAnalysed(false); setTailored(false); setKeywords({ found: [], missing: [] }) }
+
+  const selectTemplate = (t: typeof TEMPLATES[0]) => {
+    setSelectedTemplate(t.id)
+    setHeaderColor(t.headerBg)
+  }
 
   return (
     <div className="builder-layout">
@@ -257,7 +329,6 @@ export default function ResumeBuilder() {
         {/* ─── JOB TARGET TAB ─── */}
         {activeTab === 'jd' && (
           <div className="rb-tab-content">
-
             {!analysed ? (
               <>
                 <div>
@@ -265,17 +336,12 @@ export default function ResumeBuilder() {
                   <p className="builder-sub">Paste the job description to get a live ATS score and tailor your resume to the role.</p>
                 </div>
 
-                {/* LinkedIn URL */}
                 <div>
                   <div className="f-label" style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 5 }}>
                     <IcoLink2 size={12} /> LinkedIn Job URL or ID
                   </div>
-                  <input
-                    className="f-input"
-                    placeholder="https://linkedin.com/jobs/view/1234567890"
-                    value={jobUrl}
-                    onChange={e => setJobUrl(e.target.value)}
-                  />
+                  <input className="f-input" placeholder="https://linkedin.com/jobs/view/1234567890"
+                    value={jobUrl} onChange={e => setJobUrl(e.target.value)} />
                   <div style={{ fontSize: 11, color: 'var(--text-mute)', marginTop: 4 }}>
                     We'll auto-fetch the JD — or paste below
                   </div>
@@ -285,35 +351,22 @@ export default function ResumeBuilder() {
 
                 <div>
                   <div className="f-label" style={{ marginBottom: 5 }}>Paste Job Description</div>
-                  <textarea
-                    className="f-textarea"
+                  <textarea className="f-textarea"
                     placeholder="Paste the full job description here — include requirements, responsibilities, and qualifications for the best tailoring results…"
-                    value={jobDesc}
-                    onChange={e => setJobDesc(e.target.value)}
-                    rows={10}
-                    style={{ minHeight: 200, resize: 'vertical' }}
-                  />
+                    value={jobDesc} onChange={e => setJobDesc(e.target.value)}
+                    rows={10} style={{ minHeight: 200, resize: 'vertical' }} />
                 </div>
 
-                <button
-                  className="rb-analyse-btn"
-                  onClick={handleAnalyse}
-                  disabled={analysing}
-                >
-                  {analysing
-                    ? <><span className="rb-spinner" /> Analysing JD…</>
-                    : <><IcoLightning size={14} /> Analyse &amp; Score Resume</>}
+                <button className="rb-analyse-btn" onClick={handleAnalyse} disabled={analysing}>
+                  {analysing ? <><span className="rb-spinner" /> Analysing JD…</> : <><IcoLightning size={14} /> Analyse &amp; Score Resume</>}
                 </button>
               </>
             ) : (
               <>
-                {/* ATS Score Ring */}
                 <div className="ats-score-card">
                   <div className="ats-ring-wrap">
-                    <div
-                      className="ats-ring-lg"
-                      style={{ background: `conic-gradient(${scoreColor} 0% ${scorePct}, var(--border) ${scorePct} 100%)` }}
-                    >
+                    <div className="ats-ring-lg"
+                      style={{ background: `conic-gradient(${scoreColor} 0% ${scorePct}, var(--border) ${scorePct} 100%)` }}>
                       <div className="ats-ring-inner">
                         <div className="ats-num" style={{ color: scoreColor }}>{atsScore}</div>
                         <div className="ats-denom">/ 100</div>
@@ -332,39 +385,26 @@ export default function ResumeBuilder() {
                   <button className="rb-change-jd" onClick={resetAnalysis}>Change JD</button>
                 </div>
 
-                {/* Matched Keywords */}
                 {keywords.found.length > 0 && (
                   <div className="ats-kw-section">
-                    <div className="ats-kw-head">
-                      KEYWORDS MATCHED
-                      <span className="ats-kw-count good">{keywords.found.length}</span>
-                    </div>
+                    <div className="ats-kw-head">KEYWORDS MATCHED <span className="ats-kw-count good">{keywords.found.length}</span></div>
                     <div className="ats-kw-grid">
-                      {keywords.found.map(kw => (
-                        <span key={kw} className="ats-kw-chip found"><IconCheck size={9} /> {kw}</span>
-                      ))}
+                      {keywords.found.map(kw => <span key={kw} className="ats-kw-chip found"><IconCheck size={9} /> {kw}</span>)}
                     </div>
                   </div>
                 )}
 
-                {/* Missing Keywords */}
                 {keywords.missing.length > 0 && (
                   <div className="ats-kw-section">
-                    <div className="ats-kw-head">
-                      MISSING — CLICK TO ADD TO SKILLS
-                      <span className="ats-kw-count bad">{keywords.missing.length}</span>
-                    </div>
+                    <div className="ats-kw-head">MISSING — CLICK TO ADD <span className="ats-kw-count bad">{keywords.missing.length}</span></div>
                     <div className="ats-kw-grid">
                       {keywords.missing.map(kw => (
-                        <button key={kw} className="ats-kw-chip missing" onClick={() => addMissingKw(kw)}>
-                          + {kw}
-                        </button>
+                        <button key={kw} className="ats-kw-chip missing" onClick={() => addMissingKw(kw)}>+ {kw}</button>
                       ))}
                     </div>
                   </div>
                 )}
 
-                {/* Format Checks */}
                 <div className="ats-kw-section">
                   <div className="ats-kw-head">FORMAT CHECKS</div>
                   <div className="ats-format-list">
@@ -379,7 +419,6 @@ export default function ResumeBuilder() {
                   </div>
                 </div>
 
-                {/* Action buttons */}
                 {!tailored && keywords.missing.length > 0 && (
                   <button className="rb-tailor-btn" onClick={handleTailor}>
                     <IconSparkle size={13} /> Auto-Tailor with AI
@@ -395,10 +434,7 @@ export default function ResumeBuilder() {
                   </div>
                 )}
 
-                <button
-                  className="rb-edit-resume-btn"
-                  onClick={() => setActiveTab('editor')}
-                >
+                <button className="rb-edit-resume-btn" onClick={() => setActiveTab('editor')}>
                   <IcoEditPen size={13} /> Edit Resume Manually →
                 </button>
               </>
@@ -410,70 +446,40 @@ export default function ResumeBuilder() {
         {activeTab === 'editor' && (
           <div className="rb-tab-content">
 
-            {/* AI Insight */}
             <div className="ai-insight">
               <div className="ai-label"><IconSparkle size={12} /> AI INSIGHT</div>
               <p>
                 {analysed
-                  ? `Score: ${atsScore}/100 for this role. ${keywords.missing.length > 0 ? `Adding "${keywords.missing[0]}" and "${keywords.missing[1] ?? keywords.missing[0]}" could boost your score by ~8 points.` : 'Great keyword coverage — your resume is well-optimised.'}`
-                  : 'Add a job target first to get personalised suggestions and a live ATS score.'}
+                  ? `Score: ${atsScore}/100 for this role. ${keywords.missing.length > 0 ? `Adding "${keywords.missing[0]}" could boost your score by ~8 points.` : 'Great keyword coverage!'}`
+                  : 'Add a job target first to get personalised ATS suggestions.'}
               </p>
               <div className="ai-insight-btns">
-                <button onClick={() => setActiveTab('jd')}>
-                  {analysed ? '↺ Change Job' : '🎯 Add Job Target'}
-                </button>
-                {analysed && (
-                  <button onClick={() => setSummary(`Experienced ${jobTitle} with a strong track record of delivering scalable, user-centred products. Expert in cross-functional collaboration with engineering, product, and business stakeholders.`)}>
-                    Optimise Tone
-                  </button>
-                )}
+                <button onClick={() => setActiveTab('jd')}>{analysed ? '↺ Change Job' : '🎯 Add Job Target'}</button>
+                {analysed && <button onClick={() => setSummary(`Experienced ${jobTitle} with a strong track record of delivering scalable, user-centred products. Expert in cross-functional collaboration with engineering, product, and business stakeholders.`)}>Optimise Tone</button>}
               </div>
             </div>
 
-            {/* Personal Information */}
             <div>
               <div className="form-section-head"><IconUser size={14} /> Personal Information</div>
               <div className="form-grid">
-                <div>
-                  <div className="f-label">Full Name</div>
-                  <input className="f-input" value={name} onChange={e => setName(e.target.value)} />
-                </div>
-                <div>
-                  <div className="f-label">Job Title</div>
-                  <input className="f-input" value={jobTitle} onChange={e => setJobTitle(e.target.value)} />
-                </div>
-                <div>
-                  <div className="f-label">Email</div>
-                  <input className="f-input" value={email} onChange={e => setEmail(e.target.value)} />
-                </div>
-                <div>
-                  <div className="f-label">Location</div>
-                  <input className="f-input" value={location} onChange={e => setLocation(e.target.value)} />
-                </div>
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <div className="f-label">LinkedIn URL</div>
-                  <input className="f-input" value={linkedin} onChange={e => setLinkedin(e.target.value)} />
-                </div>
+                <div><div className="f-label">Full Name</div><input className="f-input" value={name} onChange={e => setName(e.target.value)} /></div>
+                <div><div className="f-label">Job Title</div><input className="f-input" value={jobTitle} onChange={e => setJobTitle(e.target.value)} /></div>
+                <div><div className="f-label">Email</div><input className="f-input" value={email} onChange={e => setEmail(e.target.value)} /></div>
+                <div><div className="f-label">Location</div><input className="f-input" value={location} onChange={e => setLocation(e.target.value)} /></div>
+                <div style={{ gridColumn: '1 / -1' }}><div className="f-label">LinkedIn URL</div><input className="f-input" value={linkedin} onChange={e => setLinkedin(e.target.value)} /></div>
               </div>
             </div>
 
-            {/* Professional Summary */}
             <div>
               <div className="form-section-head" style={{ justifyContent: 'space-between' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <IconDoc size={14} /> Professional Summary
-                </span>
-                <span
-                  className="regen-link"
-                  onClick={() => setSummary(`Experienced ${jobTitle} with a proven track record of building impactful, user-centred products at scale. Skilled in cross-functional collaboration, data-driven decision making, and delivering features that move key business metrics.`)}
-                >
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><IconDoc size={14} /> Professional Summary</span>
+                <span className="regen-link" onClick={() => setSummary(`Experienced ${jobTitle} with a proven track record of building impactful, user-centred products at scale. Skilled in cross-functional collaboration, data-driven decision making, and delivering features that move key business metrics.`)}>
                   Regenerate with AI
                 </span>
               </div>
               <textarea className="f-textarea" value={summary} onChange={e => setSummary(e.target.value)} rows={5} />
             </div>
 
-            {/* Core Skills */}
             <div>
               <div className="form-section-head"><IconBriefcase size={14} /> Core Skills</div>
               <div className="rb-skill-chips">
@@ -484,18 +490,13 @@ export default function ResumeBuilder() {
                   </div>
                 ))}
                 <div className="rb-skill-add">
-                  <input
-                    className="rb-skill-input"
-                    placeholder="Add skill…"
-                    value={newSkill}
+                  <input className="rb-skill-input" placeholder="Add skill…" value={newSkill}
                     onChange={e => setNewSkill(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') { addSkill(newSkill); e.preventDefault() } }}
-                  />
+                    onKeyDown={e => { if (e.key === 'Enter') { addSkill(newSkill); e.preventDefault() } }} />
                 </div>
               </div>
             </div>
 
-            {/* Work Experience */}
             <div>
               <div className="form-section-head"><IconBriefcase size={14} /> Work Experience</div>
               {workExp.map(exp => (
@@ -507,22 +508,18 @@ export default function ResumeBuilder() {
                     </div>
                     <span className={`rb-exp-chev${openExp === exp.id ? ' open' : ''}`}><IcoChevDown /></span>
                   </button>
-
                   {openExp === exp.id && (
                     <div className="rb-exp-body">
-                      <div>
-                        <div className="f-label">Job Title</div>
+                      <div><div className="f-label">Job Title</div>
                         <input className="f-input" value={exp.title}
                           onChange={e => setWorkExp(prev => prev.map(x => x.id === exp.id ? { ...x, title: e.target.value } : x))} />
                       </div>
                       <div className="form-grid" style={{ marginTop: 8 }}>
-                        <div>
-                          <div className="f-label">Company</div>
+                        <div><div className="f-label">Company</div>
                           <input className="f-input" value={exp.company}
                             onChange={e => setWorkExp(prev => prev.map(x => x.id === exp.id ? { ...x, company: e.target.value } : x))} />
                         </div>
-                        <div>
-                          <div className="f-label">Period</div>
+                        <div><div className="f-label">Period</div>
                           <input className="f-input" value={exp.period}
                             onChange={e => setWorkExp(prev => prev.map(x => x.id === exp.id ? { ...x, period: e.target.value } : x))} />
                         </div>
@@ -530,14 +527,9 @@ export default function ResumeBuilder() {
                       <div style={{ marginTop: 10 }}>
                         <div className="f-label" style={{ marginBottom: 6 }}>Bullet Points</div>
                         {exp.bullets.map((b, i) => (
-                          <textarea
-                            key={i}
-                            className="f-textarea"
-                            value={b}
+                          <textarea key={i} className="f-textarea" value={b}
                             onChange={e => updateBullet(exp.id, i, e.target.value)}
-                            rows={2}
-                            style={{ minHeight: 'unset', marginBottom: 6 }}
-                          />
+                            rows={2} style={{ minHeight: 'unset', marginBottom: 6 }} />
                         ))}
                         <button className="rb-add-bullet" onClick={() => addBullet(exp.id)}>
                           <IconPlus size={10} /> Add bullet point
@@ -547,39 +539,26 @@ export default function ResumeBuilder() {
                   )}
                 </div>
               ))}
-
               <button className="rb-add-exp" onClick={() => {
                 const n = { id: Date.now(), title: 'New Role', company: 'Company', period: '20XX — 20XX', bullets: [''] }
-                setWorkExp(prev => [...prev, n])
-                setOpenExp(n.id)
+                setWorkExp(prev => [...prev, n]); setOpenExp(n.id)
               }}>
                 <IconPlus size={12} /> Add Experience
               </button>
             </div>
 
-            {/* Education */}
             <div>
               <div className="form-section-head"><IconDoc size={14} /> Education</div>
               {education.map(edu => (
                 <div key={edu.id}>
-                  <div style={{ gridColumn: '1 / -1', marginBottom: 8 }}>
-                    <div className="f-label">Degree</div>
-                    <input className="f-input" defaultValue={edu.degree} />
-                  </div>
+                  <div style={{ marginBottom: 8 }}><div className="f-label">Degree</div><input className="f-input" defaultValue={edu.degree} /></div>
                   <div className="form-grid">
-                    <div>
-                      <div className="f-label">School</div>
-                      <input className="f-input" defaultValue={edu.school} />
-                    </div>
-                    <div>
-                      <div className="f-label">Period</div>
-                      <input className="f-input" defaultValue={edu.period} />
-                    </div>
+                    <div><div className="f-label">School</div><input className="f-input" defaultValue={edu.school} /></div>
+                    <div><div className="f-label">Period</div><input className="f-input" defaultValue={edu.period} /></div>
                   </div>
                 </div>
               ))}
             </div>
-
           </div>
         )}
 
@@ -590,29 +569,25 @@ export default function ResumeBuilder() {
             <button title="Redo"><IconRedo size={13} /></button>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              onClick={handleSave}
-              style={{
-                height: 36, padding: '0 13px', borderRadius: 8, border: '1px solid var(--border)',
-                background: saved ? 'var(--blue-50)' : 'var(--card)',
-                color: saved ? 'var(--accent)' : 'var(--text-soft)',
-                fontSize: 13, cursor: 'pointer', transition: 'all .2s', fontFamily: 'inherit',
-              }}
-            >
-              {saved ? '✓ Saved!' : 'Save Draft'}
-            </button>
+            <button onClick={handleSave} style={{
+              height: 36, padding: '0 13px', borderRadius: 8, border: '1px solid var(--border)',
+              background: saved ? 'var(--blue-50)' : 'var(--card)',
+              color: saved ? 'var(--accent)' : 'var(--text-soft)',
+              fontSize: 13, cursor: 'pointer', transition: 'all .2s', fontFamily: 'inherit',
+            }}>{saved ? '✓ Saved!' : 'Save Draft'}</button>
             <button className="btn-download"><IconDownload size={13} /> Download PDF</button>
           </div>
         </div>
       </div>
 
       {/* ── Right Panel — Live Resume Preview ──────────────── */}
-      <div className="builder-right">
+      <div className="builder-right" style={{ position: 'relative' }}>
+
+        {/* Toolbar */}
         <div className="builder-right-head">
-          <div className="template-tag">TEMPLATE: <strong>EDITORIAL PRO</strong></div>
+          <div className="template-tag">TEMPLATE: <strong>{templateName.toUpperCase()}</strong></div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {/* Mini ATS indicator */}
             {analysed && (
               <div className="rb-ats-mini" style={{ borderColor: scoreColor }}>
                 <div className="rb-ats-mini-ring"
@@ -625,7 +600,6 @@ export default function ResumeBuilder() {
                 </div>
               </div>
             )}
-
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-mute)', fontSize: 13 }}>
               <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-mute)', display: 'flex' }}><IconZoomOut size={15} /></button>
               <span>85%</span>
@@ -634,36 +608,78 @@ export default function ResumeBuilder() {
           </div>
 
           <div className="builder-actions">
-            <button><IconCustomize size={13} /> Customize</button>
-            <button><IconShare size={13} /> Share</button>
+            {/* Customize button */}
+            <button
+              onClick={() => { setShowCustomize(v => !v); setShowShare(false) }}
+              style={showCustomize ? { background: 'var(--blue-50)', color: 'var(--accent)', borderColor: 'var(--blue-200)' } : {}}
+            >
+              <IconCustomize size={13} /> Customize
+            </button>
+
+            {/* Share button with popover */}
+            <div ref={shareRef} style={{ position: 'relative' }}>
+              <button
+                onClick={() => { setShowShare(v => !v); setShowCustomize(false) }}
+                style={showShare ? { background: 'var(--blue-50)', color: 'var(--accent)', borderColor: 'var(--blue-200)' } : {}}
+              >
+                <IconShare size={13} /> Share
+              </button>
+
+              {showShare && (
+                <div className="rb-share-pop">
+                  <button className="rb-share-item" onClick={handleCopyLink}>
+                    <IcoLink2 size={14} />
+                    <div>
+                      <div className="rb-share-item-title">{copied ? '✓ Link copied!' : 'Copy shareable link'}</div>
+                      <div className="rb-share-item-sub">Share your resume page</div>
+                    </div>
+                  </button>
+                  <button className="rb-share-item" onClick={handlePrint}>
+                    <IcoPrint size={14} />
+                    <div>
+                      <div className="rb-share-item-title">Print / Save as PDF</div>
+                      <div className="rb-share-item-sub">Use browser print dialog</div>
+                    </div>
+                  </button>
+                  <button className="rb-share-item" onClick={handleEmail}>
+                    <IcoMail size={14} />
+                    <div>
+                      <div className="rb-share-item-title">Email resume</div>
+                      <div className="rb-share-item-sub">Opens your email client</div>
+                    </div>
+                  </button>
+                  <div className="rb-share-divider" />
+                  <button className="rb-share-item" onClick={() => { handleSave(); setShowShare(false) }}>
+                    <IconDownload size={14} />
+                    <div>
+                      <div className="rb-share-item-title">Save draft</div>
+                      <div className="rb-share-item-sub">Save to your dashboard</div>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Resume Document */}
         <div className="resume-preview">
-          <div className="resume-doc">
-            <div className="resume-doc-head">
+          <div className="resume-doc" style={{ fontFamily: resumeFont }}>
+            <div className="resume-doc-head" style={{ background: headerColor }}>
               <div className="rname">{name}</div>
               <div className="rtitle">{jobTitle}</div>
-              <div className="rcontact">
-                {email} · {location.toUpperCase()} · {linkedin.toUpperCase()}
-              </div>
+              <div className="rcontact">{email} · {location.toUpperCase()} · {linkedin.toUpperCase()}</div>
             </div>
-
             <div className="resume-doc-body">
-              {/* Left column */}
               <div className="resume-col">
-                <div className="resume-sec-title">Core Skills</div>
+                <div className="resume-sec-title" style={{ color: resumeAccent }}>Core Skills</div>
                 {skills.map(sk => (
-                  <span
-                    key={sk}
-                    className={`resume-skill${matchedKwSet.has(sk.toLowerCase()) || [...matchedKwSet].some(k => sk.toLowerCase().includes(k)) ? ' matched' : ''}`}
-                  >
-                    {sk}
-                  </span>
+                  <span key={sk}
+                    className={`resume-skill${[...matchedKwSet].some(k => sk.toLowerCase().includes(k)) ? ' matched' : ''}`}
+                    style={[...matchedKwSet].some(k => sk.toLowerCase().includes(k)) ? { background: `${resumeAccent}18`, color: resumeAccent, border: `1px solid ${resumeAccent}40` } : {}}
+                  >{sk}</span>
                 ))}
-
-                <div className="resume-sec-title" style={{ marginTop: 18 }}>Education</div>
+                <div className="resume-sec-title" style={{ marginTop: 18, color: resumeAccent }}>Education</div>
                 {education.map(edu => (
                   <div key={edu.id} className="resume-entry">
                     <div className="title">{edu.degree}</div>
@@ -672,27 +688,98 @@ export default function ResumeBuilder() {
                   </div>
                 ))}
               </div>
-
-              {/* Right column */}
               <div className="resume-col">
-                <div className="resume-sec-title">Professional Summary</div>
+                <div className="resume-sec-title" style={{ color: resumeAccent }}>Professional Summary</div>
                 <p style={{ fontSize: 11.5, color: '#374151', lineHeight: 1.6, marginBottom: 14 }}>{summary}</p>
-
-                <div className="resume-sec-title">Work Experience</div>
+                <div className="resume-sec-title" style={{ color: resumeAccent }}>Work Experience</div>
                 {workExp.map(exp => (
                   <div key={exp.id} className="resume-entry">
                     <div className="title">{exp.title}</div>
-                    <div className="sub" style={{ color: '#2563eb', fontWeight: 600 }}>{exp.company}</div>
+                    <div className="sub" style={{ color: resumeAccent, fontWeight: 600 }}>{exp.company}</div>
                     <div className="sub">{exp.period}</div>
-                    <ul>
-                      {exp.bullets.filter(b => b.trim()).map((b, i) => <li key={i}>{b}</li>)}
-                    </ul>
+                    <ul>{exp.bullets.filter(b => b.trim()).map((b, i) => <li key={i}>{b}</li>)}</ul>
                   </div>
                 ))}
               </div>
             </div>
           </div>
         </div>
+
+        {/* ── Customize Panel (slide-over) ── */}
+        {showCustomize && (
+          <>
+            <div className="rb-cust-backdrop" onClick={() => setShowCustomize(false)} />
+            <div className="rb-cust-panel">
+              <div className="rb-cust-header">
+                <span>Customize Resume</span>
+                <button className="rb-cust-close" onClick={() => setShowCustomize(false)}><IcoX size={13} /></button>
+              </div>
+
+              <div className="rb-cust-body">
+                {/* Template */}
+                <div className="rb-cust-section">
+                  <div className="rb-cust-label">TEMPLATE</div>
+                  <div className="rb-template-grid">
+                    {TEMPLATES.map(t => (
+                      <button
+                        key={t.id}
+                        className={`rb-template-card${selectedTemplate === t.id ? ' active' : ''}`}
+                        onClick={() => selectTemplate(t)}
+                      >
+                        <div className="rb-tmpl-preview">
+                          <div className="rb-tmpl-head" style={{ background: t.headerBg }} />
+                          <div className="rb-tmpl-lines">
+                            <div /><div /><div style={{ width: '60%' }} />
+                          </div>
+                        </div>
+                        <div className="rb-tmpl-name">{t.name}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Accent color */}
+                <div className="rb-cust-section">
+                  <div className="rb-cust-label">ACCENT COLOR</div>
+                  <div className="rb-swatch-row">
+                    {ACCENT_COLORS.map(c => (
+                      <button
+                        key={c.value}
+                        className={`rb-swatch${resumeAccent === c.value ? ' active' : ''}`}
+                        style={{ background: c.value }}
+                        title={c.label}
+                        onClick={() => setResumeAccent(c.value)}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Font */}
+                <div className="rb-cust-section">
+                  <div className="rb-cust-label">RESUME FONT</div>
+                  <div className="rb-font-opts">
+                    {FONT_OPTIONS.map(f => (
+                      <button
+                        key={f.id}
+                        className={`rb-font-opt${selectedFont === f.id ? ' active' : ''}`}
+                        style={{ fontFamily: f.family }}
+                        onClick={() => setSelectedFont(f.id)}
+                      >
+                        <span className="rb-font-preview">Ag</span>
+                        <span className="rb-font-name">{f.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Preview tip */}
+                <div className="rb-cust-tip">
+                  Changes apply live to the preview on the left →
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
