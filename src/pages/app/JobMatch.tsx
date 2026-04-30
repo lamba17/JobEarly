@@ -12,7 +12,9 @@ interface Job {
   tags: string[]
   salary: string
   period: string
-  logo: string
+  color: string       // fallback bg colour
+  domain: string      // for Clearbit logo API
+  linkedinSlug: string // linkedin.com/company/[slug]/jobs/
   requirements: string[]
   type: string
 }
@@ -20,50 +22,58 @@ interface Job {
 const INDIA_JOBS: Job[] = [
   {
     id: 1, role: 'Senior Product Manager', company: 'Swiggy', loc: 'Bangalore, IN', match: 96, type: 'Full-time',
+    color: '#FC8019', domain: 'swiggy.com', linkedinSlug: 'swiggy',
     desc: 'Lead product strategy for Swiggy\'s core ordering experience. Drive 0-to-1 features serving 90M+ users across India.',
-    tags: ['Product Strategy', 'Growth', 'Data-Driven'], salary: '₹40 – ₹60 LPA', period: 'per year', logo: '#FC8019',
+    tags: ['Product Strategy', 'Growth', 'Data-Driven'], salary: '₹40 – ₹60 LPA', period: 'per year',
     requirements: ['5+ years of product management experience', 'Strong data analysis and SQL skills', 'Experience with growth metrics and A/B testing', 'Excellent stakeholder communication', 'Experience in consumer internet or e-commerce'],
   },
   {
     id: 2, role: 'UX Design Lead', company: 'Flipkart', loc: 'Bangalore, IN', match: 91, type: 'Full-time',
+    color: '#2874F0', domain: 'flipkart.com', linkedinSlug: 'flipkart',
     desc: 'Define the design language for Flipkart\'s next-gen mobile commerce. Lead a team of 8 designers and own the visual system.',
-    tags: ['Design Systems', 'Mobile', 'E-commerce'], salary: '₹35 – ₹55 LPA', period: 'per year', logo: '#2874F0',
+    tags: ['Design Systems', 'Mobile', 'E-commerce'], salary: '₹35 – ₹55 LPA', period: 'per year',
     requirements: ['7+ years of UX/product design experience', 'Portfolio showcasing end-to-end design work', 'Experience leading design teams', 'Proficiency in Figma and prototyping tools', 'Mobile-first design mindset'],
   },
   {
     id: 3, role: 'Product Designer', company: 'Zomato', loc: 'Gurugram, IN', match: 88, type: 'Full-time',
+    color: '#E23744', domain: 'zomato.com', linkedinSlug: 'zomato',
     desc: 'Shape the food discovery and ordering experience used by 20M+ daily active users across India and the Middle East.',
-    tags: ['User Research', 'Figma', 'A/B Testing'], salary: '₹25 – ₹40 LPA', period: 'per year', logo: '#E23744',
+    tags: ['User Research', 'Figma', 'A/B Testing'], salary: '₹25 – ₹40 LPA', period: 'per year',
     requirements: ['3+ years of product design experience', 'Strong portfolio with consumer app case studies', 'Experience with user research and usability testing', 'Proficiency in Figma', 'Data-informed design approach'],
   },
   {
     id: 4, role: 'Senior Consultant', company: 'Infosys', loc: 'Pune, IN', match: 85, type: 'Full-time',
+    color: '#007CC3', domain: 'infosys.com', linkedinSlug: 'infosys',
     desc: 'Drive digital transformation engagements for Fortune 500 clients. Lead cross-functional teams and manage client stakeholders.',
-    tags: ['Consulting', 'Digital Transformation', 'Agile'], salary: '₹20 – ₹35 LPA', period: 'per year', logo: '#007CC3',
+    tags: ['Consulting', 'Digital Transformation', 'Agile'], salary: '₹20 – ₹35 LPA', period: 'per year',
     requirements: ['4+ years of management consulting experience', 'Track record of delivering digital transformation projects', 'Strong client-facing communication skills', 'Agile/Scrum certification preferred', 'MBA from a reputed institution preferred'],
   },
   {
     id: 5, role: 'Data Scientist', company: 'Meesho', loc: 'Bangalore, IN', match: 82, type: 'Full-time',
+    color: '#570DF8', domain: 'meesho.com', linkedinSlug: 'meesho',
     desc: 'Build ML models to power personalised recommendations and demand forecasting for India\'s fastest-growing social commerce platform.',
-    tags: ['Python', 'ML', 'Recommendation Systems'], salary: '₹30 – ₹50 LPA', period: 'per year', logo: '#570DF8',
+    tags: ['Python', 'ML', 'Recommendation Systems'], salary: '₹30 – ₹50 LPA', period: 'per year',
     requirements: ['3+ years in data science or ML engineering', 'Strong Python, SQL, and statistics skills', 'Experience with recommendation systems or forecasting models', 'Familiarity with PyTorch or TensorFlow', 'Experience with large-scale data pipelines'],
   },
   {
     id: 6, role: 'Engineering Manager', company: 'CRED', loc: 'Bangalore, IN', match: 79, type: 'Full-time',
+    color: '#1C1C1C', domain: 'cred.club', linkedinSlug: 'cred-club',
     desc: 'Lead a team of 10 engineers building CRED\'s credit management and rewards platform serving India\'s premium credit card users.',
-    tags: ['Leadership', 'Backend', 'FinTech'], salary: '₹50 – ₹80 LPA', period: 'per year', logo: '#1C1C1C',
+    tags: ['Leadership', 'Backend', 'FinTech'], salary: '₹50 – ₹80 LPA', period: 'per year',
     requirements: ['5+ years of software engineering experience', '2+ years in an engineering leadership role', 'Experience with high-scale backend systems', 'Strong hiring and mentoring track record', 'Fintech or payments domain experience is a plus'],
   },
   {
     id: 7, role: 'Business Analyst', company: 'TCS', loc: 'Mumbai, IN', match: 77, type: 'Full-time',
+    color: '#00A0D2', domain: 'tcs.com', linkedinSlug: 'tata-consultancy-services',
     desc: 'Translate business requirements into technical specifications for large-scale enterprise transformation projects across banking and insurance.',
-    tags: ['SQL', 'JIRA', 'Stakeholder Management'], salary: '₹12 – ₹22 LPA', period: 'per year', logo: '#00A0D2',
+    tags: ['SQL', 'JIRA', 'Stakeholder Management'], salary: '₹12 – ₹22 LPA', period: 'per year',
     requirements: ['2+ years as a Business Analyst', 'Experience with BFSI domain projects', 'Proficiency in SQL and data analysis', 'Strong requirements gathering and documentation skills', 'Familiarity with JIRA and Confluence'],
   },
   {
     id: 8, role: 'Growth Product Manager', company: 'PhonePe', loc: 'Bangalore, IN', match: 84, type: 'Full-time',
+    color: '#5F259F', domain: 'phonepe.com', linkedinSlug: 'phonepe',
     desc: 'Own the growth funnel for PhonePe\'s insurance and mutual funds vertical. Drive user acquisition, activation, and retention at scale.',
-    tags: ['Growth', 'Analytics', 'FinTech'], salary: '₹35 – ₹55 LPA', period: 'per year', logo: '#5F259F',
+    tags: ['Growth', 'Analytics', 'FinTech'], salary: '₹35 – ₹55 LPA', period: 'per year',
     requirements: ['4+ years of product management experience', 'Proven track record in growth or PLG roles', 'Strong analytical skills with SQL/Python', 'Experience in fintech or financial products', 'Data-driven approach to product decisions'],
   },
 ]
@@ -71,26 +81,30 @@ const INDIA_JOBS: Job[] = [
 const GLOBAL_JOBS: Job[] = [
   {
     id: 1, role: 'Senior Product Architect', company: 'Stellar Systems', loc: 'Remote', match: 98, type: 'Full-time · Remote',
+    color: '#1e293b', domain: 'stellar.io', linkedinSlug: 'stellar-development-foundation',
     desc: 'Looking for a visionary leader to drive core architecture of our next-gen cloud infrastructure.',
-    tags: ['Distributed Systems', 'Kubernetes', 'Leadership'], salary: '$180k – $220k', period: 'USD / Year', logo: '#1e293b',
+    tags: ['Distributed Systems', 'Kubernetes', 'Leadership'], salary: '$180k – $220k', period: 'USD / Year',
     requirements: ['8+ years in software architecture', 'Deep expertise in distributed systems', 'Experience leading platform or infra teams', 'Kubernetes and cloud-native proficiency', 'Strong written communication for async-first teams'],
   },
   {
     id: 2, role: 'Lead UX Strategist', company: 'Nexus Finance', loc: 'New York, NY', match: 89, type: 'Full-time',
+    color: '#0f172a', domain: 'nexusfinance.com', linkedinSlug: 'nexus-mutual',
     desc: 'Define the editorial design system for a global audience in a top-tier FinTech expansion.',
-    tags: ['Design Systems', 'FinTech'], salary: '$165k – $190k', period: 'USD / Year', logo: '#0f172a',
+    tags: ['Design Systems', 'FinTech'], salary: '$165k – $190k', period: 'USD / Year',
     requirements: ['7+ years of UX strategy or design leadership', 'Experience with global-scale design systems', 'Fintech or regulated industry experience', 'Strong collaboration with engineering and product', 'Portfolio with measurable design impact'],
   },
   {
     id: 3, role: 'Principal Product Designer', company: 'Vercel', loc: 'Remote', match: 94, type: 'Full-time · Remote',
+    color: '#000000', domain: 'vercel.com', linkedinSlug: 'vercel',
     desc: 'Shape the future of developer experience. Lead design for core platform features used by millions.',
-    tags: ['Developer Tools', 'Product Design', 'Figma'], salary: '$170k – $200k', period: 'USD / Year', logo: '#000000',
+    tags: ['Developer Tools', 'Product Design', 'Figma'], salary: '$170k – $200k', period: 'USD / Year',
     requirements: ['6+ years of product design experience', 'Passion for developer tools and DX', 'Deep Figma expertise', 'Experience shipping complex SaaS features', 'Strong writing and async communication skills'],
   },
   {
     id: 4, role: 'Design System Lead', company: 'Stripe', loc: 'San Francisco', match: 91, type: 'Full-time',
+    color: '#635bff', domain: 'stripe.com', linkedinSlug: 'stripe',
     desc: 'Build and scale the design foundation for Stripe\'s product suite across global markets.',
-    tags: ['Design Systems', 'React', 'Accessibility'], salary: '$190k – $230k', period: 'USD / Year', logo: '#635bff',
+    tags: ['Design Systems', 'React', 'Accessibility'], salary: '$190k – $230k', period: 'USD / Year',
     requirements: ['7+ years of design or front-end experience', 'Deep expertise in design systems and component libraries', 'Experience with React and accessibility standards', 'Cross-functional leadership experience', 'Obsession with quality and craft'],
   },
 ]
@@ -113,17 +127,16 @@ function toSlug(str: string) {
 }
 
 function getPortalUrls(job: Job, isIndia: boolean) {
+  const roleQ = encodeURIComponent(job.role)
   const combined = encodeURIComponent(`${job.role} ${job.company}`)
   const cityRaw = job.loc.split(',')[0].trim()
   const city = encodeURIComponent(cityRaw)
-  const indiaLoc = encodeURIComponent('India')
-
-  // Naukri: uses SEO slug URLs — e.g. /senior-product-manager-jobs-in-bangalore
   const roleSlug = toSlug(job.role)
   const citySlug = toSlug(cityRaw)
 
   return {
-    linkedin: `https://www.linkedin.com/jobs/search/?keywords=${combined}&location=${isIndia ? indiaLoc : encodeURIComponent(job.loc)}`,
+    // Opens the company's own LinkedIn jobs page — shows real current openings there
+    linkedin: `https://www.linkedin.com/company/${job.linkedinSlug}/jobs/?keywords=${roleQ}`,
     indeed: isIndia
       ? `https://in.indeed.com/jobs?q=${combined}&l=${city}`
       : `https://www.indeed.com/jobs?q=${combined}&l=${encodeURIComponent(job.loc)}`,
@@ -131,6 +144,31 @@ function getPortalUrls(job: Job, isIndia: boolean) {
       ? `https://www.naukri.com/${roleSlug}-${toSlug(job.company)}-jobs-in-${citySlug}`
       : null,
   }
+}
+
+// ── Company logo via Clearbit, falls back to coloured initials ────────────────
+function CompanyLogo({ domain, company, color, size = 36 }: { domain: string; company: string; color: string; size?: number }) {
+  const [err, setErr] = useState(false)
+  const initial = company[0].toUpperCase()
+  if (err) {
+    return (
+      <div style={{ width: size, height: size, borderRadius: size * 0.25, background: color, flexShrink: 0, display: 'grid', placeItems: 'center', color: '#fff', fontWeight: 700, fontSize: size * 0.44 }}>
+        {initial}
+      </div>
+    )
+  }
+  return (
+    <div style={{ width: size, height: size, borderRadius: size * 0.25, background: '#fff', border: '1px solid #e5eaf5', flexShrink: 0, display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
+      <img
+        src={`https://logo.clearbit.com/${domain}`}
+        alt={company}
+        width={size - 8}
+        height={size - 8}
+        style={{ objectFit: 'contain' }}
+        onError={() => setErr(true)}
+      />
+    </div>
+  )
 }
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
@@ -291,7 +329,7 @@ export default function JobMatch() {
                 {job.match}% Match
               </div>
               <div className="jc-head">
-                <div className="jc-logo" style={{ background: job.logo }} />
+                <CompanyLogo domain={job.domain} company={job.company} color={job.color} size={36} />
                 <div>
                   <div className="jc-role">{job.role}</div>
                   <div className="jc-co">{job.company} · {job.loc}</div>
@@ -318,7 +356,7 @@ export default function JobMatch() {
           <div className="jm-detail-panel">
             <div className="jm-detail-head">
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 40, height: 40, borderRadius: 10, background: detailJob.logo, flexShrink: 0 }} />
+                <CompanyLogo domain={detailJob.domain} company={detailJob.company} color={detailJob.color} size={40} />
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)', lineHeight: 1.2 }}>{detailJob.role}</div>
                   <div style={{ fontSize: 12.5, color: 'var(--text-mute)', marginTop: 2 }}>{detailJob.company} · {detailJob.loc}</div>
@@ -405,7 +443,7 @@ export default function JobMatch() {
             {/* Header */}
             <div className="jm-apply-modal-head">
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 9, background: applyJob.logo, flexShrink: 0 }} />
+                <CompanyLogo domain={applyJob.domain} company={applyJob.company} color={applyJob.color} size={36} />
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 14.5, color: 'var(--text)' }}>{applyJob.role}</div>
                   <div style={{ fontSize: 12, color: 'var(--text-mute)' }}>{applyJob.company} · {applyJob.loc}</div>
