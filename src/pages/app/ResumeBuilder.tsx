@@ -160,6 +160,7 @@ export default function ResumeBuilder() {
   const [showCustomize, setShowCustomize] = useState(false)
   const [showShare, setShowShare]       = useState(false)
   const [copied, setCopied]             = useState(false)
+  const [zoom, setZoom]                 = useState(85)
   const shareRef                        = useRef<HTMLDivElement>(null)
 
   // Customization state
@@ -299,7 +300,7 @@ export default function ResumeBuilder() {
     setShowShare(false)
     const subject = encodeURIComponent(`${name} — Resume`)
     const body = encodeURIComponent(`Hi,\n\nPlease find my resume attached.\n\nBest regards,\n${name}`)
-    window.open(`mailto:?subject=${subject}&body=${body}`)
+    window.open(`https://mail.google.com/mail/?view=cm&fs=1&su=${subject}&body=${body}`, '_blank')
   }
 
   const resetAnalysis = () => { setAnalysed(false); setTailored(false); setKeywords({ found: [], missing: [] }) }
@@ -601,9 +602,17 @@ export default function ResumeBuilder() {
               </div>
             )}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-mute)', fontSize: 13 }}>
-              <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-mute)', display: 'flex' }}><IconZoomOut size={15} /></button>
-              <span>85%</span>
-              <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-mute)', display: 'flex' }}><IconZoomIn size={15} /></button>
+              <button
+                onClick={() => setZoom(z => Math.max(50, z - 5))}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-mute)', display: 'flex' }}
+                title="Zoom out"
+              ><IconZoomOut size={15} /></button>
+              <span style={{ minWidth: 34, textAlign: 'center', fontWeight: 600 }}>{zoom}%</span>
+              <button
+                onClick={() => setZoom(z => Math.min(130, z + 5))}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-mute)', display: 'flex' }}
+                title="Zoom in"
+              ><IconZoomIn size={15} /></button>
             </div>
           </div>
 
@@ -665,7 +674,7 @@ export default function ResumeBuilder() {
 
         {/* Resume Document */}
         <div className="resume-preview">
-          <div className="resume-doc" style={{ fontFamily: resumeFont }}>
+          <div className="resume-doc" style={{ fontFamily: resumeFont, transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}>
             <div className="resume-doc-head" style={{ background: headerColor }}>
               <div className="rname">{name}</div>
               <div className="rtitle">{jobTitle}</div>
