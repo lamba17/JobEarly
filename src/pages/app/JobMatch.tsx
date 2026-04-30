@@ -108,13 +108,19 @@ function matchColor(pct: number) {
   return '#6B7280'
 }
 
+function toSlug(str: string) {
+  return str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+}
+
 function getPortalUrls(job: Job, isIndia: boolean) {
-  const role = encodeURIComponent(job.role)
-  const company = encodeURIComponent(job.company)
   const combined = encodeURIComponent(`${job.role} ${job.company}`)
   const cityRaw = job.loc.split(',')[0].trim()
   const city = encodeURIComponent(cityRaw)
   const indiaLoc = encodeURIComponent('India')
+
+  // Naukri: uses SEO slug URLs — e.g. /senior-product-manager-jobs-in-bangalore
+  const roleSlug = toSlug(job.role)
+  const citySlug = toSlug(cityRaw)
 
   return {
     linkedin: `https://www.linkedin.com/jobs/search/?keywords=${combined}&location=${isIndia ? indiaLoc : encodeURIComponent(job.loc)}`,
@@ -122,7 +128,7 @@ function getPortalUrls(job: Job, isIndia: boolean) {
       ? `https://in.indeed.com/jobs?q=${combined}&l=${city}`
       : `https://www.indeed.com/jobs?q=${combined}&l=${encodeURIComponent(job.loc)}`,
     naukri: isIndia
-      ? `https://www.naukri.com/jobs-listing/?src=jobsearchDesk&keyword=${role}+${company}&location=${city}&experience=3&nignbevent_src=jobsearchDeskGNB`
+      ? `https://www.naukri.com/${roleSlug}-jobs-in-${citySlug}`
       : null,
   }
 }
