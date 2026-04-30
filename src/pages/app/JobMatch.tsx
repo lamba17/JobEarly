@@ -128,7 +128,7 @@ function getPortalUrls(job: Job, isIndia: boolean) {
       ? `https://in.indeed.com/jobs?q=${combined}&l=${city}`
       : `https://www.indeed.com/jobs?q=${combined}&l=${encodeURIComponent(job.loc)}`,
     naukri: isIndia
-      ? `https://www.naukri.com/${roleSlug}-jobs-in-${citySlug}`
+      ? `https://www.naukri.com/${roleSlug}-${toSlug(job.company)}-jobs-in-${citySlug}`
       : null,
   }
 }
