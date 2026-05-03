@@ -1,9 +1,9 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import * as pdfjs from 'pdfjs-dist'
 import mammoth from 'mammoth'
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
-// Use CDN worker so Vite doesn't need to bundle it
-pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`
+pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
 
 async function extractTextFromFile(file: File): Promise<string> {
   const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
