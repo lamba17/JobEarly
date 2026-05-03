@@ -336,9 +336,10 @@ export default function ResumeBuilder() {
   // UI state
   const [saved, setSaved]               = useState(false)
   const [activeTab, setActiveTab]       = useState<'import' | 'jd' | 'editor'>('import')
-  const [importText, setImportText]     = useState('')
-  const [parsedResume, setParsedResume] = useState<ParsedResume | null>(null)
-  const [parsing, setParsing]           = useState(false)
+  const [importText,    setImportText]    = useState('')
+  const [parsedResume,  setParsedResume]  = useState<ParsedResume | null>(null)
+  const [parsing,       setParsing]       = useState(false)
+  const [importError,   setImportError]   = useState('')
   const [showCustomize, setShowCustomize] = useState(false)
   const [showShare, setShowShare]       = useState(false)
   const [copied, setCopied]             = useState(false)
@@ -456,7 +457,11 @@ export default function ResumeBuilder() {
     setWorkExp(prev => prev.map(e => e.id === expId ? { ...e, bullets: [...e.bullets, ''] } : e))
 
   const handleParseResume = () => {
-    if (!importText.trim()) return
+    setImportError('')
+    if (!importText.trim()) {
+      setImportError('Please paste your resume text above first.')
+      return
+    }
     setParsing(true)
     setTimeout(() => {
       const result = parseResumeText(importText)
@@ -626,7 +631,7 @@ EDUCATION
 B.Tech — Computer Science
 IIT Delhi · 2016 — 2020`}
                     value={importText}
-                    onChange={e => setImportText(e.target.value)}
+                    onChange={e => { setImportText(e.target.value); setImportError('') }}
                     rows={16}
                     style={{ minHeight: 280, resize: 'vertical', fontFamily: 'inherit', fontSize: 12.5, lineHeight: 1.6 }}
                   />
@@ -644,12 +649,17 @@ IIT Delhi · 2016 — 2020`}
                   <button
                     className="rb-analyse-btn"
                     onClick={handleParseResume}
-                    disabled={parsing || !importText.trim()}
+                    disabled={parsing}
                   >
                     {parsing
                       ? <><span className="rb-spinner" /> Parsing resume…</>
                       : <><IcoUpload size={14} /> Parse &amp; Import Resume</>}
                   </button>
+                  {importError && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 8, background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#DC2626', fontSize: 12.5 }}>
+                      ⚠️ {importError}
+                    </div>
+                  )}
                   <button
                     onClick={() => setActiveTab('editor')}
                     style={{ width: '100%', padding: '9px 0', borderRadius: 8, border: '1px solid var(--border)', background: 'none', color: 'var(--text-mute)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
