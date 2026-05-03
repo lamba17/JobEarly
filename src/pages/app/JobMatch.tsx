@@ -72,11 +72,55 @@ const GLOBAL_JOBS: Job[] = [
   { id: 6, role: 'Product Manager',             company: 'Figma',            loc: 'San Francisco',  match: 90, type: 'Full-time',           color: '#F24E1E', domain: 'figma.com',        linkedinSlug: 'figma',                          portals: ['linkedin','indeed'], salary: '$175k–$210k', period: 'USD/yr', postedDaysAgo: 7,  tags: ['Design Tools','Platform','Developer API'],       desc: 'Lead product for Figma\'s developer-facing platform and plugin ecosystem used by 8M+ designers.', requirements: ['4+ years PM experience','Design tool or dev tool background','API product experience','Strong cross-functional collaboration','Data-driven approach'] },
 ]
 
+const USA_JOBS: Job[] = [
+  { id: 101, role: 'Product Manager',             company: 'OpenAI',       loc: 'San Francisco, CA', match: 95, type: 'Full-time',         color: '#10A37F', domain: 'openai.com',       linkedinSlug: 'openai',          portals: ['linkedin','indeed'], salary: '$180k–$230k', period: 'USD/yr', postedDaysAgo: 0,  tags: ['LLM Products','Product Strategy','AI/ML'],       desc: 'Define and ship the next generation of AI-powered products at OpenAI. Work directly with researchers to bring frontier models to millions of users.', requirements: ['5+ years PM experience','AI/ML product background','Strong technical intuition','Exceptional writing and communication','Experience shipping consumer or enterprise AI tools'] },
+  { id: 102, role: 'Software Engineer',            company: 'Anthropic',    loc: 'San Francisco, CA', match: 92, type: 'Full-time',         color: '#C87533', domain: 'anthropic.com',     linkedinSlug: 'anthropic',       portals: ['linkedin','indeed'], salary: '$190k–$250k', period: 'USD/yr', postedDaysAgo: 1,  tags: ['Python','LLM Safety','Distributed Systems'],      desc: 'Build infrastructure and tooling that enables Anthropic to develop safe and capable AI systems at scale.', requirements: ['4+ years software engineering','Python and distributed systems expertise','Interest in AI safety','Systems design proficiency','Strong debugging skills'] },
+  { id: 103, role: 'Senior Product Manager',       company: 'Google',       loc: 'Mountain View, CA', match: 91, type: 'Full-time',         color: '#4285F4', domain: 'google.com',        linkedinSlug: 'google',          portals: ['linkedin','indeed'], salary: '$200k–$270k', period: 'USD/yr', postedDaysAgo: 2,  tags: ['Search','Consumer Product','Data-Driven'],        desc: "Lead product strategy for Google's core Search products touching 8 billion+ queries daily.", requirements: ['6+ years PM experience','Search or consumer product background','Data-driven decision making','Cross-functional leadership','MBA or equivalent preferred'] },
+  { id: 104, role: 'Product Designer',             company: 'Meta',         loc: 'Menlo Park, CA',    match: 88, type: 'Full-time',         color: '#0866FF', domain: 'meta.com',          linkedinSlug: 'meta',            portals: ['linkedin','indeed'], salary: '$165k–$215k', period: 'USD/yr', postedDaysAgo: 3,  tags: ['Social Products','Design Systems','Mobile'],      desc: 'Shape the future of social connection through thoughtful product design across Meta\'s family of apps serving 3B+ users.', requirements: ['5+ years product design','Social or consumer app portfolio','Design systems experience','Figma proficiency','Collaboration with engineering at scale'] },
+  { id: 105, role: 'Software Dev Engineer II',     company: 'Amazon',       loc: 'Seattle, WA',       match: 87, type: 'Full-time',         color: '#FF9900', domain: 'amazon.com',        linkedinSlug: 'amazon',          portals: ['linkedin','indeed'], salary: '$155k–$210k', period: 'USD/yr', postedDaysAgo: 1,  tags: ['Java','AWS','Distributed Systems'],               desc: 'Build highly available distributed systems that power Amazon\'s retail, logistics, and cloud businesses.', requirements: ['3+ years SDE experience','Java or Go expertise','AWS knowledge','System design at scale','Strong CS fundamentals'] },
+  { id: 106, role: 'Senior Software Engineer',     company: 'Microsoft',    loc: 'Redmond, WA',       match: 86, type: 'Full-time',         color: '#0078D4', domain: 'microsoft.com',     linkedinSlug: 'microsoft',       portals: ['linkedin','indeed'], salary: '$155k–$210k', period: 'USD/yr', postedDaysAgo: 5,  tags: ['Azure','C#','Cloud Infrastructure'],              desc: 'Design and build cloud infrastructure powering Azure — the backbone for millions of enterprise customers worldwide.', requirements: ['4+ years engineering','C# or Go expertise','Azure platform knowledge','Distributed systems','Collaborative engineering culture'] },
+  { id: 107, role: 'Product Manager',              company: 'Apple',        loc: 'Cupertino, CA',     match: 89, type: 'Full-time',         color: '#555555', domain: 'apple.com',         linkedinSlug: 'apple',           portals: ['linkedin','indeed'], salary: '$175k–$230k', period: 'USD/yr', postedDaysAgo: 4,  tags: ['Hardware Software','Consumer Devices','Privacy'], desc: 'Drive product vision for Apple\'s ecosystem integrating hardware and software for iPhone, iPad, and Mac.', requirements: ['5+ years PM experience','Hardware/software integration background','Extreme attention to detail','Cross-functional collaboration','Consumer product obsession'] },
+  { id: 108, role: 'Senior Software Engineer',     company: 'Netflix',      loc: 'Remote',            match: 93, type: 'Remote · Full-time', color: '#E50914', domain: 'netflix.com',       linkedinSlug: 'netflix',         portals: ['linkedin','indeed'], salary: '$220k–$310k', period: 'USD/yr', postedDaysAgo: 0,  tags: ['Java','Streaming','Microservices'],               desc: 'Build the streaming infrastructure serving 280M+ subscribers globally at Netflix — one of the highest-paying engineering teams in the world.', requirements: ['5+ years engineering','Java or Python expertise','Streaming or high-scale systems','Microservices architecture','Exceptional communication'] },
+  { id: 109, role: 'Engineering Manager',          company: 'Stripe',       loc: 'San Francisco, CA', match: 90, type: 'Full-time',         color: '#635BFF', domain: 'stripe.com',        linkedinSlug: 'stripe',          portals: ['linkedin','indeed'], salary: '$200k–$260k', period: 'USD/yr', postedDaysAgo: 2,  tags: ['Payments','Leadership','Distributed Systems'],    desc: 'Lead a team of senior engineers building the global payments infrastructure that powers millions of businesses.', requirements: ['3+ years engineering management','Payments or fintech background','Hiring and mentoring track record','Technical depth in distributed systems','Strong written communication'] },
+  { id: 110, role: 'Senior UX Designer',           company: 'Airbnb',       loc: 'San Francisco, CA', match: 85, type: 'Full-time',         color: '#FF5A5F', domain: 'airbnb.com',        linkedinSlug: 'airbnb',          portals: ['linkedin','indeed'], salary: '$150k–$195k', period: 'USD/yr', postedDaysAgo: 7,  tags: ['Travel','Service Design','Figma'],                desc: 'Design experiences that help people belong anywhere — across web, mobile, and host-facing products at Airbnb.', requirements: ['5+ years UX/product design','Consumer marketplace experience','End-to-end design portfolio','User research skills','Storytelling with design'] },
+  { id: 111, role: 'Data Scientist',               company: 'Uber',         loc: 'San Francisco, CA', match: 83, type: 'Full-time',         color: '#000000', domain: 'uber.com',          linkedinSlug: 'uber',            portals: ['linkedin','indeed'], salary: '$155k–$200k', period: 'USD/yr', postedDaysAgo: 9,  tags: ['Python','Causal Inference','Marketplace ML'],     desc: 'Drive marketplace intelligence at Uber — pricing, demand forecasting, and driver/rider matching models at global scale.', requirements: ['3+ years data science','Python and SQL proficiency','Causal inference and A/B testing','Marketplace or ridesharing domain','Strong stakeholder communication'] },
+  { id: 112, role: 'Senior Product Manager',       company: 'Figma',        loc: 'San Francisco, CA', match: 91, type: 'Full-time',         color: '#F24E1E', domain: 'figma.com',         linkedinSlug: 'figma',           portals: ['linkedin','indeed'], salary: '$175k–$215k', period: 'USD/yr', postedDaysAgo: 3,  tags: ['Design Tools','Developer API','PLG'],             desc: 'Lead product for Figma\'s plugin ecosystem and developer platform used by 8M+ designers and engineers.', requirements: ['5+ years PM experience','Developer tools or design tool background','API product experience','PLG expertise','Strong technical depth'] },
+  { id: 113, role: 'Senior Product Manager',       company: 'Notion',       loc: 'Remote',            match: 88, type: 'Remote · Full-time', color: '#000000', domain: 'notion.so',         linkedinSlug: 'notionhq',        portals: ['linkedin','indeed'], salary: '$160k–$200k', period: 'USD/yr', postedDaysAgo: 5,  tags: ['Productivity','B2B SaaS','PLG'],                  desc: 'Own the product roadmap for Notion\'s AI-powered workspace tools used by 30M+ teams worldwide.', requirements: ['5+ years PM experience','B2B SaaS and PLG expertise','Strong writing skills','AI product experience a plus','Async-first work style'] },
+  { id: 114, role: 'Staff Engineer',               company: 'Vercel',       loc: 'Remote',            match: 90, type: 'Remote · Full-time', color: '#000000', domain: 'vercel.com',         linkedinSlug: 'vercel',         portals: ['linkedin','indeed'], salary: '$175k–$215k', period: 'USD/yr', postedDaysAgo: 1,  tags: ['Next.js','Edge Computing','TypeScript'],          desc: 'Build the edge infrastructure and developer experience platform that powers millions of Next.js deployments globally.', requirements: ['6+ years engineering','TypeScript and Node.js expertise','Edge computing knowledge','Open source contributions a plus','Async communication'] },
+  { id: 115, role: 'Senior Engineer',              company: 'Salesforce',   loc: 'San Francisco, CA', match: 82, type: 'Full-time',         color: '#00A1E0', domain: 'salesforce.com',    linkedinSlug: 'salesforce',      portals: ['linkedin','indeed'], salary: '$165k–$210k', period: 'USD/yr', postedDaysAgo: 12, tags: ['Java','CRM','Enterprise SaaS'],                   desc: 'Build the CRM platform infrastructure used by 150,000+ companies worldwide, from SMBs to Fortune 500s.', requirements: ['4+ years engineering','Java or Apex expertise','Enterprise SaaS background','Scalable architecture','Customer-focused engineering'] },
+  { id: 116, role: 'Product Manager',              company: 'LinkedIn',     loc: 'Sunnyvale, CA',     match: 86, type: 'Full-time',         color: '#0A66C2', domain: 'linkedin.com',      linkedinSlug: 'linkedin',        portals: ['linkedin','indeed'], salary: '$170k–$220k', period: 'USD/yr', postedDaysAgo: 6,  tags: ['Professional Network','Feed','B2B Growth'],       desc: 'Shape the LinkedIn feed and content discovery experience for 950M+ professionals across 200 countries.', requirements: ['4+ years PM experience','Social or content product background','Data-driven','Stakeholder management','Passion for professional development'] },
+  { id: 117, role: 'ML Research Engineer',         company: 'Nvidia',       loc: 'Santa Clara, CA',   match: 89, type: 'Full-time',         color: '#76B900', domain: 'nvidia.com',        linkedinSlug: 'nvidia',          portals: ['linkedin','indeed'], salary: '$200k–$290k', period: 'USD/yr', postedDaysAgo: 4,  tags: ['CUDA','Deep Learning','GPU Architecture'],        desc: 'Research and implement ML algorithms that run on NVIDIA GPUs — from training to inference optimization.', requirements: ['PhD or 4+ years ML research','CUDA programming','Deep learning frameworks','GPU architecture knowledge','Published research preferred'] },
+  { id: 118, role: 'Software Engineer',            company: 'Palantir',     loc: 'New York, NY',      match: 80, type: 'Full-time',         color: '#1C1C1C', domain: 'palantir.com',      linkedinSlug: 'palantir-technologies', portals: ['linkedin','indeed'], salary: '$120k–$165k', period: 'USD/yr', postedDaysAgo: 10, tags: ['Data Platform','Government Tech','Java'],          desc: 'Build and deploy Palantir\'s data analytics platforms for defense, intelligence, and commercial customers.', requirements: ['2+ years engineering','Java or Python expertise','Data pipeline experience','Interest in government/enterprise tech','Eligible for security clearance'] },
+  { id: 119, role: 'Senior Software Engineer',     company: 'Bloomberg',    loc: 'New York, NY',      match: 83, type: 'Full-time',         color: '#F26522', domain: 'bloomberg.com',     linkedinSlug: 'bloomberg',       portals: ['linkedin','indeed'], salary: '$155k–$195k', period: 'USD/yr', postedDaysAgo: 14, tags: ['C++','Financial Data','Real-Time Systems'],       desc: 'Build the financial data infrastructure powering Bloomberg Terminal used by 325,000+ financial professionals worldwide.', requirements: ['4+ years engineering','C++ or Python expertise','Low-latency systems','Financial data domain a plus','Distributed systems'] },
+  { id: 120, role: 'Product Manager',              company: 'Coinbase',     loc: 'Remote',            match: 84, type: 'Remote · Full-time', color: '#0052FF', domain: 'coinbase.com',      linkedinSlug: 'coinbase',        portals: ['linkedin','indeed'], salary: '$165k–$210k', period: 'USD/yr', postedDaysAgo: 2,  tags: ['Crypto','Web3','Consumer Fintech'],               desc: 'Own the product roadmap for Coinbase\'s retail trading experience used by 110M+ verified users across 100+ countries.', requirements: ['4+ years PM experience','Fintech or crypto background','Consumer product experience','Data-driven decision making','Strong technical depth'] },
+]
+
+const CANADA_JOBS: Job[] = [
+  { id: 201, role: 'Senior Software Engineer',     company: 'Shopify',       loc: 'Ottawa, ON',        match: 94, type: 'Remote · Full-time', color: '#96BF48', domain: 'shopify.com',       linkedinSlug: 'shopify',          portals: ['linkedin','indeed'], salary: 'CA$130k–$180k', period: 'CAD/yr', postedDaysAgo: 0,  tags: ['Ruby','React','E-commerce'],                     desc: 'Build the commerce infrastructure powering 1.7M+ merchants globally at Shopify. Fully distributed, remote-first team.', requirements: ['4+ years engineering','Ruby on Rails or Go expertise','E-commerce domain knowledge','Remote collaboration skills','Open source contributions a plus'] },
+  { id: 202, role: 'Product Manager',              company: 'Shopify',       loc: 'Remote',            match: 91, type: 'Remote · Full-time', color: '#96BF48', domain: 'shopify.com',       linkedinSlug: 'shopify',          portals: ['linkedin','indeed'], salary: 'CA$120k–$165k', period: 'CAD/yr', postedDaysAgo: 2,  tags: ['Merchant Platform','PLG','Checkout'],             desc: 'Drive product strategy for Shopify\'s merchant-facing platform and checkout experience used by millions of businesses.', requirements: ['4+ years PM experience','E-commerce or marketplace background','PLG expertise','Data-driven','Strong async writing'] },
+  { id: 203, role: 'Senior Data Scientist',        company: 'RBC',           loc: 'Toronto, ON',       match: 85, type: 'Full-time',         color: '#005DAA', domain: 'rbc.com',            linkedinSlug: 'rbc',              portals: ['linkedin','indeed'], salary: 'CA$100k–$140k', period: 'CAD/yr', postedDaysAgo: 3,  tags: ['Python','Banking ML','Risk Models'],              desc: 'Build ML models for credit risk, fraud detection, and customer analytics at Canada\'s largest bank serving 17M clients.', requirements: ['3+ years data science','Python/R and SQL','Financial services domain','Risk or fraud ML experience','Strong stakeholder communication'] },
+  { id: 204, role: 'Product Designer',             company: 'Wealthsimple',  loc: 'Toronto, ON',       match: 89, type: 'Full-time',         color: '#000000', domain: 'wealthsimple.com',  linkedinSlug: 'wealthsimple',     portals: ['linkedin','indeed'], salary: 'CA$105k–$145k', period: 'CAD/yr', postedDaysAgo: 1,  tags: ['Fintech','iOS Design','Figma'],                   desc: 'Design the next generation of personal finance tools at Wealthsimple — Canada\'s leading digital investing platform with 3M+ clients.', requirements: ['4+ years product design','Fintech or consumer app portfolio','iOS/Android design','User research skills','Systems thinking'] },
+  { id: 205, role: 'Full Stack Engineer',          company: 'Hootsuite',     loc: 'Vancouver, BC',     match: 82, type: 'Full-time',         color: '#F5A623', domain: 'hootsuite.com',      linkedinSlug: 'hootsuite',        portals: ['linkedin','indeed'], salary: 'CA$95k–$130k',  period: 'CAD/yr', postedDaysAgo: 8,  tags: ['React','Node.js','Social Media'],                 desc: 'Build Hootsuite\'s social media management platform used by 200,000+ organizations across 175+ countries.', requirements: ['3+ years full-stack','React and Node.js proficiency','SaaS experience','REST and GraphQL APIs','Strong testing practices'] },
+  { id: 206, role: 'Software Engineer',            company: 'Lightspeed',    loc: 'Montreal, QC',      match: 80, type: 'Full-time',         color: '#FF6B35', domain: 'lightspeedhq.com',  linkedinSlug: 'lightspeed-commerce', portals: ['linkedin','indeed'], salary: 'CA$90k–$130k',  period: 'CAD/yr', postedDaysAgo: 11, tags: ['PHP','React','POS Systems'],                     desc: 'Build cloud-based POS and e-commerce systems for restaurants and retailers at Lightspeed Commerce, serving 150,000+ businesses.', requirements: ['3+ years engineering','PHP or Go and React expertise','B2B SaaS experience','Payment systems knowledge','Agile development'] },
+  { id: 207, role: 'Product Manager',              company: 'Scotiabank',    loc: 'Toronto, ON',       match: 78, type: 'Full-time',         color: '#EC111A', domain: 'scotiabank.com',     linkedinSlug: 'scotiabank',       portals: ['linkedin','indeed'], salary: 'CA$90k–$125k',  period: 'CAD/yr', postedDaysAgo: 15, tags: ['Digital Banking','Mobile App','Agile'],           desc: 'Drive the product roadmap for Scotiabank\'s mobile banking app serving 10M+ Canadians across iOS and Android.', requirements: ['3+ years PM experience','Banking or fintech background','Mobile product experience','Agile/Scrum','Stakeholder management'] },
+  { id: 208, role: 'ML Engineer',                  company: 'CIBC',          loc: 'Toronto, ON',       match: 83, type: 'Full-time',         color: '#C41F3E', domain: 'cibc.com',           linkedinSlug: 'cibc',             portals: ['linkedin','indeed'], salary: 'CA$100k–$145k', period: 'CAD/yr', postedDaysAgo: 6,  tags: ['Python','NLP','Financial ML'],                   desc: 'Build machine learning models for fraud detection, personalization, and credit risk at one of Canada\'s Big Five banks.', requirements: ['3+ years ML engineering','Python and TensorFlow/PyTorch','NLP experience','Financial services preferred','Model deployment at scale'] },
+  { id: 209, role: 'Business Analyst',             company: 'TD Bank',       loc: 'Toronto, ON',       match: 76, type: 'Full-time',         color: '#34B233', domain: 'td.com',             linkedinSlug: 'td-bank',          portals: ['linkedin','indeed'], salary: 'CA$75k–$105k',  period: 'CAD/yr', postedDaysAgo: 20, tags: ['SQL','JIRA','Banking'],                           desc: 'Translate business requirements into technical specs for TD\'s digital banking transformation across retail and commercial banking.', requirements: ['2+ years BA experience','Banking or financial domain','SQL proficiency','Requirements documentation','JIRA and Confluence'] },
+  { id: 210, role: 'Senior Software Engineer',     company: 'Coveo',         loc: 'Remote',            match: 87, type: 'Remote · Full-time', color: '#F26931', domain: 'coveo.com',          linkedinSlug: 'coveo',            portals: ['linkedin','indeed'], salary: 'CA$100k–$140k', period: 'CAD/yr', postedDaysAgo: 3,  tags: ['Search AI','TypeScript','Cloud'],                 desc: 'Build AI-powered search and relevance products at Coveo, powering enterprise search for Salesforce, ServiceNow, and 500+ customers.', requirements: ['4+ years engineering','TypeScript and AWS expertise','Search or AI SaaS background','Microservices architecture','Remote-first mindset'] },
+  { id: 211, role: 'Product Manager',              company: 'Telus',         loc: 'Vancouver, BC',     match: 79, type: 'Full-time',         color: '#4B286D', domain: 'telus.com',          linkedinSlug: 'telus',            portals: ['linkedin','indeed'], salary: 'CA$90k–$125k',  period: 'CAD/yr', postedDaysAgo: 9,  tags: ['Telecom','Mobile','Digital Products'],            desc: 'Drive product strategy for Telus\'s digital and mobile products serving 17M+ Canadian subscribers.', requirements: ['3+ years PM experience','Telecom or consumer product background','Mobile product expertise','Data-driven','Strong cross-functional collaboration'] },
+  { id: 212, role: 'Senior Software Engineer',     company: 'Ada',           loc: 'Toronto, ON',       match: 88, type: 'Full-time',         color: '#5C2D91', domain: 'ada.cx',             linkedinSlug: 'ada-support',      portals: ['linkedin','indeed'], salary: 'CA$115k–$158k', period: 'CAD/yr', postedDaysAgo: 2,  tags: ['Python','Conversational AI','SaaS'],              desc: 'Build Ada\'s AI-powered customer service automation platform used by Zoom, Meta, and 300+ global brands.', requirements: ['4+ years engineering','Python and TypeScript expertise','AI or NLP experience','B2B SaaS background','Startup engineering culture'] },
+  { id: 213, role: 'Data Analyst',                 company: 'Manulife',      loc: 'Toronto, ON',       match: 74, type: 'Full-time',         color: '#00A758', domain: 'manulife.com',       linkedinSlug: 'manulife',         portals: ['linkedin','indeed'], salary: 'CA$72k–$100k',  period: 'CAD/yr', postedDaysAgo: 22, tags: ['SQL','Tableau','Insurance Analytics'],            desc: 'Drive data insights for Manulife\'s insurance and wealth management products serving 33M+ customers across North America and Asia.', requirements: ['2+ years data analysis','SQL and Python proficiency','Tableau or Power BI','Financial services preferred','Statistical analysis'] },
+  { id: 214, role: 'Operations Manager',           company: 'DoorDash',      loc: 'Toronto, ON',       match: 77, type: 'Full-time',         color: '#EF2D2D', domain: 'doordash.com',       linkedinSlug: 'doordash',         portals: ['linkedin','indeed'], salary: 'CA$85k–$115k',  period: 'CAD/yr', postedDaysAgo: 16, tags: ['Marketplace Ops','Supply Growth','Analytics'],   desc: 'Lead marketplace operations for DoorDash Canada — managing merchant supply, dasher growth, and city-level P&L across major markets.', requirements: ['3+ years operations','Marketplace or on-demand background','Data analysis skills','P&L ownership','Cross-functional leadership'] },
+  { id: 215, role: 'Senior Consultant',            company: 'OpenText',      loc: 'Waterloo, ON',      match: 81, type: 'Full-time',         color: '#005F9E', domain: 'opentext.com',       linkedinSlug: 'opentext',         portals: ['linkedin','indeed'], salary: 'CA$88k–$122k',  period: 'CAD/yr', postedDaysAgo: 13, tags: ['Enterprise Software','Cloud','Consulting'],       desc: 'Deliver cloud and information management solutions for OpenText\'s Fortune 500 enterprise customers across North America and Europe.', requirements: ['3+ years consulting or solutions engineering','Enterprise software background','Cloud platforms (AWS/Azure)','Client-facing communication','Information management domain'] },
+]
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function detectCountry(): string {
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
   if (tz.includes('Kolkata') || tz.includes('Calcutta')) return 'IN'
-  return navigator.language === 'en-IN' ? 'IN' : 'GLOBAL'
+  if (navigator.language === 'en-IN') return 'IN'
+  if (navigator.language === 'en-CA' || tz.includes('Toronto') || tz.includes('Vancouver') || tz.includes('Montreal')) return 'CA'
+  if (tz.startsWith('America/') || navigator.language === 'en-US') return 'US'
+  return 'GLOBAL'
 }
 function matchColor(pct: number) {
   if (pct >= 90) return '#10B981'
@@ -93,12 +137,16 @@ function formatPosted(days: number): string {
   return '1 month ago'
 }
 
-function getPortalUrl(key: string, job: Job, isIndia: boolean) {
+function getPortalUrl(key: string, job: Job, country: string) {
   const combined = encodeURIComponent(`${job.role} ${job.company}`)
   const citySlug = toSlug(job.loc.split(',')[0].trim())
   const cityEnc  = encodeURIComponent(job.loc.split(',')[0].trim())
   if (key === 'linkedin') return `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(`${job.role} ${job.company}`)}&location=${encodeURIComponent(job.loc)}&f_TPR=r2592000`
-  if (key === 'indeed')   return isIndia ? `https://in.indeed.com/jobs?q=${combined}&l=${cityEnc}` : `https://www.indeed.com/jobs?q=${combined}&l=${encodeURIComponent(job.loc)}`
+  if (key === 'indeed') {
+    if (country === 'IN') return `https://in.indeed.com/jobs?q=${combined}&l=${cityEnc}`
+    if (country === 'CA') return `https://ca.indeed.com/jobs?q=${combined}&l=${encodeURIComponent(job.loc)}`
+    return `https://www.indeed.com/jobs?q=${combined}&l=${encodeURIComponent(job.loc)}`
+  }
   if (key === 'naukri')   return `https://www.naukri.com/${toSlug(job.role)}-${toSlug(job.company)}-jobs-in-${citySlug}`
   return '#'
 }
@@ -147,11 +195,31 @@ const PORTAL_META = {
 } as const
 
 const FILTERS = ['All Opportunities', 'Remote Only', 'Best Match', 'Latest']
-const INDIA_CITIES = ['All Locations', 'Remote', 'Bangalore', 'Mumbai', 'Gurugram', 'Pune', 'Hyderabad', 'Noida', 'Chennai']
+
+const JOB_SETS: Record<string, Job[]> = {
+  IN: INDIA_JOBS,
+  US: USA_JOBS,
+  CA: CANADA_JOBS,
+  GLOBAL: GLOBAL_JOBS,
+}
+
+const CITY_OPTIONS: Record<string, string[]> = {
+  IN: ['All Locations', 'Remote', 'Bangalore', 'Mumbai', 'Gurugram', 'Pune', 'Hyderabad', 'Noida', 'Chennai'],
+  US: ['All Locations', 'Remote', 'San Francisco, CA', 'Mountain View, CA', 'Menlo Park, CA', 'Seattle, WA', 'Redmond, WA', 'Cupertino, CA', 'Sunnyvale, CA', 'Santa Clara, CA', 'New York, NY'],
+  CA: ['All Locations', 'Remote', 'Toronto, ON', 'Vancouver, BC', 'Ottawa, ON', 'Montreal, QC', 'Waterloo, ON'],
+  GLOBAL: ['All Locations', 'Remote', 'San Francisco', 'New York, NY'],
+}
+
+const COUNTRY_META: Record<string, { flag: string; label: string; currency: string }> = {
+  IN:     { flag: '🇮🇳', label: 'India',         currency: 'LPA (₹)' },
+  US:     { flag: '🇺🇸', label: 'United States',  currency: 'USD/yr' },
+  CA:     { flag: '🇨🇦', label: 'Canada',         currency: 'CAD/yr' },
+  GLOBAL: { flag: '🌍', label: 'Global',          currency: 'Mixed' },
+}
 
 export default function JobMatch() {
   const { user } = useAuth()
-  const [country]      = useState(() => detectCountry())
+  const [country,      setCountry]      = useState(() => detectCountry())
   const [activeFilter, setActiveFilter] = useState('All Opportunities')
   const [cityFilter,   setCityFilter]   = useState('All Locations')
   const [roleSearch,   setRoleSearch]   = useState('')
@@ -160,8 +228,17 @@ export default function JobMatch() {
   const [detailJob,    setDetailJob]    = useState<Job | null>(null)
   const [applyJob,     setApplyJob]     = useState<Job | null>(null)
 
-  const isIndia  = country === 'IN'
-  const allJobs  = isIndia ? INDIA_JOBS : GLOBAL_JOBS
+  const allJobs  = JOB_SETS[country] ?? GLOBAL_JOBS
+  const cities   = CITY_OPTIONS[country] ?? CITY_OPTIONS.GLOBAL
+
+  function switchCountry(c: string) {
+    setCountry(c)
+    setCityFilter('All Locations')
+    setActiveFilter('All Opportunities')
+    setRoleSearch('')
+    setCompanySearch('')
+    setDateFilter('Any Time')
+  }
 
   const relevantJobs = [...allJobs].sort((a, b) => {
     const title = (user?.jobTitle ?? '').toLowerCase()
@@ -175,7 +252,7 @@ export default function JobMatch() {
   const filtered = relevantJobs.filter(j => {
     if (activeFilter === 'Remote Only' && !j.loc.toLowerCase().includes('remote')) return false
     if (activeFilter === 'Best Match'  && j.match < 85) return false
-    if (isIndia && cityFilter !== 'All Locations' && !j.loc.toLowerCase().includes(cityFilter.toLowerCase())) return false
+    if (cityFilter !== 'All Locations' && !j.loc.toLowerCase().includes(cityFilter.split(',')[0].toLowerCase())) return false
     if (dateFilter === 'Last 24 Hours' && j.postedDaysAgo > 1)  return false
     if (dateFilter === 'Last Week'     && j.postedDaysAgo > 7)  return false
     if (dateFilter === 'Last Month'    && j.postedDaysAgo > 30) return false
@@ -189,19 +266,54 @@ export default function JobMatch() {
   const avgMatch     = Math.round(allJobs.reduce((s, j) => s + j.match, 0) / allJobs.length)
 
   const openPortal = (key: string, job: Job) => {
-    window.open(getPortalUrl(key, job, isIndia), '_blank')
+    window.open(getPortalUrl(key, job, country), '_blank')
   }
+
+  const countryMeta = COUNTRY_META[country]
 
   return (
     <>
       {/* Header */}
       <div className="jm-header">
-        <h1>Architected for <em>Success.</em></h1>
-        <p>{isIndia ? `AI-matched roles across India's top tech companies, tailored for ${user?.jobTitle ?? 'your profile'}.` : `AI engine matched your profile against 42,000+ active listings worldwide.`}</p>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 6 }}>
+          <div>
+            <h1 style={{ marginBottom: 6 }}>Architected for <em>Success.</em></h1>
+            <p style={{ margin: 0 }}>
+              {country === 'IN'
+                ? `AI-matched roles across India's top tech companies, tailored for ${user?.jobTitle ?? 'your profile'}.`
+                : country === 'US'
+                  ? `Showing top US tech roles matched to your profile. Salaries in USD.`
+                  : country === 'CA'
+                    ? `Showing Canada's top companies matched to your profile. Salaries in CAD.`
+                    : `AI engine matched your profile against global listings across top companies.`}
+            </p>
+          </div>
+          {/* Country selector */}
+          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+            {Object.entries(COUNTRY_META).map(([code, meta]) => (
+              <button
+                key={code}
+                onClick={() => switchCountry(code)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px',
+                  borderRadius: 8, border: `1.5px solid ${country === code ? 'var(--accent)' : 'var(--border)'}`,
+                  background: country === code ? 'var(--blue-50)' : 'var(--bg-soft)',
+                  color: country === code ? 'var(--accent)' : 'var(--text-mute)',
+                  fontWeight: country === code ? 700 : 500, fontSize: 12.5,
+                  cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+                }}
+              >
+                <span style={{ fontSize: 16 }}>{meta.flag}</span>
+                <span style={{ display: 'none' }}>{meta.label}</span>
+                <span style={{ display: 'block', fontSize: 11, fontWeight: 600 }}>{code}</span>
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="jm-header-stats">
           <div className="jm-stat-pill"><div className="jm-num">{highMatches}</div><div className="jm-lbl">HIGH MATCHES</div></div>
           <div className="jm-stat-pill"><div className="jm-num">{avgMatch}%</div><div className="jm-lbl">PROFILE FIT</div></div>
-          <div className="jm-stat-pill"><div className="jm-num">{allJobs.length}</div><div className="jm-lbl">TOTAL ROLES</div></div>
+          <div className="jm-stat-pill"><div className="jm-num">{allJobs.length}</div><div className="jm-lbl">{countryMeta.label.toUpperCase()} JOBS</div></div>
           <div className="jm-stat-pill" style={{ cursor: 'pointer' }} onClick={() => setActiveFilter('Remote Only')}><div className="jm-num" style={{ color: '#10B981' }}>{remoteCount}</div><div className="jm-lbl">REMOTE JOBS</div></div>
         </div>
       </div>
@@ -212,12 +324,10 @@ export default function JobMatch() {
           {FILTERS.map(f => (
             <button key={f} className={`jm-filter-btn${activeFilter === f ? ' active' : ''}`} onClick={() => setActiveFilter(f)}>{f}</button>
           ))}
-          {isIndia && (
-            <select value={cityFilter} onChange={e => setCityFilter(e.target.value)} className="jm-filter-btn"
-              style={{ borderColor: cityFilter !== 'All Locations' ? 'var(--border-strong)' : 'transparent', paddingRight: 8, cursor: 'pointer', fontFamily: 'inherit' }}>
-              {INDIA_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          )}
+          <select value={cityFilter} onChange={e => setCityFilter(e.target.value)} className="jm-filter-btn"
+            style={{ borderColor: cityFilter !== 'All Locations' ? 'var(--border-strong)' : 'transparent', paddingRight: 8, cursor: 'pointer', fontFamily: 'inherit' }}>
+            {cities.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
           <select value={dateFilter} onChange={e => setDateFilter(e.target.value)} className="jm-filter-btn"
             style={{ borderColor: dateFilter !== 'Any Time' ? 'var(--border-strong)' : 'transparent', paddingRight: 8, cursor: 'pointer', fontFamily: 'inherit' }}>
             <option>Any Time</option>
@@ -242,11 +352,9 @@ export default function JobMatch() {
       </div>
 
       {/* Notices */}
-      {isIndia && (
-        <div style={{ background: 'var(--blue-50)', border: '1px solid var(--blue-200)', borderRadius: 8, padding: '9px 14px', marginBottom: 10, fontSize: 13, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 8 }}>
-          📍 Showing jobs in <b>India</b> based on your location. Salaries shown in LPA (Lakhs Per Annum).
-        </div>
-      )}
+      <div style={{ background: 'var(--blue-50)', border: '1px solid var(--blue-200)', borderRadius: 8, padding: '9px 14px', marginBottom: 10, fontSize: 13, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 8 }}>
+        {countryMeta.flag} Showing jobs in <b>{countryMeta.label}</b>. Salaries in <b>{countryMeta.currency}</b>. Switch country above to explore other markets.
+      </div>
       <div style={{ background: 'var(--bg-soft)', border: '1px solid var(--border)', borderRadius: 8, padding: '9px 14px', marginBottom: 18, fontSize: 12, color: 'var(--text-mute)', display: 'flex', alignItems: 'center', gap: 6 }}>
         ℹ️ AI-curated sample roles. <b>Quick Apply</b> opens real listings on the portals available for each job — only showing portals that carry that role.
       </div>
@@ -254,7 +362,7 @@ export default function JobMatch() {
       {/* Results count */}
       <div style={{ fontSize: 12.5, color: 'var(--text-mute)', marginBottom: 12 }}>
         Showing <b style={{ color: 'var(--text)' }}>{filtered.length}</b> of {allJobs.length} roles
-        {(roleSearch || companySearch || dateFilter !== 'Any Time') && <button onClick={() => { setRoleSearch(''); setCompanySearch(''); setDateFilter('Any Time') }} style={{ marginLeft: 10, fontSize: 11.5, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>Clear filters ×</button>}
+        {(roleSearch || companySearch || dateFilter !== 'Any Time' || cityFilter !== 'All Locations') && <button onClick={() => { setRoleSearch(''); setCompanySearch(''); setDateFilter('Any Time'); setCityFilter('All Locations') }} style={{ marginLeft: 10, fontSize: 11.5, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>Clear filters ×</button>}
       </div>
 
       {/* Job grid */}
