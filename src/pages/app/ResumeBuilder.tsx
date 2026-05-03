@@ -1,4 +1,44 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import * as pdfjs from 'pdfjs-dist'
+import mammoth from 'mammoth'
+
+// Use CDN worker so Vite doesn't need to bundle it
+pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`
+
+async function extractTextFromFile(file: File): Promise<string> {
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+
+  if (ext === 'pdf') {
+    const buf = await file.arrayBuffer()
+    const doc = await pdfjs.getDocument({ data: new Uint8Array(buf) }).promise
+    let text = ''
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i)
+      const content = await page.getTextContent()
+      // Preserve line breaks by tracking Y position
+      let lastY: number | null = null
+      for (const item of content.items as any[]) {
+        if (lastY !== null && Math.abs(item.transform[5] - lastY) > 3) text += '\n'
+        text += item.str
+        lastY = item.transform[5]
+      }
+      text += '\n'
+    }
+    return text
+  }
+
+  if (ext === 'docx' || ext === 'doc') {
+    const buf = await file.arrayBuffer()
+    const result = await mammoth.extractRawText({ arrayBuffer: buf })
+    return result.value
+  }
+
+  if (ext === 'txt') {
+    return file.text()
+  }
+
+  throw new Error(`Unsupported file type: .${ext}. Please upload a PDF, DOCX, or TXT file.`)
+}
 import { useAuth } from '../../context/AuthContext'
 import { addResume } from '../../lib/userStore'
 import {
@@ -336,10 +376,12 @@ export default function ResumeBuilder() {
   // UI state
   const [saved, setSaved]               = useState(false)
   const [activeTab, setActiveTab]       = useState<'import' | 'jd' | 'editor'>('import')
-  const [importText,    setImportText]    = useState('')
+  const [importFile,    setImportFile]    = useState<File | null>(null)
   const [parsedResume,  setParsedResume]  = useState<ParsedResume | null>(null)
   const [parsing,       setParsing]       = useState(false)
   const [importError,   setImportError]   = useState('')
+  const [dragOver,      setDragOver]      = useState(false)
+  const fileInputRef                      = useRef<HTMLInputElement>(null)
   const [showCustomize, setShowCustomize] = useState(false)
   const [showShare, setShowShare]       = useState(false)
   const [copied, setCopied]             = useState(false)
@@ -456,18 +498,34 @@ export default function ResumeBuilder() {
   const addBullet = (expId: number) =>
     setWorkExp(prev => prev.map(e => e.id === expId ? { ...e, bullets: [...e.bullets, ''] } : e))
 
-  const handleParseResume = () => {
+  const processFile = useCallback(async (file: File) => {
     setImportError('')
-    if (!importText.trim()) {
-      setImportError('Please paste your resume text above first.')
-      return
-    }
+    setImportFile(file)
     setParsing(true)
-    setTimeout(() => {
-      const result = parseResumeText(importText)
+    try {
+      const text = await extractTextFromFile(file)
+      if (!text.trim()) throw new Error('Could not read any text from this file. Try a different format.')
+      const result = parseResumeText(text)
       setParsedResume(result)
+    } catch (err: any) {
+      setImportError(err.message ?? 'Failed to read file. Please try a PDF, DOCX, or TXT.')
+      setImportFile(null)
+    } finally {
       setParsing(false)
-    }, 700)
+    }
+  }, [])
+
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) processFile(file)
+    e.target.value = ''
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) processFile(file)
   }
 
   const handleApplyParsed = () => {
@@ -481,7 +539,7 @@ export default function ResumeBuilder() {
     if (parsedResume.skills.length > 0) setSkills(parsedResume.skills)
     if (parsedResume.workExp.length > 0) { setWorkExp(parsedResume.workExp); setOpenExp(parsedResume.workExp[0].id) }
     setParsedResume(null)
-    setImportText('')
+    setImportFile(null)
     setActiveTab('editor')
   }
 
@@ -597,77 +655,95 @@ body { margin: 0; padding: 0; background: #fff; }
         {/* ─── IMPORT TAB ─── */}
         {activeTab === 'import' && (
           <div className="rb-tab-content">
+
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.docx,.doc,.txt"
+              style={{ display: 'none' }}
+              onChange={handleFileInput}
+            />
+
             {!parsedResume ? (
               <>
                 <div>
                   <h2 className="builder-title" style={{ fontSize: 17, marginBottom: 4 }}>Import Your Resume</h2>
-                  <p className="builder-sub">Paste your existing resume below. We'll extract your information and fill all fields automatically so you can edit from there.</p>
+                  <p className="builder-sub">Upload your existing resume and we'll extract all your information automatically — name, experience, skills, education, and more.</p>
                 </div>
 
-                {/* Drop zone / paste area */}
-                <div style={{ position: 'relative' }}>
-                  <textarea
-                    className="f-textarea"
-                    placeholder={`Paste your resume text here…
-
-Example:
-Akash Lamba
-Senior Product Manager
-akash@email.com · Bangalore, India · linkedin.com/in/akshlamba
-
-SUMMARY
-5+ years building user-centric products across fintech and e-commerce…
-
-SKILLS
-Product Strategy, Figma, SQL, A/B Testing, Agile…
-
-EXPERIENCE
-Senior Product Manager
-Razorpay · 2021 — Present
-• Led redesign of onboarding flow, reducing drop-off by 34%
-• Built cross-platform design system used by 20+ engineers
-
-EDUCATION
-B.Tech — Computer Science
-IIT Delhi · 2016 — 2020`}
-                    value={importText}
-                    onChange={e => { setImportText(e.target.value); setImportError('') }}
-                    rows={16}
-                    style={{ minHeight: 280, resize: 'vertical', fontFamily: 'inherit', fontSize: 12.5, lineHeight: 1.6 }}
-                  />
-                  {importText && (
-                    <button
-                      onClick={() => setImportText('')}
-                      style={{ position: 'absolute', top: 8, right: 8, background: 'var(--bg-soft)', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 8px', fontSize: 11, color: 'var(--text-mute)', cursor: 'pointer', fontFamily: 'inherit' }}
-                    >
-                      Clear
-                    </button>
+                {/* Drop zone */}
+                <div
+                  onClick={() => !parsing && fileInputRef.current?.click()}
+                  onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={handleDrop}
+                  style={{
+                    border: `2px dashed ${dragOver ? 'var(--accent)' : 'var(--border)'}`,
+                    borderRadius: 12,
+                    padding: '36px 20px',
+                    textAlign: 'center',
+                    cursor: parsing ? 'not-allowed' : 'pointer',
+                    background: dragOver ? 'var(--blue-50)' : 'var(--bg-soft)',
+                    transition: 'all 0.15s',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 10,
+                  }}
+                >
+                  {parsing ? (
+                    <>
+                      <span className="rb-spinner" style={{ width: 28, height: 28, borderWidth: 3 }} />
+                      <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>Reading your resume…</div>
+                      <div style={{ fontSize: 12.5, color: 'var(--text-mute)' }}>
+                        {importFile?.name ?? 'Processing file'}
+                      </div>
+                    </>
+                  ) : importFile && !parsedResume ? (
+                    <>
+                      <div style={{ fontSize: 36 }}>📄</div>
+                      <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--text)' }}>{importFile.name}</div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ width: 52, height: 52, borderRadius: 14, background: 'var(--blue-50)', display: 'grid', placeItems: 'center', color: 'var(--accent)' }}>
+                        <IcoUpload size={24} />
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 14.5, color: 'var(--text)', marginBottom: 4 }}>
+                          Drop your resume here
+                        </div>
+                        <div style={{ fontSize: 13, color: 'var(--text-mute)' }}>
+                          or <span style={{ color: 'var(--accent)', fontWeight: 600 }}>click to browse</span>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                        {['PDF', 'DOCX', 'DOC', 'TXT'].map(fmt => (
+                          <span key={fmt} style={{ fontSize: 10.5, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-mute)' }}>
+                            {fmt}
+                          </span>
+                        ))}
+                      </div>
+                    </>
                   )}
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <button
-                    className="rb-analyse-btn"
-                    onClick={handleParseResume}
-                    disabled={parsing}
-                  >
-                    {parsing
-                      ? <><span className="rb-spinner" /> Parsing resume…</>
-                      : <><IcoUpload size={14} /> Parse &amp; Import Resume</>}
-                  </button>
-                  {importError && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 8, background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#DC2626', fontSize: 12.5 }}>
-                      ⚠️ {importError}
-                    </div>
-                  )}
-                  <button
-                    onClick={() => setActiveTab('editor')}
-                    style={{ width: '100%', padding: '9px 0', borderRadius: 8, border: '1px solid var(--border)', background: 'none', color: 'var(--text-mute)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
-                  >
-                    Skip — start from scratch
-                  </button>
-                </div>
+                {importError && (
+                  <div style={{ padding: '10px 14px', borderRadius: 8, background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#DC2626', fontSize: 12.5, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                    <span style={{ flexShrink: 0 }}>⚠️</span>
+                    <span>{importError}</span>
+                  </div>
+                )}
 
+                <button
+                  onClick={() => setActiveTab('editor')}
+                  style={{ width: '100%', padding: '9px 0', borderRadius: 8, border: '1px solid var(--border)', background: 'none', color: 'var(--text-mute)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
+                >
+                  Skip — start from scratch
+                </button>
+
+                {/* What gets imported */}
                 <div style={{ background: 'var(--bg-soft)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px' }}>
                   <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', color: 'var(--text-mute)', marginBottom: 8 }}>WHAT GETS IMPORTED</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
@@ -687,7 +763,7 @@ IIT Delhi · 2016 — 2020`}
                     ))}
                   </div>
                   <div style={{ fontSize: 11.5, color: 'var(--text-mute)', marginTop: 10, lineHeight: 1.5 }}>
-                    Tip: Plain text works best. Copy from a Word/Google Doc or paste directly from your PDF viewer.
+                    Works best with text-based PDFs. Scanned image PDFs may not extract correctly.
                   </div>
                 </div>
               </>
