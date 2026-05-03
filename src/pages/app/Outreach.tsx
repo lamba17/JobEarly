@@ -1,526 +1,673 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../../context/AuthContext'
-import { IconSearch, IconPlus, IconCheck, IconSparkle } from '../../icons'
+import { useGmail, type HRThread, type GmailMessage, type SendParams } from '../../context/GmailContext'
 
-const IcoWand     = ({ size = 14 }: { size?: number }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8 19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2 19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2 11 5"/></svg>
-const IcoStar     = ({ size = 14 }: { size?: number }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-const IcoCal      = ({ size = 14 }: { size?: number }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>
-const IcoArchive  = ({ size = 14 }: { size?: number }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
-const IcoDots     = ({ size = 14 }: { size?: number }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
-const IcoAttach   = ({ size = 14 }: { size?: number }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.93 8.83l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-const IcoLink2    = ({ size = 14 }: { size?: number }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-const IcoChat     = ({ size = 14 }: { size?: number }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-const IcoChev     = ({ size = 11 }: { size?: number }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+// ── Status helpers ─────────────────────────────────────────────────────────────
+const STATUS_META = {
+  'no-reply': { label: 'Awaiting Reply', bg: '#F3F4F6', color: '#6B7280', dot: '#9CA3AF' },
+  'replied':  { label: 'Replied',        bg: '#EFF6FF', color: '#2563EB', dot: '#3B82F6' },
+  'interview':{ label: 'Interview',      bg: '#F0FDF4', color: '#16A34A', dot: '#22C55E' },
+  'offer':    { label: 'Offer',          bg: '#FFFBEB', color: '#D97706', dot: '#F59E0B' },
+  'rejected': { label: 'Rejected',       bg: '#FEF2F2', color: '#DC2626', dot: '#EF4444' },
+} as const
 
-// ── Data ──────────────────────────────────────────────────────────────────────
-
-interface Campaign {
-  id: string; name: string; status: 'live' | 'draft'
-  meta: string; sent: number; replied: number; queued: number; color: string
+function formatDate(dateStr: string): string {
+  try {
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return dateStr
+    const now = new Date()
+    const diff = now.getTime() - d.getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 60)    return `${mins}m ago`
+    if (mins < 1440)  return `${Math.floor(mins / 60)}h ago`
+    if (mins < 10080) return `${Math.floor(mins / 1440)}d ago`
+    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+  } catch { return '' }
 }
 
-const CAMPAIGNS: Campaign[] = [
-  { id: 'cs', name: 'Consulting & Strategy Roles', status: 'live',  meta: '18 contacts · 4 templates', sent: 14, replied: 6, queued: 4,  color: 'var(--accent)' },
-  { id: 'it', name: 'India Tech PMs',              status: 'live',  meta: '22 contacts · 5 templates', sent: 18, replied: 5, queued: 4,  color: '#7C3AED'      },
-  { id: 'fi', name: 'Fintech & BFSI',              status: 'live',  meta: '16 contacts · 3 templates', sent: 10, replied: 3, queued: 6,  color: '#059669'      },
-  { id: 'al', name: 'Alumni Network',              status: 'draft', meta: '12 contacts · 2 templates', sent: 0,  replied: 0, queued: 12, color: '#94A3B8'      },
-  { id: 'sf', name: 'Startup Founders',            status: 'draft', meta: '8 contacts · 3 templates',  sent: 0,  replied: 0, queued: 8,  color: '#F59E0B'      },
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
+}
+
+// ── AI Email Generator ─────────────────────────────────────────────────────────
+const TECH_SKILLS = [
+  'React','Vue','Angular','Node.js','Python','TypeScript','JavaScript','Java','Go','Rust','C++',
+  'AWS','GCP','Azure','Docker','Kubernetes','Terraform','CI/CD','SQL','PostgreSQL','MongoDB',
+  'Redis','GraphQL','REST','Figma','Product Management','Data Science','Machine Learning',
+  'TensorFlow','PyTorch','NLP','LLM','A/B Testing','Analytics','Agile','Scrum','Leadership',
+  'PHP','Ruby','Swift','Kotlin','Flutter','React Native','Spark','Airflow','dbt','Tableau',
 ]
 
-type ConvStatus = 'replied' | 'pending' | 'cold' | 'queued' | 'followup'
-
-interface Convo {
-  id: number; name: string; co: string; role: string
-  avClass: string; initials: string; preview: string; time: string; status: ConvStatus
-  thread: { dir: 'out' | 'in'; from: string; time: string; subject: string; body: string[]; meta?: string[] }[]
-  draftReply: string
-}
-
-// Real Indian recruiter / HM data for Akash Lamba's job search
-const buildThread = (
-  userName: string,
-  userEmail: string,
-  recruiter: string,
-  recruiterEmail: string,
-  subject: string,
-  outBody: string[],
-  inBody?: string[],
-  inTime?: string,
-): Convo['thread'] => {
-  const thread: Convo['thread'] = [{
-    dir: 'out', from: `${userName} · ${userEmail}`,
-    time: 'Mon · 10:30 AM', subject, body: outBody,
-    meta: ['✓ Delivered', '✓ Opened 2×'],
-  }]
-  if (inBody) thread.push({ dir: 'in', from: `${recruiter} · ${recruiterEmail}`, time: inTime ?? 'Tue · 11:15 AM', subject: `Re: ${subject}`, body: inBody })
-  return thread
-}
-
-const CONVERSATIONS: Convo[] = [
-  {
-    id: 1, name: 'Sneha Gupta', co: 'Deloitte India · Senior Recruiter', role: 'Senior Recruiter',
-    avClass: 'av-violet', initials: 'SG',
-    preview: 'Hi Akash — your consulting background is a strong fit. Happy to schedule a call this week.',
-    time: '2h', status: 'replied',
-    thread: buildThread(
-      'Akash Lamba', 'lamba.akash1994@gmail.com',
-      'Sneha Gupta', 'sneha.gupta@deloitte.com',
-      'Interest in Strategy & Consulting Roles at Deloitte India',
-      [
-        'Hi Sneha,',
-        "I've been following Deloitte India's expansion in digital consulting and BFSI and wanted to reach out directly. I have hands-on experience in strategy consulting and digital transformation — I've led cross-functional projects in the BFSI and enterprise space and have a track record of delivering impact for Fortune 500 clients.",
-        "I noticed there are openings for Consultant – Strategy roles in Mumbai. I'd love to learn more and understand if my background could be a good fit for your team.",
-        "Would you have 15 minutes for a quick call this week?",
-        'Best,\nAkash Lamba\nlamba.akash1994@gmail.com',
-      ],
-      [
-        'Hi Akash,',
-        "Thank you for reaching out! Your consulting background does sound like a strong fit for what we're hiring for in our Strategy & Operations practice.",
-        "I'd love to schedule a brief call — are you available Thursday or Friday between 11 AM and 1 PM IST? I'll share the JD in advance so you can come prepared.",
-        '— Sneha',
-      ],
-      'Tue · 3:20 PM',
-    ),
-    draftReply: "Hi Sneha — Thursday at 11:30 AM IST works perfectly for me. Looking forward to the conversation and I'll review the JD beforehand. Sending a calendar invite now.\n\nBest,\nAkash",
-  },
-  {
-    id: 2, name: 'Rahul Sharma', co: 'Razorpay · Talent Acquisition', role: 'Talent Acquisition',
-    avClass: 'av-blue', initials: 'RS',
-    preview: 'You: Following up on my note about the Backend PM opening at Razorpay — happy to share more context on my work.',
-    time: '5h', status: 'pending',
-    thread: buildThread(
-      'Akash Lamba', 'lamba.akash1994@gmail.com',
-      'Rahul Sharma', 'rahul.sharma@razorpay.com',
-      'Exploring PM Opportunities at Razorpay — Payments & Growth',
-      [
-        'Hi Rahul,',
-        "Razorpay's trajectory in the payments infrastructure space has been remarkable — especially the push into B2B banking products. I came across the Product Manager opening and wanted to reach out directly.",
-        "I bring 4+ years of experience in product and consulting, with a focus on fintech and data-driven decision making. I've worked on projects that mirror the complexity Razorpay operates at — high-volume transaction flows, cross-functional alignment, and rapid iteration cycles.",
-        "Would love to connect for a quick call if this looks like a potential fit.",
-        'Regards,\nAkash Lamba',
-      ],
-    ),
-    draftReply: "Hi Rahul — just wanted to follow up on my note from earlier this week. I know inboxes can get busy, so no pressure — but I'm genuinely excited about what Razorpay is building and would love a quick chat if timing works.\n\nBest,\nAkash",
-  },
-  {
-    id: 3, name: 'Priya Agarwal', co: 'Swiggy · HR Manager', role: 'HR Manager',
-    avClass: 'av-pink', initials: 'PA',
-    preview: 'Thanks for reaching out, Akash! We do have a Senior PM role that could be a fit. Let me loop in the hiring manager.',
-    time: '1d', status: 'replied',
-    thread: buildThread(
-      'Akash Lamba', 'lamba.akash1994@gmail.com',
-      'Priya Agarwal', 'priya.agarwal@swiggy.in',
-      'Senior PM Interest — Core Ordering Experience at Swiggy',
-      [
-        'Hi Priya,',
-        "I've been an avid Swiggy user and I follow the product closely — the recent work on hyperlocal discovery and the loyalty layer is excellent. I wanted to reach out about PM opportunities on the core ordering team.",
-        "With a background in product strategy and consulting, I've helped shape growth features for consumer internet products and have deep experience in 0-to-1 product launches. I believe my profile aligns well with what Swiggy looks for in senior hires.",
-        "Would appreciate 15 minutes to connect if there's a relevant opening.",
-        'Thanks,\nAkash Lamba',
-      ],
-      [
-        'Hi Akash,',
-        "Thanks for reaching out! We actually do have a Senior Product Manager opening on the core ordering experience team right now.",
-        "Let me forward your profile to our hiring manager and we'll be in touch shortly. In the meantime, could you share your updated resume? That'll help speed things along.",
-        '— Priya',
-      ],
-      'Wed · 9:45 AM',
-    ),
-    draftReply: "Hi Priya — thanks so much! I'm attaching my resume here. Really excited about this opportunity — please don't hesitate to reach out if you need anything else from my end.\n\nBest,\nAkash",
-  },
-  {
-    id: 4, name: 'Vikram Singh', co: 'Infosys · Talent Acquisition Lead', role: 'Talent Acquisition Lead',
-    avClass: 'av-amber', initials: 'VS',
-    preview: 'You: Hi Vikram — reaching out about the Senior Consultant – Digital Transformation role at Infosys Pune.',
-    time: '2d', status: 'queued',
-    thread: buildThread(
-      'Akash Lamba', 'lamba.akash1994@gmail.com',
-      'Vikram Singh', 'vikram.singh@infosys.com',
-      'Senior Consultant – Digital Transformation | Pune',
-      [
-        'Hi Vikram,',
-        "I came across the Senior Consultant – Digital Transformation opening at Infosys Pune and wanted to reach out. I have 4+ years of experience in consulting, primarily around digital transformation for BFSI and enterprise clients.",
-        "My work has involved leading cross-functional teams, managing stakeholder relationships, and delivering tangible outcomes across Agile programs. I hold relevant certifications and have an MBA background that complements the analytical rigor this role requires.",
-        "Would love to learn more about the team and the kind of projects this role involves.",
-        'Regards,\nAkash Lamba\nlamba.akash1994@gmail.com',
-      ],
-    ),
-    draftReply: "Hi Vikram — hope this finds you well. Wanted to follow up on my earlier note about the Senior Consultant role. I'm very keen on this opportunity and happy to make time for a call at your convenience.\n\nBest,\nAkash",
-  },
-  {
-    id: 5, name: 'Ananya Kapoor', co: 'CRED · People Team', role: 'Recruiter',
-    avClass: 'av-green', initials: 'AK',
-    preview: 'You: Following up — I know the hiring cycle can take time. Happy to share more about my fintech experience.',
-    time: '3d', status: 'followup',
-    thread: buildThread(
-      'Akash Lamba', 'lamba.akash1994@gmail.com',
-      'Ananya Kapoor', 'ananya.kapoor@cred.club',
-      'Engineering Manager / Product Role Interest — CRED',
-      [
-        'Hi Ananya,',
-        "CRED's product philosophy is something I've followed closely — the focus on premium UX and behavioural design is unlike anything in Indian fintech. I wanted to reach out about potential PM or strategy roles that might be opening up.",
-        "My background spans consulting, product strategy, and cross-functional leadership — areas I believe align with CRED's current phase of growth into financial products.",
-        "Happy to share more context if helpful.",
-        'Best,\nAkash Lamba',
-      ],
-    ),
-    draftReply: "Hi Ananya — following up on my note from last week. No pressure if timing isn't right, but I remain genuinely interested in CRED and would love to connect when you have bandwidth.\n\nThanks,\nAkash",
-  },
-  {
-    id: 6, name: 'Rohan Mehta', co: 'Flipkart · HR Business Partner', role: 'HRBP',
-    avClass: 'av-rose', initials: 'RM',
-    preview: "Thank you for your interest, Akash. We'll keep your profile on file for future openings.",
-    time: '5d', status: 'cold',
-    thread: buildThread(
-      'Akash Lamba', 'lamba.akash1994@gmail.com',
-      'Rohan Mehta', 'rohan.mehta@flipkart.com',
-      'UX / Product Strategy Roles at Flipkart',
-      [
-        'Hi Rohan,',
-        "Flipkart's focus on next-gen mobile commerce is compelling and I've been following the design and product work closely. I'd love to explore if there are openings in the product or strategy space that fit my background.",
-        'Best,\nAkash Lamba',
-      ],
-      [
-        'Hi Akash,',
-        "Thank you for reaching out. We've reviewed your background and while your profile is strong, we don't have an immediate opening that matches at this time. We'll keep your details on file.",
-        'Best of luck with your search.',
-        '— Rohan Mehta | Flipkart HR',
-      ],
-      'Thu · 5:10 PM',
-    ),
-    draftReply: "Hi Rohan — thank you for getting back to me. I completely understand. I'd love to stay on your radar as Flipkart grows — feel free to reach out anytime an opening comes up that fits my background.\n\nBest,\nAkash",
-  },
-  {
-    id: 7, name: 'Kavya Nair', co: 'PhonePe · Talent Acquisition', role: 'Talent Acquisition',
-    avClass: 'av-violet', initials: 'KN',
-    preview: 'You: Hi Kavya — reaching out about the Growth PM opening at PhonePe for the insurance vertical.',
-    time: '6d', status: 'pending',
-    thread: buildThread(
-      'Akash Lamba', 'lamba.akash1994@gmail.com',
-      'Kavya Nair', 'kavya.nair@phonepe.com',
-      'Growth PM — Insurance & Mutual Funds Vertical at PhonePe',
-      [
-        'Hi Kavya,',
-        "PhonePe's expansion into insurance and wealth products is exactly the kind of high-impact vertical I want to work on. I came across the Growth PM opening and believe my background is a strong match.",
-        "I have experience in data-driven growth strategy, stakeholder management, and product launches in fintech-adjacent environments. I understand the acquisition-activation-retention funnel well and have used SQL and analytics tools to drive decisions.",
-        "Would love to connect for a short call.",
-        'Best,\nAkash Lamba\nlamba.akash1994@gmail.com',
-      ],
-    ),
-    draftReply: "Hi Kavya — hope you're having a good week. Just following up on my earlier note. I remain very interested in the Growth PM role and happy to jump on a call at any time that suits you.\n\nBest,\nAkash",
-  },
-  {
-    id: 8, name: 'Arjun Patel', co: 'Groww · Talent Team', role: 'Recruiter',
-    avClass: 'av-amber', initials: 'AP',
-    preview: 'Hi Akash! Your profile looks interesting. Can you share your resume and a brief intro about your fintech experience?',
-    time: '1w', status: 'replied',
-    thread: buildThread(
-      'Akash Lamba', 'lamba.akash1994@gmail.com',
-      'Arjun Patel', 'arjun.patel@groww.in',
-      'Full Stack / Product Roles at Groww',
-      [
-        'Hi Arjun,',
-        "Groww's mission to make investing accessible to every Indian resonates deeply with me. I'm reaching out about product and strategy roles that might suit my profile.",
-        "I bring a mix of consulting and product thinking — with strong analytical skills and experience working with fintech and consumer internet teams.",
-        'Would love to connect.',
-        'Thanks,\nAkash Lamba',
-      ],
-      [
-        'Hi Akash!',
-        "Your profile looks interesting — we do have a couple of product-adjacent openings right now.",
-        "Could you share your updated resume and a quick note about your fintech experience? That'll help me route your profile to the right hiring manager.",
-        '— Arjun | Groww Talent',
-      ],
-      'Mon · 2:05 PM',
-    ),
-    draftReply: "Hi Arjun — thanks for getting back! Attaching my resume here. Quick context on my fintech experience: I've worked on consulting and product strategy projects for BFSI clients, with a focus on digital adoption and data-driven growth. Happy to elaborate on a call.\n\nBest,\nAkash",
-  },
+const DOMAIN_KEYWORDS = [
+  'fintech','e-commerce','ecommerce','saas','b2b','b2c','edtech','healthtech','logistics',
+  'marketplace','platform','infrastructure','developer tools','enterprise','consumer',
 ]
 
-const STATUS_LABEL: Record<ConvStatus, string> = {
-  replied: 'REPLIED', pending: 'PENDING', cold: 'COLD', queued: 'QUEUED', followup: 'FOLLOW-UP',
+interface ComposeForm {
+  hrName: string
+  hrEmail: string
+  company: string
+  role: string
+  jd: string
+  tone: 'formal' | 'friendly' | 'bold'
 }
 
-type FilterKey = 'all' | ConvStatus
-const FILTER_PILLS: [FilterKey, string, number][] = [
-  ['all',      'All',           CONVERSATIONS.length],
-  ['replied',  'Replied',       CONVERSATIONS.filter(c => c.status === 'replied').length],
-  ['pending',  'Awaiting',      CONVERSATIONS.filter(c => c.status === 'pending').length],
-  ['queued',   'Queued',        CONVERSATIONS.filter(c => c.status === 'queued').length],
-  ['followup', 'Follow-up due', CONVERSATIONS.filter(c => c.status === 'followup').length],
-  ['cold',     'Gone cold',     CONVERSATIONS.filter(c => c.status === 'cold').length],
-]
-
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-function CampCard({ c, active, onClick }: { c: Campaign; active: boolean; onClick: () => void }) {
-  const total = c.sent + c.queued || 1
-  return (
-    <div className={`ot-camp${active ? ' active' : ''}`} onClick={onClick}>
-      <div className="ot-camp-head">
-        <div className="ot-camp-name">{c.name}</div>
-        <span className={`ot-camp-status ${c.status}`}>{c.status === 'live' ? 'LIVE' : 'DRAFT'}</span>
-      </div>
-      <div className="ot-camp-meta">{c.meta}</div>
-      <div className="ot-camp-bar">
-        <div style={{ width: `${(c.replied / total) * 100}%`, background: c.color }} />
-        <div style={{ width: `${((c.sent - c.replied) / total) * 100}%`, background: c.color, opacity: 0.28 }} />
-      </div>
-      <div className="ot-camp-stats">
-        <span><b>{c.replied}</b> replied</span>
-        <span><b>{c.sent}</b> sent</span>
-        <span><b>{c.queued}</b> queued</span>
-      </div>
-    </div>
-  )
+interface GeneratedEmail {
+  subject: string
+  body: string
 }
 
-function ConvRow({ c, active, onClick }: { c: Convo; active: boolean; onClick: () => void }) {
-  return (
-    <div className={`ot-conv${active ? ' active' : ''}`} onClick={onClick}>
-      <div className={`ot-conv-av ${c.avClass}`}>{c.initials}</div>
-      <div className="ot-conv-mid">
-        <div className="ot-conv-name">{c.name}</div>
-        <div className="ot-conv-co">{c.co}</div>
-        <div className="ot-conv-prev">{c.preview}</div>
-      </div>
-      <div className="ot-conv-right">
-        <div className="ot-conv-time">{c.time}</div>
-        <span className={`ot-status-pill ${c.status}`}>
-          <span className="dot" />{STATUS_LABEL[c.status]}
-        </span>
-      </div>
-    </div>
-  )
+function generateEmail(form: ComposeForm, senderName: string, senderEmail: string, senderRole: string): GeneratedEmail {
+  const { hrName, company, role, jd, tone } = form
+  const jdLower = jd.toLowerCase()
+
+  const skills = TECH_SKILLS.filter(s => jdLower.includes(s.toLowerCase())).slice(0, 5)
+  const expMatch = jd.match(/(\d+)\+?\s*(?:to\s*\d+\s*)?years?/i)
+  const expYears = expMatch ? parseInt(expMatch[1]) : null
+  const domain = DOMAIN_KEYWORDS.find(d => jdLower.includes(d)) ?? ''
+
+  const greetingFormal = hrName ? `Dear ${hrName}` : 'Dear Hiring Manager'
+  const greetingFriendly = hrName ? `Hi ${hrName.split(' ')[0]}` : 'Hi there'
+  const skillsStr = skills.length > 0 ? skills.join(', ') : 'the required skills'
+  const expStr = expYears ? `${expYears + 1}+ years` : 'several years'
+  const domainStr = domain ? ` in the ${domain} space` : ''
+  const subject = `${role} – ${senderName} (${expYears ? expYears + '+ yrs' : 'Experienced'} | Open to Immediate Discussion)`
+
+  let body = ''
+
+  if (tone === 'formal') {
+    body = `${greetingFormal},
+
+I hope this message finds you well. I am writing to express my strong interest in the ${role} role at ${company}.
+
+With ${expStr} of professional experience${domainStr}, I have developed a solid foundation in ${skillsStr}. My background aligns closely with the requirements outlined in the job description, and I am confident in my ability to contribute meaningfully to ${company}'s objectives.
+
+Throughout my career, I have consistently delivered measurable results in fast-paced, high-growth environments. I am particularly drawn to this opportunity because of ${company}'s strong market position and the scope of impact this role offers.
+
+I have attached my resume for your reference. I would welcome the opportunity to discuss how my experience aligns with your team's needs at your earliest convenience.
+
+Thank you for your time and consideration.
+
+Yours sincerely,
+${senderName}
+${senderRole}
+${senderEmail}`
+
+  } else if (tone === 'bold') {
+    body = `${greetingFriendly},
+
+I'll cut straight to it — the ${role} role at ${company} is exactly where I want to be, and I believe I'm exactly who you're looking for.
+
+Here's why:
+• ${expStr} of hands-on experience with ${skillsStr}
+• Consistent track record of delivering impact in high-stakes, high-scale environments${domainStr}
+• I don't just execute — I think strategically about what moves the needle
+
+${company}'s work is exactly the environment where I've consistently performed at my best. I'm not sending a hundred applications — I chose this one specifically because I see the fit.
+
+I'd love a 20-minute call to walk you through specifics. Resume is attached — happy to share anything else you need.
+
+Let's talk.
+
+${senderName}
+${senderRole} | ${senderEmail}`
+
+  } else {
+    body = `${greetingFriendly},
+
+I came across the ${role} role at ${company} and I'm genuinely excited — it's a strong match with both where I've been and where I want to go next.
+
+A bit about me: I have ${expStr} of experience${domainStr}, with strength in ${skillsStr}. I've spent that time building things that matter to users and driving outcomes that show up in the numbers.
+
+What draws me to ${company} specifically is the kind of scale and ownership this role involves — that's where I thrive. I find the gaps, align the stakeholders, and ship.
+
+I've attached my resume, and I'd love to set up a quick call if you think there's a fit. Happy to work around your schedule.
+
+Looking forward to connecting!
+
+${senderName}
+${senderRole} | ${senderEmail}`
+  }
+
+  return { subject, body }
 }
 
-function Timeline({ campName }: { campName: string }) {
-  const steps = [
-    { label: 'Initial email',    state: 'done',   n: '1' },
-    { label: 'Reply received',   state: 'done',   n: '2' },
-    { label: 'Draft follow-up',  state: 'now',    n: '3' },
-    { label: 'Send Thu 10am',    state: 'future', n: '4' },
-    { label: 'Final nudge',      state: 'future', n: '5' },
-  ]
+// ── Thread item (left panel row) ──────────────────────────────────────────────
+function ThreadItem({ thread, isActive, onClick }: { thread: HRThread; isActive: boolean; onClick: () => void }) {
+  const s = STATUS_META[thread.status]
+  const preview = stripHtml(thread.snippet).slice(0, 80)
   return (
-    <div className="ot-timeline">
-      <div className="ot-timeline-head">
-        <div className="t">SEQUENCE — {campName.toUpperCase()}</div>
-        <a className="e" href="#">Edit sequence →</a>
-      </div>
-      <div className="ot-tl-track">
-        {steps.map((s, i) => (
-          <div key={i} className={`ot-tl-step ${s.state}`}>
-            <div className="ot-tl-dot">{s.state === 'done' ? <IconCheck size={10} /> : s.n}</div>
-            <div className="ot-tl-label">{s.label}</div>
+    <button
+      onClick={onClick}
+      style={{
+        width: '100%', textAlign: 'left', padding: '12px 14px',
+        background: isActive ? 'var(--blue-50)' : 'var(--bg)',
+        border: 'none', borderBottom: '1px solid var(--border)',
+        cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'flex-start',
+        transition: 'background 0.1s',
+      }}
+    >
+      <div style={{ width: 6, height: 6, borderRadius: '50%', background: thread.isRead ? 'transparent' : 'var(--accent)', marginTop: 6, flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+          <div style={{ fontWeight: thread.isRead ? 500 : 700, fontSize: 13, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 160 }}>
+            {thread.from || thread.company || thread.fromEmail}
           </div>
-        ))}
+          <div style={{ fontSize: 11, color: 'var(--text-mute)', flexShrink: 0, marginLeft: 8 }}>{formatDate(thread.date)}</div>
+        </div>
+        <div style={{ fontSize: 12.5, color: 'var(--text-soft)', fontWeight: thread.isRead ? 400 : 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: 4 }}>
+          {thread.subject}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 10.5, fontWeight: 600, padding: '2px 7px', borderRadius: 10, background: s.bg, color: s.color }}>
+            <span style={{ display: 'inline-block', width: 5, height: 5, borderRadius: '50%', background: s.dot, marginRight: 4, verticalAlign: 'middle' }} />
+            {s.label}
+          </span>
+          {thread.messageCount > 1 && (
+            <span style={{ fontSize: 10.5, color: 'var(--text-mute)' }}>{thread.messageCount} msgs</span>
+          )}
+        </div>
+        {preview && (
+          <div style={{ fontSize: 11.5, color: 'var(--text-mute)', marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {preview}
+          </div>
+        )}
+      </div>
+    </button>
+  )
+}
+
+// ── Message bubble (thread detail) ─────────────────────────────────────────────
+function MessageBubble({ msg }: { msg: GmailMessage }) {
+  const bodyText = stripHtml(msg.body) || msg.snippet
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: msg.isFromMe ? 'flex-end' : 'flex-start', marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+        <div style={{ width: 24, height: 24, borderRadius: '50%', background: msg.isFromMe ? 'var(--accent)' : '#6B7280', color: '#fff', fontSize: 10, fontWeight: 700, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+          {(msg.from?.[0] ?? '?').toUpperCase()}
+        </div>
+        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{msg.from || (msg.isFromMe ? 'You' : 'HR')}</span>
+        <span style={{ fontSize: 11, color: 'var(--text-mute)' }}>{formatDate(msg.date)}</span>
+      </div>
+      <div style={{
+        maxWidth: '85%', padding: '10px 14px',
+        borderRadius: msg.isFromMe ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+        background: msg.isFromMe ? 'var(--accent)' : 'var(--bg-soft)',
+        color: msg.isFromMe ? '#fff' : 'var(--text)',
+        fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap',
+        border: msg.isFromMe ? 'none' : '1px solid var(--border)',
+      }}>
+        {bodyText || '(no content)'}
       </div>
     </div>
   )
 }
 
-function DetailPanel({ convo, campName }: { convo: Convo; campName: string }) {
-  const [tone, setTone] = useState('Warm')
-  const [showTones, setShowTones] = useState(false)
-  const [, setDraft] = useState(convo.draftReply)
+// ── Thread detail view ────────────────────────────────────────────────────────
+function ThreadDetailView({ thread, onClose, onReply }: {
+  thread: HRThread
+  onClose: () => void
+  onReply: (t: HRThread) => void
+}) {
+  const { markRead } = useGmail()
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const s = STATUS_META[thread.status]
 
-  // reset draft when conversation changes
-  const currentDraft = convo.draftReply
+  useEffect(() => {
+    if (!thread.isRead) markRead(thread.id)
+    setTimeout(() => bodyRef.current?.scrollTo({ top: 99999, behavior: 'smooth' }), 100)
+  }, [thread.id])
 
   return (
-    <div className="ot-col">
-      <div className="ot-detail-head">
-        <div className={`ot-av-lg ${convo.avClass}`}>{convo.initials}</div>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexShrink: 0 }}>
         <div>
-          <div className="ot-nm">{convo.name} · {convo.co.split(' · ')[0]}</div>
-          <div className="ot-role">{convo.role} · India · 2nd connection</div>
+          <div style={{ fontWeight: 700, fontSize: 14.5, color: 'var(--text)', lineHeight: 1.3, marginBottom: 4 }}>{thread.subject}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 12.5, color: 'var(--text-mute)' }}>{thread.from} · {thread.company}</span>
+            <span style={{ fontSize: 10.5, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: s.bg, color: s.color }}>{s.label}</span>
+          </div>
         </div>
-        <div className="ot-actions">
-          <button className="ot-icon-btn" title="Star"><IcoStar size={13} /></button>
-          <button className="ot-icon-btn" title="Calendar"><IcoCal size={13} /></button>
-          <button className="ot-icon-btn" title="Archive"><IcoArchive size={13} /></button>
-          <button className="ot-icon-btn" title="More"><IcoDots size={13} /></button>
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+          <button onClick={() => onReply(thread)} style={{ padding: '7px 14px', borderRadius: 8, background: 'var(--accent)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>
+            ✨ Reply with AI
+          </button>
+          <button onClick={onClose} style={{ padding: '7px 10px', borderRadius: 8, background: 'none', color: 'var(--text-mute)', border: '1px solid var(--border)', cursor: 'pointer', fontSize: 13 }}>✕</button>
         </div>
       </div>
+      <div ref={bodyRef} style={{ flex: 1, overflowY: 'auto', padding: '16px 18px' }}>
+        {thread.messages.map(msg => <MessageBubble key={msg.id} msg={msg} />)}
+      </div>
+    </div>
+  )
+}
 
-      <Timeline campName={campName} />
+// ── AI Composer ───────────────────────────────────────────────────────────────
+function AIComposer({ prefill, replyThread, onSent, onClose }: {
+  prefill?: Partial<ComposeForm>
+  replyThread?: HRThread
+  onSent: () => void
+  onClose: () => void
+}) {
+  const { user } = useAuth()
+  const { sendEmail, isConnected } = useGmail()
 
-      <div className="ot-thread">
-        {convo.thread.map((msg, i) => (
-          <div key={i} className={`ot-msg ${msg.dir === 'out' ? 'outbound' : 'inbound'}`}>
-            <div className="ot-msg-head">
-              <span className="from">{msg.from}</span>
-              <span className="time">{msg.time}</span>
+  const [form, setForm] = useState<ComposeForm>({
+    hrName:  prefill?.hrName  ?? replyThread?.from      ?? '',
+    hrEmail: prefill?.hrEmail ?? replyThread?.fromEmail  ?? '',
+    company: prefill?.company ?? replyThread?.company    ?? '',
+    role:    prefill?.role    ?? '',
+    jd:      prefill?.jd      ?? '',
+    tone:    'friendly',
+  })
+  const [generated,    setGenerated]    = useState<GeneratedEmail | null>(null)
+  const [editedBody,   setEditedBody]   = useState('')
+  const [generating,   setGenerating]   = useState(false)
+  const [sending,      setSending]      = useState(false)
+  const [sent,         setSent]         = useState(false)
+  const [error,        setError]        = useState('')
+  const [refinePrompt, setRefinePrompt] = useState('')
+  const [showRefine,   setShowRefine]   = useState(false)
+
+  const set = (k: keyof ComposeForm, v: string) => setForm(f => ({ ...f, [k]: v }))
+
+  const handleGenerate = () => {
+    if (!form.company || !form.role) { setError('Please fill in Company and Role.'); return }
+    setError('')
+    setGenerating(true)
+    setTimeout(() => {
+      const email = generateEmail(form, user?.name ?? 'Candidate', user?.email ?? '', user?.jobTitle ?? '')
+      setGenerated(email)
+      setEditedBody(email.body)
+      setGenerating(false)
+    }, 750)
+  }
+
+  const handleRefine = () => {
+    if (!refinePrompt.trim()) return
+    setGenerating(true)
+    setTimeout(() => {
+      const p = refinePrompt.toLowerCase()
+      let newTone = form.tone
+      if (p.includes('formal'))                        newTone = 'formal'
+      if (p.includes('bold') || p.includes('confident') || p.includes('aggressive')) newTone = 'bold'
+      if (p.includes('friendly') || p.includes('casual')) newTone = 'friendly'
+      const regenerated = generateEmail({ ...form, tone: newTone }, user?.name ?? '', user?.email ?? '', user?.jobTitle ?? '')
+      let body = regenerated.body
+      if ((p.includes('shorter') || p.includes('concise')) && newTone === form.tone) {
+        const paragraphs = editedBody.split('\n\n')
+        body = paragraphs.filter((_, i) => i !== 2).join('\n\n')
+      }
+      setEditedBody(body)
+      if (newTone !== form.tone) set('tone', newTone)
+      setRefinePrompt('')
+      setShowRefine(false)
+      setGenerating(false)
+    }, 600)
+  }
+
+  const handleSend = async () => {
+    if (!isConnected) { setError('Connect Gmail above to send emails directly.'); return }
+    if (!form.hrEmail) { setError('Please enter the HR email address.'); return }
+    setSending(true); setError('')
+    try {
+      const p: SendParams = {
+        to:      form.hrEmail,
+        subject: generated?.subject ?? `${form.role} Application — ${user?.name}`,
+        body:    editedBody || generated?.body || '',
+        ...(replyThread ? { threadId: replyThread.id, inReplyTo: replyThread.messages[replyThread.messages.length - 1]?.id } : {}),
+      }
+      await sendEmail(p)
+      setSent(true)
+      setTimeout(onSent, 1500)
+    } catch (err: any) {
+      setError(err.message ?? 'Failed to send. Please try again.')
+    } finally { setSending(false) }
+  }
+
+  const inp: React.CSSProperties = { width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-soft)', color: 'var(--text)', fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }
+
+  if (sent) return (
+    <div style={{ height: '100%', display: 'grid', placeItems: 'center' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
+        <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)', marginBottom: 6 }}>Email Sent!</div>
+        <div style={{ fontSize: 13, color: 'var(--text-mute)' }}>Your email is on its way to {form.hrEmail}</div>
+      </div>
+    </div>
+  )
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+        <div style={{ fontWeight: 700, fontSize: 14.5, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 18 }}>✨</span>
+          {replyThread ? `Reply to ${replyThread.from || replyThread.company}` : 'AI Email Composer'}
+        </div>
+        <button onClick={onClose} style={{ padding: '5px 10px', borderRadius: 8, background: 'none', border: '1px solid var(--border)', color: 'var(--text-mute)', cursor: 'pointer', fontSize: 13 }}>✕</button>
+      </div>
+
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px' }}>
+        {/* Form fields */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+          {[
+            { label: 'HR NAME', key: 'hrName', placeholder: 'Ravi Mehta' },
+            { label: 'HR EMAIL *', key: 'hrEmail', placeholder: 'ravi@company.com' },
+            { label: 'COMPANY *', key: 'company', placeholder: 'Google India' },
+            { label: 'ROLE *', key: 'role', placeholder: 'Senior Product Manager' },
+          ].map(({ label, key, placeholder }) => (
+            <div key={key}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-mute)', marginBottom: 4, letterSpacing: '0.06em' }}>{label}</div>
+              <input style={inp} placeholder={placeholder} value={(form as any)[key]} onChange={e => set(key as keyof ComposeForm, e.target.value)} />
             </div>
-            <div className="ot-msg-subject">{msg.subject}</div>
-            <div className="ot-msg-body">
-              {msg.body.map((para, j) => <p key={j}>{para}</p>)}
+          ))}
+        </div>
+
+        {/* JD */}
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-mute)', marginBottom: 4, letterSpacing: '0.06em' }}>
+            JOB DESCRIPTION <span style={{ fontWeight: 400 }}>(paste for smarter personalization)</span>
+          </div>
+          <textarea
+            style={{ ...inp, resize: 'vertical', minHeight: 90, lineHeight: 1.5 }}
+            placeholder="Paste the job description here. AI will extract required skills, years of experience, and domain context to personalize your email..."
+            value={form.jd}
+            onChange={e => set('jd', e.target.value)}
+          />
+        </div>
+
+        {/* Tone selector */}
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-mute)', marginBottom: 6, letterSpacing: '0.06em' }}>EMAIL TONE</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {(['formal', 'friendly', 'bold'] as const).map(t => (
+              <button key={t} onClick={() => set('tone', t)} style={{ padding: '6px 14px', borderRadius: 20, border: `1.5px solid ${form.tone === t ? 'var(--accent)' : 'var(--border)'}`, background: form.tone === t ? 'var(--blue-50)' : 'var(--bg-soft)', color: form.tone === t ? 'var(--accent)' : 'var(--text-mute)', fontWeight: form.tone === t ? 700 : 500, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>
+                {t === 'formal' ? '🎩 Formal' : t === 'friendly' ? '👋 Friendly' : '⚡ Bold'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {error && <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5, color: '#DC2626', marginBottom: 12 }}>{error}</div>}
+
+        {/* Generate */}
+        <button onClick={handleGenerate} disabled={generating || !form.company || !form.role} style={{ width: '100%', padding: 10, borderRadius: 9, border: 'none', background: generating ? 'var(--border)' : 'var(--accent)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: generating ? 'not-allowed' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 16 }}>
+          {generating ? '⏳ Generating…' : '✨ Generate Email with AI'}
+        </button>
+
+        {/* Generated email preview */}
+        {generated && (
+          <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', marginBottom: 14 }}>
+            {/* Subject */}
+            <div style={{ background: 'var(--bg-soft)', padding: '10px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: 'var(--text-mute)', marginBottom: 2 }}>SUBJECT LINE</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{generated.subject}</div>
+              </div>
+              <button onClick={() => navigator.clipboard.writeText(generated.subject)} style={{ fontSize: 11.5, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>Copy</button>
             </div>
-            {msg.meta && (
-              <div className="ot-msg-meta">
-                {msg.meta.map((m, j) => (
-                  <span key={j} className={`item ${m.startsWith('✓') ? 'green' : ''}`}>
-                    {m.startsWith('✓') && <IconCheck size={10} />} {m.replace('✓ ', '')}
-                  </span>
-                ))}
+            {/* Body */}
+            <div style={{ padding: '12px 14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: 'var(--text-mute)' }}>EMAIL BODY <span style={{ fontWeight: 400 }}>(editable)</span></div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => navigator.clipboard.writeText(editedBody)} style={{ fontSize: 11.5, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>Copy</button>
+                  <button onClick={() => setShowRefine(v => !v)} style={{ fontSize: 11.5, color: 'var(--text-mute)', background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 8px', cursor: 'pointer', fontFamily: 'inherit' }}>✏️ Refine</button>
+                </div>
+              </div>
+              <textarea style={{ ...inp, minHeight: 220, resize: 'vertical', lineHeight: 1.65 }} value={editedBody} onChange={e => setEditedBody(e.target.value)} />
+            </div>
+
+            {/* Refine panel */}
+            {showRefine && (
+              <div style={{ borderTop: '1px solid var(--border)', padding: '12px 14px', background: 'var(--bg-soft)' }}>
+                <div style={{ fontSize: 12, color: 'var(--text-mute)', marginBottom: 6 }}>Tell AI how to improve this email:</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input style={{ ...inp, flex: 1 }} placeholder='"make it shorter", "more formal", "bold and confident"' value={refinePrompt} onChange={e => setRefinePrompt(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleRefine()} />
+                  <button onClick={handleRefine} disabled={generating || !refinePrompt.trim()} style={{ padding: '8px 14px', borderRadius: 8, background: 'var(--accent)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>Apply</button>
+                </div>
+                <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                  {['Make it shorter', 'More formal', 'Bold & confident', 'Add more energy', 'Friendlier tone'].map(s => (
+                    <button key={s} onClick={() => setRefinePrompt(s)} style={{ fontSize: 11, padding: '3px 9px', borderRadius: 12, border: '1px solid var(--border)', background: 'none', color: 'var(--text-mute)', cursor: 'pointer', fontFamily: 'inherit' }}>{s}</button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
-        ))}
+        )}
       </div>
 
-      <div className="ot-composer">
-        <div className="ot-composer-head">
-          <div className="ot-composer-left">
-            <span className="ot-ai-tag"><IconSparkle size={11} /> AI DRAFTING</span>
-            <span style={{ fontSize: 11.5, color: 'var(--text-mute)' }}>Replying to {convo.name.split(' ')[0]} · Variant 1 of 3</span>
-          </div>
-          <div className="ot-composer-controls">
-            <button className={`ot-var-btn${showTones ? ' active' : ''}`} onClick={() => setShowTones(v => !v)}>
-              Tone <span className="v">{tone}</span> <IcoChev size={10} />
+      {/* Send / Copy footer */}
+      {generated && (
+        <div style={{ padding: '12px 18px', borderTop: '1px solid var(--border)', display: 'flex', gap: 10, flexShrink: 0 }}>
+          {isConnected ? (
+            <button onClick={handleSend} disabled={sending} style={{ flex: 1, padding: 10, borderRadius: 9, background: sending ? 'var(--border)' : '#10B981', color: '#fff', border: 'none', fontWeight: 700, fontSize: 14, cursor: sending ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+              {sending ? 'Sending…' : '📧 Send via Gmail'}
             </button>
-            <button className="ot-var-btn">Length <span className="v">Concise</span> <IcoChev size={10} /></button>
-            <button className="ot-var-btn">Angle <span className="v">Mutual interest</span> <IcoChev size={10} /></button>
-          </div>
+          ) : (
+            <div style={{ flex: 1, fontSize: 12.5, color: 'var(--text-mute)', display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-soft)', border: '1px solid var(--border)', borderRadius: 9, padding: '10px 14px' }}>
+              🔗 Connect Gmail above to send directly
+            </div>
+          )}
+          <button onClick={() => navigator.clipboard.writeText(`Subject: ${generated.subject}\n\n${editedBody}`)} style={{ padding: '10px 16px', borderRadius: 9, background: 'none', border: '1px solid var(--border)', color: 'var(--text-mute)', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+            📋 Copy All
+          </button>
         </div>
+      )}
+    </div>
+  )
+}
 
-        {showTones && (
-          <div className="ot-var-popover">
-            {['Warm', 'Direct', 'Curious', 'Formal', 'Confident'].map(t => (
-              <button key={t} className="ot-var-chip"
-                onClick={() => { setTone(t); setShowTones(false) }}
-                style={t === tone ? { borderColor: 'var(--accent)', color: 'var(--accent)', background: 'var(--blue-50)' } : {}}
-              >{t}</button>
-            ))}
-          </div>
-        )}
-
-        <div className="ot-composer-draft">
-          {currentDraft.split('\n').map((line, i) => (
-            <span key={i}>{line}{i < currentDraft.split('\n').length - 1 && <br />}</span>
-          ))}
-          <span className="ot-cursor" />
+// ── Stats bar ─────────────────────────────────────────────────────────────────
+function StatsBar({ threads }: { threads: HRThread[] }) {
+  const counts = threads.reduce((a, t) => { a[t.status] = (a[t.status] ?? 0) + 1; return a }, {} as Record<string, number>)
+  const items = [
+    { label: 'Tracked',    value: threads.length,           color: 'var(--accent)' },
+    { label: 'Awaiting',   value: counts['no-reply'] ?? 0,  color: '#6B7280' },
+    { label: 'Replied',    value: counts['replied'] ?? 0,   color: '#3B82F6' },
+    { label: 'Interview',  value: counts['interview'] ?? 0, color: '#22C55E' },
+    { label: 'Offer',      value: counts['offer'] ?? 0,     color: '#F59E0B' },
+  ]
+  return (
+    <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+      {items.map((item, i) => (
+        <div key={i} style={{ flex: 1, padding: '10px 6px', textAlign: 'center', borderRight: i < items.length - 1 ? '1px solid var(--border)' : 'none' }}>
+          <div style={{ fontSize: 19, fontWeight: 800, color: item.color, lineHeight: 1 }}>{item.value}</div>
+          <div style={{ fontSize: 10, color: 'var(--text-mute)', marginTop: 2, fontWeight: 500 }}>{item.label}</div>
         </div>
+      ))}
+    </div>
+  )
+}
 
-        <div className="ot-composer-foot">
-          <div className="ot-composer-tools">
-            <button className="ot-tool-btn" title="Attach"><IcoAttach size={14} /></button>
-            <button className="ot-tool-btn" title="Link"><IcoLink2 size={14} /></button>
-            <button className="ot-tool-btn" title="Calendar"><IcoCal size={14} /></button>
-            <button className="ot-tool-btn" title="Templates"><IcoChat size={14} /></button>
+// ── Connect screen ────────────────────────────────────────────────────────────
+function ConnectScreen({ connect, connecting, hasClientId }: { connect: () => void; connecting: boolean; hasClientId: boolean }) {
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40, textAlign: 'center' }}>
+      <div style={{ fontSize: 52, marginBottom: 18 }}>📬</div>
+      <div style={{ fontWeight: 800, fontSize: 22, color: 'var(--text)', marginBottom: 10 }}>Connect Your Gmail</div>
+      <div style={{ fontSize: 14.5, color: 'var(--text-mute)', maxWidth: 420, lineHeight: 1.7, marginBottom: 26 }}>
+        JobEarly connects to your Gmail to auto-track HR emails, detect interview and offer status, and let you send AI-written emails directly from here.
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, maxWidth: 380, width: '100%', marginBottom: 26 }}>
+        {[
+          { icon: '🔍', title: 'Auto-track HR emails',  desc: 'Detects replies, interviews, and offers' },
+          { icon: '✨', title: 'AI-compose emails',      desc: 'Personalized from job descriptions' },
+          { icon: '📧', title: 'Send directly',          desc: 'One-click through your Gmail account' },
+          { icon: '📊', title: 'Reply rate tracking',    desc: 'See which outreaches get responses' },
+        ].map((f, i) => (
+          <div key={i} style={{ background: 'var(--bg-soft)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px', textAlign: 'left' }}>
+            <div style={{ fontSize: 20, marginBottom: 6 }}>{f.icon}</div>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)', marginBottom: 3 }}>{f.title}</div>
+            <div style={{ fontSize: 11.5, color: 'var(--text-mute)', lineHeight: 1.5 }}>{f.desc}</div>
           </div>
-          <div className="ot-send-row">
-            <button className="ot-regen-btn" onClick={() => setDraft(currentDraft)}><IcoWand size={12} /> Regenerate</button>
-            <button className="ot-send-btn">
-              <span style={{ padding: '0 10px' }}>Send &amp; queue follow-up</span>
-              <span className="ot-split-arrow"><IcoChev size={10} /></span>
-            </button>
-          </div>
+        ))}
+      </div>
+      {!hasClientId && (
+        <div style={{ background: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: 8, padding: '10px 16px', fontSize: 12.5, color: '#92400E', marginBottom: 16, maxWidth: 420, textAlign: 'left' }}>
+          <strong>Setup required:</strong> Add <code style={{ background: '#FEF3C7', padding: '1px 4px', borderRadius: 4 }}>VITE_GOOGLE_CLIENT_ID</code> to your <code style={{ background: '#FEF3C7', padding: '1px 4px', borderRadius: 4 }}>.env</code> file. See <code>.env.example</code> for instructions.
         </div>
+      )}
+      <button onClick={connect} disabled={connecting} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 28px', borderRadius: 10, background: connecting ? 'var(--border)' : '#4285F4', color: '#fff', border: 'none', fontWeight: 700, fontSize: 15, cursor: connecting ? 'not-allowed' : 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 14px rgba(66,133,244,0.3)' }}>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+        </svg>
+        {connecting ? 'Connecting…' : 'Connect with Google'}
+      </button>
+      <div style={{ fontSize: 11.5, color: 'var(--text-mute)', marginTop: 10 }}>
+        We only request read/send permissions. Your email content is never stored.
       </div>
     </div>
   )
 }
 
 // ── Main page ─────────────────────────────────────────────────────────────────
+type Panel =
+  | { type: 'none' }
+  | { type: 'thread'; thread: HRThread }
+  | { type: 'compose'; prefill?: Partial<ComposeForm>; replyThread?: HRThread }
 
 export default function Outreach() {
-  const { user } = useAuth()
-  const firstName = user?.name?.split(' ')[0] ?? 'Akash'
+  const { isConnected, userEmail, connecting, syncing, syncedAt, threads, hasClientId, connect, disconnect, syncThreads } = useGmail()
+  const [panel,        setPanel]        = useState<Panel>({ type: 'none' })
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [search,       setSearch]       = useState('')
 
-  const totalSent    = CAMPAIGNS.reduce((s, c) => s + c.sent, 0)
-  const totalReplied = CAMPAIGNS.reduce((s, c) => s + c.replied, 0)
-  const replyRate    = totalSent > 0 ? Math.round((totalReplied / totalSent) * 100) : 0
-
-  const [activeCamp, setActiveCamp] = useState('cs')
-  const [activeConv, setActiveConv] = useState(1)
-  const [filter, setFilter]         = useState<FilterKey>('all')
-  const [search, setSearch]         = useState('')
-
-  const activeCampName = CAMPAIGNS.find(c => c.id === activeCamp)?.name ?? 'Consulting & Strategy Roles'
-
-  const filteredConvos = CONVERSATIONS.filter(c => {
-    if (filter !== 'all' && c.status !== filter) return false
-    if (search && !c.name.toLowerCase().includes(search.toLowerCase()) && !c.co.toLowerCase().includes(search.toLowerCase())) return false
+  const filtered = threads.filter(t => {
+    if (statusFilter !== 'all' && t.status !== statusFilter) return false
+    const q = search.toLowerCase()
+    if (q && !t.from.toLowerCase().includes(q) && !t.company.toLowerCase().includes(q) && !t.subject.toLowerCase().includes(q)) return false
     return true
   })
 
-  const activeConvoData = CONVERSATIONS.find(c => c.id === activeConv) ?? CONVERSATIONS[0]
-
   return (
-    <>
-      <div className="ot-head-row">
-        <div>
-          <div className="ot-eyebrow"><span className="dot" /> {CONVERSATIONS.filter(c => c.status === 'replied').length} active replies this week</div>
-          <h1 className="ot-h1">The Inside <span className="ot-serif-accent">Track.</span></h1>
-          <p className="ot-lede">
-            You've sent <b>{totalSent} personalized emails</b> this month and earned <b>{totalReplied} replies</b> — a reply rate{' '}
-            <b>{replyRate}% ({(replyRate / 14).toFixed(1)}× the industry average)</b>.
-            {` Keep going, ${firstName}.`}
-          </p>
-        </div>
-        <div className="ot-perf-tiles">
-          <div className="ot-perf-tile"><div className="num">{replyRate}%</div><div className="lbl">REPLY RATE</div></div>
-          <div className="ot-perf-tile"><div className="num">{CONVERSATIONS.filter(c => c.status === 'replied').length}</div><div className="lbl">ACTIVE REPLIES</div></div>
-          <div className="ot-perf-tile"><div className="num">{CAMPAIGNS.filter(c => c.status === 'live').length}</div><div className="lbl">LIVE CAMPAIGNS</div></div>
-        </div>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
 
-      <div className="ot-filter-bar">
-        <div className="ot-pills">
-          {FILTER_PILLS.map(([k, label, n]) => (
-            <button key={k} className={`ot-fpill${filter === k ? ' active' : ''}`} onClick={() => setFilter(k)}>
-              {label} <span className="count">{n}</span>
-            </button>
-          ))}
-        </div>
-        <div className="ot-search">
-          <IconSearch size={14} />
-          <input placeholder="Search by name, company, role…" value={search} onChange={e => setSearch(e.target.value)} />
-          <span className="ot-kbd">⌘K</span>
-        </div>
-      </div>
-
-      <div className="ot-workspace">
-        {/* Campaigns */}
-        <div className="ot-col">
-          <div className="ot-col-head">
-            <h3>Campaigns</h3>
-            <button className="ot-add-btn" title="New campaign"><IconPlus size={13} /></button>
+      {/* Page header */}
+      <div className="jm-header" style={{ flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+          <div>
+            <h1>Outreach <em>Command Center</em></h1>
+            <p>Track every HR email thread, see reply status automatically, and send AI-personalized emails directly from JobEarly.</p>
           </div>
-          <div className="ot-col-body">
-            {CAMPAIGNS.map(c => (
-              <CampCard key={c.id} c={c} active={activeCamp === c.id} onClick={() => setActiveCamp(c.id)} />
-            ))}
-          </div>
-        </div>
-
-        {/* Conversations */}
-        <div className="ot-col">
-          <div className="ot-col-head">
-            <h3>Conversations · {activeCampName}</h3>
-            <div className="ot-reply-badge">
-              <div className="ot-reply-ring"><div className="v">{replyRate}%</div></div>
-              <span className="up">↑ vs avg</span>
-            </div>
-          </div>
-          <div className="ot-col-body">
-            {filteredConvos.length === 0 ? (
-              <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-mute)', fontSize: 13 }}>
-                No conversations match this filter.
-              </div>
-            ) : (
-              filteredConvos.map(c => (
-                <ConvRow key={c.id} c={c} active={activeConv === c.id} onClick={() => setActiveConv(c.id)} />
-              ))
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
+            {isConnected && (
+              <>
+                <button onClick={() => setPanel({ type: 'compose' })} style={{ padding: '8px 16px', borderRadius: 9, background: 'var(--accent)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  ✨ Compose
+                </button>
+                <button onClick={syncThreads} disabled={syncing} style={{ padding: '8px 14px', borderRadius: 9, background: 'none', border: '1px solid var(--border)', color: 'var(--text-mute)', fontWeight: 600, fontSize: 12.5, cursor: syncing ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                  {syncing ? '⏳ Syncing…' : '🔄 Sync'}
+                </button>
+              </>
             )}
           </div>
         </div>
 
-        {/* Detail */}
-        <DetailPanel key={activeConvoData.id} convo={activeConvoData} campName={activeCampName} />
+        {isConnected && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, fontSize: 12.5, flexWrap: 'wrap' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 20, padding: '3px 10px', color: '#16A34A', fontWeight: 600 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', display: 'inline-block' }} />
+              Gmail Connected
+            </span>
+            <span style={{ color: 'var(--text-mute)' }}>{userEmail}</span>
+            {syncedAt && <span style={{ color: 'var(--text-mute)' }}>· Synced {formatDate(syncedAt.toISOString())}</span>}
+            <button onClick={disconnect} style={{ marginLeft: 'auto', fontSize: 11.5, color: '#DC2626', background: 'none', border: '1px solid #FCA5A5', borderRadius: 6, padding: '2px 8px', cursor: 'pointer', fontFamily: 'inherit' }}>Disconnect</button>
+          </div>
+        )}
       </div>
-    </>
+
+      {!isConnected ? (
+        <ConnectScreen connect={connect} connecting={connecting} hasClientId={hasClientId} />
+      ) : (
+        <div style={{ flex: 1, display: 'flex', minHeight: 0, borderTop: '1px solid var(--border)' }}>
+
+          {/* ── Left: Thread list ─────────────────── */}
+          <div style={{ width: 320, flexShrink: 0, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <StatsBar threads={threads} />
+
+            {/* Search + filters */}
+            <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+              <input placeholder="Search HR, company, subject…" value={search} onChange={e => setSearch(e.target.value)}
+                style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-soft)', color: 'var(--text)', fontSize: 12.5, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', marginBottom: 8 }} />
+              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                {(['all', 'no-reply', 'replied', 'interview', 'offer', 'rejected'] as const).map(s => (
+                  <button key={s} onClick={() => setStatusFilter(s)} style={{
+                    fontSize: 11, padding: '3px 9px', borderRadius: 10, fontFamily: 'inherit', cursor: 'pointer',
+                    background: statusFilter === s ? 'var(--accent)' : 'var(--bg-soft)',
+                    color: statusFilter === s ? '#fff' : 'var(--text-mute)',
+                    border: `1px solid ${statusFilter === s ? 'var(--accent)' : 'var(--border)'}`,
+                    fontWeight: statusFilter === s ? 700 : 500,
+                  }}>
+                    {s === 'all' ? 'All' : STATUS_META[s].label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Thread list */}
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              {syncing && threads.length === 0 ? (
+                <div style={{ padding: 28, textAlign: 'center', color: 'var(--text-mute)', fontSize: 13 }}>
+                  <div style={{ fontSize: 28, marginBottom: 10 }}>⏳</div>
+                  Scanning your Gmail for HR emails…
+                </div>
+              ) : filtered.length === 0 ? (
+                <div style={{ padding: 28, textAlign: 'center', color: 'var(--text-mute)', fontSize: 13 }}>
+                  <div style={{ fontSize: 28, marginBottom: 10 }}>📭</div>
+                  {threads.length === 0
+                    ? 'No HR emails found yet.\nCompose your first outreach!'
+                    : 'No threads match this filter.'}
+                </div>
+              ) : (
+                filtered.map(t => (
+                  <ThreadItem
+                    key={t.id}
+                    thread={t}
+                    isActive={panel.type === 'thread' && panel.thread.id === t.id}
+                    onClick={() => setPanel({ type: 'thread', thread: t })}
+                  />
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* ── Right: Detail / Composer ──────────── */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}>
+            {panel.type === 'none' && (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-mute)', gap: 12, padding: 40, textAlign: 'center' }}>
+                <div style={{ fontSize: 44 }}>✉️</div>
+                <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>Select a thread or compose a new email</div>
+                <div style={{ fontSize: 13.5, lineHeight: 1.6, maxWidth: 360 }}>
+                  Click an HR thread on the left to view the full conversation, or start a new personalized email with AI.
+                </div>
+                <button onClick={() => setPanel({ type: 'compose' })} style={{ padding: '10px 24px', borderRadius: 10, background: 'var(--accent)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  ✨ Compose New Email
+                </button>
+              </div>
+            )}
+            {panel.type === 'thread' && (
+              <ThreadDetailView
+                key={panel.thread.id}
+                thread={panel.thread}
+                onClose={() => setPanel({ type: 'none' })}
+                onReply={t => setPanel({ type: 'compose', replyThread: t })}
+              />
+            )}
+            {panel.type === 'compose' && (
+              <AIComposer
+                prefill={panel.prefill}
+                replyThread={panel.replyThread}
+                onSent={() => { setPanel({ type: 'none' }); syncThreads() }}
+                onClose={() => setPanel({ type: 'none' })}
+              />
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   )
 }

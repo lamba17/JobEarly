@@ -144,10 +144,189 @@ const FORMAT_CHECKS = [
   { label: 'Date ranges consistently formatted', pass: true },
 ]
 
+const IcoUpload = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+    <polyline points="17 8 12 3 7 8"/>
+    <line x1="12" y1="3" x2="12" y2="15"/>
+  </svg>
+)
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface WorkExp { id: number; title: string; company: string; period: string; bullets: string[] }
 interface EduEntry { id: number; degree: string; school: string; period: string }
+
+interface ParsedResume {
+  name: string; email: string; location: string; linkedin: string
+  jobTitle: string; summary: string; skills: string[]
+  workExp: WorkExp[]; education: EduEntry[]
+}
+
+// ── Resume Text Parser ────────────────────────────────────────────────────────
+function parseResumeText(raw: string): ParsedResume {
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean)
+
+  // Email
+  const email = raw.match(/[\w.+\-]+@[\w\-]+\.[\w.]+/)?.[0] ?? ''
+
+  // LinkedIn
+  const linkedin = raw.match(/linkedin\.com\/in\/[\w\-]+/)?.[0] ?? ''
+
+  // Location
+  const LOC_ANCHORS = ['India','Karnataka','Maharashtra','Delhi','Haryana','Tamil Nadu','Telangana',
+    'Gujarat','West Bengal','Rajasthan','Punjab','Bengaluru','Bangalore','Mumbai','Hyderabad',
+    'Chennai','Pune','Gurugram','Noida','Kolkata','Ahmedabad','Jaipur','Kochi','Indore',
+    'Remote','USA','United States','UK','Canada','Singapore','Australia']
+  let location = ''
+  for (const anchor of LOC_ANCHORS) {
+    const m = raw.match(new RegExp(`([A-Za-z ]{1,30},?\\s*${anchor})`, 'i'))
+    if (m) { location = m[1].trim(); break }
+  }
+
+  // Name: first 2–5-word line that looks like a proper name
+  const name = lines.find(l => {
+    if (l.includes('@') || l.includes('http') || l.includes('|') || l.includes('·')) return false
+    if (/^\+?\d/.test(l)) return false
+    const words = l.split(/\s+/)
+    return words.length >= 2 && words.length <= 5 &&
+      words.every(w => /^[A-Z][a-zA-Z'-]*$/.test(w))
+  }) ?? lines[0] ?? ''
+
+  // ── Section splitter ──────────────────────────────────────────────────────
+  const SECTION_RE: Record<string, RegExp> = {
+    summary:    /^(summary|profile|about me|objective|professional summary|career objective|personal statement)/i,
+    skills:     /^(skills|core skills|technical skills|competencies|key skills|areas of expertise|tools)/i,
+    experience: /^(experience|work experience|employment|professional experience|career history|work history|internship)/i,
+    education:  /^(education|academic|qualification|educational background|academic background)/i,
+    certifications:/^(certification|certificate|course|training|awards)/i,
+  }
+  const sections: Record<string, string[]> = { preamble: [] }
+  let cur = 'preamble'
+  for (const line of lines) {
+    let matched = false
+    for (const [key, re] of Object.entries(SECTION_RE)) {
+      if (re.test(line) && line.length < 60) {
+        cur = key; sections[key] = sections[key] ?? []; matched = true; break
+      }
+    }
+    if (!matched) (sections[cur] ??= []).push(line)
+  }
+  const sec = (k: string) => sections[k] ?? []
+
+  // ── Job title: look in preamble after name ────────────────────────────────
+  const TITLE_WORDS = /\b(manager|designer|engineer|developer|analyst|consultant|lead|director|vp|head|architect|scientist|specialist|strategist|associate|intern|officer|coordinator)\b/i
+  const preamble = sec('preamble')
+  const jobTitle = preamble.find(l =>
+    l !== name && !l.includes('@') && !l.includes('http') && !l.match(/^\+?\d/) &&
+    TITLE_WORDS.test(l) && l.length < 80
+  ) ?? ''
+
+  // ── Summary ───────────────────────────────────────────────────────────────
+  const summary = sec('summary').filter(l => l.length > 30).join(' ')
+
+  // ── Skills ────────────────────────────────────────────────────────────────
+  const skillSet: string[] = []
+  for (const line of sec('skills')) {
+    const clean = line.replace(/^[•\-*▸◆→>]\s*/, '').replace(/[•|▸◆]/g, ',')
+    clean.split(/[,;]/).map(s => s.trim()).filter(s => s.length > 1 && s.length < 40).forEach(s => skillSet.push(s))
+  }
+
+  // ── Work Experience ───────────────────────────────────────────────────────
+  const DATE_RE = /(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d{4})/i
+  const PERIOD_RE = /(\d{4})\s*[-–—]\s*(\d{4}|present|current|now|till date)/i
+
+  interface RawExp { title: string; company: string; period: string; bullets: string[] }
+  const workExps: RawExp[] = []
+  let curExp: Partial<RawExp> | null = null
+
+  const flushExp = () => {
+    if (curExp?.title) {
+      workExps.push({
+        title: curExp.title,
+        company: curExp.company ?? '',
+        period: curExp.period ?? '',
+        bullets: curExp.bullets?.length ? curExp.bullets : [''],
+      })
+    }
+    curExp = null
+  }
+
+  for (const line of sec('experience')) {
+    const isBullet = /^[•\-*◆▸→>•]\s/.test(line) || /^\d+\.\s/.test(line)
+    const hasPeriod = PERIOD_RE.test(line)
+    const hasDate   = DATE_RE.test(line) && line.length < 100
+
+    if (isBullet) {
+      if (curExp) curExp.bullets = [...(curExp.bullets ?? []), line.replace(/^[•\-*◆▸→>•1-9.]\s*/, '').trim()]
+    } else if (hasPeriod) {
+      const pm = line.match(PERIOD_RE)!
+      const period = `${pm[1]} — ${pm[2].toUpperCase().replace(/CURRENT|NOW|TILL DATE/, 'PRESENT')}`
+      const company = line.replace(pm[0], '').replace(/[|,·\t]/g, '').trim()
+      if (curExp && !curExp.period) {
+        curExp.period = period
+        if (company && company.length > 1 && !curExp.company) curExp.company = company
+      } else {
+        flushExp()
+        curExp = { period, company, bullets: [] }
+      }
+    } else if (hasDate && line.length < 80) {
+      // Company + date on same line without full period match
+      const yearMatch = line.match(/(\d{4})/)
+      if (curExp && !curExp.company) {
+        curExp.company = line.replace(yearMatch?.[0] ?? '', '').replace(/[|,·]/g, '').trim()
+        curExp.period = curExp.period ?? yearMatch?.[1] ?? ''
+      }
+    } else if (line.length > 3 && line.length < 90 && !line.includes('@') && !line.includes('http')) {
+      // Check if this is a role title (not a bullet continuation)
+      const looksLikeTitle = TITLE_WORDS.test(line) || line.split(/\s+/).length <= 6
+      if (looksLikeTitle) {
+        flushExp()
+        curExp = { title: line, bullets: [] }
+      } else if (curExp && !curExp.company) {
+        curExp.company = line
+      }
+    }
+  }
+  flushExp()
+
+  // ── Education ─────────────────────────────────────────────────────────────
+  const DEGREE_RE = /\b(b\.?tech|b\.?e|b\.?sc|m\.?tech|m\.?sc|mba|phd|bachelor|master|doctor|b\.des|m\.des|bca|mca|b\.com|m\.com|diploma|pgdm|bba|llb|llm|b\.arch)\b/i
+  interface RawEdu { degree: string; school: string; period: string }
+  const edus: RawEdu[] = []
+  let curEdu: Partial<RawEdu> | null = null
+
+  for (const line of sec('education')) {
+    const yearMatch = line.match(/(\d{4})\s*[-–—]\s*(\d{4}|present|\w+)/i)
+    if (DEGREE_RE.test(line)) {
+      if (curEdu?.degree) edus.push({ degree: curEdu.degree, school: curEdu.school ?? '', period: curEdu.period ?? '' })
+      curEdu = { degree: line.replace(yearMatch?.[0] ?? '', '').trim() }
+      if (yearMatch) curEdu.period = `${yearMatch[1]} — ${yearMatch[2]}`
+    } else if (yearMatch) {
+      if (curEdu) {
+        if (!curEdu.period) curEdu.period = `${yearMatch[1]} — ${yearMatch[2]}`
+        const school = line.replace(yearMatch[0], '').replace(/[|,·]/g, '').trim()
+        if (school && !curEdu.school) curEdu.school = school
+      }
+    } else if (line.length > 3 && line.length < 100) {
+      if (curEdu && !curEdu.school) curEdu.school = line
+      else if (!curEdu) curEdu = { degree: line }
+    }
+  }
+  if (curEdu?.degree) edus.push({ degree: curEdu.degree, school: curEdu.school ?? '', period: curEdu.period ?? '' })
+
+  return {
+    name,
+    email,
+    location,
+    linkedin,
+    jobTitle,
+    summary,
+    skills: [...new Set(skillSet)].slice(0, 24),
+    workExp: workExps.map((e, i) => ({ id: i + 1, ...e })),
+    education: edus.map((e, i) => ({ id: i + 1, ...e })),
+  }
+}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -156,7 +335,10 @@ export default function ResumeBuilder() {
 
   // UI state
   const [saved, setSaved]               = useState(false)
-  const [activeTab, setActiveTab]       = useState<'jd' | 'editor'>('jd')
+  const [activeTab, setActiveTab]       = useState<'import' | 'jd' | 'editor'>('import')
+  const [importText, setImportText]     = useState('')
+  const [parsedResume, setParsedResume] = useState<ParsedResume | null>(null)
+  const [parsing, setParsing]           = useState(false)
   const [showCustomize, setShowCustomize] = useState(false)
   const [showShare, setShowShare]       = useState(false)
   const [copied, setCopied]             = useState(false)
@@ -273,6 +455,31 @@ export default function ResumeBuilder() {
   const addBullet = (expId: number) =>
     setWorkExp(prev => prev.map(e => e.id === expId ? { ...e, bullets: [...e.bullets, ''] } : e))
 
+  const handleParseResume = () => {
+    if (!importText.trim()) return
+    setParsing(true)
+    setTimeout(() => {
+      const result = parseResumeText(importText)
+      setParsedResume(result)
+      setParsing(false)
+    }, 700)
+  }
+
+  const handleApplyParsed = () => {
+    if (!parsedResume) return
+    if (parsedResume.name)     setName(parsedResume.name)
+    if (parsedResume.email)    setEmail(parsedResume.email)
+    if (parsedResume.location) setLocation(parsedResume.location)
+    if (parsedResume.linkedin) setLinkedin(parsedResume.linkedin)
+    if (parsedResume.jobTitle) setJobTitle(parsedResume.jobTitle)
+    if (parsedResume.summary)  setSummary(parsedResume.summary)
+    if (parsedResume.skills.length > 0) setSkills(parsedResume.skills)
+    if (parsedResume.workExp.length > 0) { setWorkExp(parsedResume.workExp); setOpenExp(parsedResume.workExp[0].id) }
+    setParsedResume(null)
+    setImportText('')
+    setActiveTab('editor')
+  }
+
   const handleSave = () => {
     if (!user) return
     addResume(user.email, `${jobTitle} — ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}.pdf`, atsScore)
@@ -370,6 +577,9 @@ body { margin: 0; padding: 0; background: #fff; }
 
         {/* Tab switcher */}
         <div className="rb-tabs">
+          <button className={`rb-tab${activeTab === 'import' ? ' active' : ''}`} onClick={() => setActiveTab('import')}>
+            <IcoUpload size={13} /> Import
+          </button>
           <button className={`rb-tab${activeTab === 'jd' ? ' active' : ''}`} onClick={() => setActiveTab('jd')}>
             <IcoTarget /> Job Target
             {analysed && <span className="rb-tab-dot" style={{ background: scoreColor }} />}
@@ -378,6 +588,140 @@ body { margin: 0; padding: 0; background: #fff; }
             <IcoEditPen /> Edit Resume
           </button>
         </div>
+
+        {/* ─── IMPORT TAB ─── */}
+        {activeTab === 'import' && (
+          <div className="rb-tab-content">
+            {!parsedResume ? (
+              <>
+                <div>
+                  <h2 className="builder-title" style={{ fontSize: 17, marginBottom: 4 }}>Import Your Resume</h2>
+                  <p className="builder-sub">Paste your existing resume below. We'll extract your information and fill all fields automatically so you can edit from there.</p>
+                </div>
+
+                {/* Drop zone / paste area */}
+                <div style={{ position: 'relative' }}>
+                  <textarea
+                    className="f-textarea"
+                    placeholder={`Paste your resume text here…
+
+Example:
+Akash Lamba
+Senior Product Manager
+akash@email.com · Bangalore, India · linkedin.com/in/akshlamba
+
+SUMMARY
+5+ years building user-centric products across fintech and e-commerce…
+
+SKILLS
+Product Strategy, Figma, SQL, A/B Testing, Agile…
+
+EXPERIENCE
+Senior Product Manager
+Razorpay · 2021 — Present
+• Led redesign of onboarding flow, reducing drop-off by 34%
+• Built cross-platform design system used by 20+ engineers
+
+EDUCATION
+B.Tech — Computer Science
+IIT Delhi · 2016 — 2020`}
+                    value={importText}
+                    onChange={e => setImportText(e.target.value)}
+                    rows={16}
+                    style={{ minHeight: 280, resize: 'vertical', fontFamily: 'inherit', fontSize: 12.5, lineHeight: 1.6 }}
+                  />
+                  {importText && (
+                    <button
+                      onClick={() => setImportText('')}
+                      style={{ position: 'absolute', top: 8, right: 8, background: 'var(--bg-soft)', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 8px', fontSize: 11, color: 'var(--text-mute)', cursor: 'pointer', fontFamily: 'inherit' }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <button
+                    className="rb-analyse-btn"
+                    onClick={handleParseResume}
+                    disabled={parsing || !importText.trim()}
+                  >
+                    {parsing
+                      ? <><span className="rb-spinner" /> Parsing resume…</>
+                      : <><IcoUpload size={14} /> Parse &amp; Import Resume</>}
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('editor')}
+                    style={{ width: '100%', padding: '9px 0', borderRadius: 8, border: '1px solid var(--border)', background: 'none', color: 'var(--text-mute)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
+                  >
+                    Skip — start from scratch
+                  </button>
+                </div>
+
+                <div style={{ background: 'var(--bg-soft)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', color: 'var(--text-mute)', marginBottom: 8 }}>WHAT GETS IMPORTED</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    {[
+                      'Name, email, location, LinkedIn URL',
+                      'Professional summary / objective',
+                      'Skills list',
+                      'Work experience with bullet points',
+                      'Education entries',
+                    ].map((item, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--text-soft)' }}>
+                        <span style={{ width: 16, height: 16, borderRadius: 5, background: 'var(--blue-50)', color: 'var(--accent)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                          <IconCheck size={9} />
+                        </span>
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: 11.5, color: 'var(--text-mute)', marginTop: 10, lineHeight: 1.5 }}>
+                    Tip: Plain text works best. Copy from a Word/Google Doc or paste directly from your PDF viewer.
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Parse results preview */}
+                <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 10, padding: '12px 14px', marginBottom: 4 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13.5, color: '#15803D', marginBottom: 8 }}>
+                    ✅ Resume parsed successfully
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12.5, color: '#166534' }}>
+                    {parsedResume.name     && <div>👤 <strong>Name:</strong> {parsedResume.name}</div>}
+                    {parsedResume.email    && <div>📧 <strong>Email:</strong> {parsedResume.email}</div>}
+                    {parsedResume.location && <div>📍 <strong>Location:</strong> {parsedResume.location}</div>}
+                    {parsedResume.jobTitle && <div>💼 <strong>Title:</strong> {parsedResume.jobTitle}</div>}
+                    {parsedResume.skills.length > 0 && <div>🎯 <strong>{parsedResume.skills.length} skills</strong> detected</div>}
+                    {parsedResume.workExp.length > 0 && <div>🏢 <strong>{parsedResume.workExp.length} experience</strong> {parsedResume.workExp.length === 1 ? 'entry' : 'entries'} found</div>}
+                    {parsedResume.education.length > 0 && <div>🎓 <strong>{parsedResume.education.length} education</strong> {parsedResume.education.length === 1 ? 'entry' : 'entries'} found</div>}
+                    {parsedResume.summary  && <div>📝 <strong>Summary</strong> detected ({parsedResume.summary.length} chars)</div>}
+                  </div>
+                </div>
+
+                {/* Missing fields warning */}
+                {(!parsedResume.name || !parsedResume.summary || parsedResume.workExp.length === 0) && (
+                  <div style={{ background: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: '#92400E' }}>
+                    ⚠️ Some fields weren't detected. You can fill them in manually after importing.
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <button className="rb-tailor-btn" style={{ border: 'none' }} onClick={handleApplyParsed}>
+                    <IcoEditPen size={13} /> Apply &amp; Edit Resume →
+                  </button>
+                  <button
+                    onClick={() => setParsedResume(null)}
+                    style={{ width: '100%', padding: '9px 0', borderRadius: 8, border: '1px solid var(--border)', background: 'none', color: 'var(--text-mute)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
+                  >
+                    ← Try again with different text
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* ─── JOB TARGET TAB ─── */}
         {activeTab === 'jd' && (

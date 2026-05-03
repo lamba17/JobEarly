@@ -1,6 +1,7 @@
 import { useState, useEffect, type ReactNode } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { GmailProvider } from './context/GmailContext'
 import Landing from './pages/Landing'
 import SignIn from './pages/SignIn'
 import SignUp from './pages/SignUp'
@@ -34,6 +35,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+      <GmailProvider>
         <Routes>
           <Route path="/" element={<Landing theme={theme} toggleTheme={toggleTheme} />} />
           <Route path="/signin" element={<SignIn />} />
@@ -52,6 +54,7 @@ export default function App() {
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+      </GmailProvider>
       </AuthProvider>
     </BrowserRouter>
   )
