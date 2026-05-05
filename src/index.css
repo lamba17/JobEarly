@@ -961,6 +961,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   height: 56px; flex-shrink: 0; background: var(--card); border-bottom: 1px solid var(--border);
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 24px; position: sticky; top: 0; z-index: 40;
+  backdrop-filter: blur(8px);
 }
 .app-topnav-left { display: flex; align-items: center; gap: 2px; }
 .app-tab {
