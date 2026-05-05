@@ -207,46 +207,70 @@ interface ParsedResume {
 function parseResumeText(raw: string): ParsedResume {
   const lines = raw.split('\n').map(l => l.trim()).filter(Boolean)
 
-  // Email
+  // ── Email ─────────────────────────────────────────────────────────────────
   const email = raw.match(/[\w.+\-]+@[\w\-]+\.[\w.]+/)?.[0] ?? ''
 
-  // LinkedIn
-  const linkedin = raw.match(/linkedin\.com\/in\/[\w\-]+/)?.[0] ?? ''
+  // ── LinkedIn — only match proper profile URLs ─────────────────────────────
+  const linkedinMatch = raw.match(/(?:https?:\/\/)?(?:www\.)?linkedin\.com\/in\/([\w\-]{2,50})/i)
+  const linkedin = linkedinMatch ? `linkedin.com/in/${linkedinMatch[1]}` : ''
 
-  // Location
-  const LOC_ANCHORS = ['India','Karnataka','Maharashtra','Delhi','Haryana','Tamil Nadu','Telangana',
-    'Gujarat','West Bengal','Rajasthan','Punjab','Bengaluru','Bangalore','Mumbai','Hyderabad',
-    'Chennai','Pune','Gurugram','Noida','Kolkata','Ahmedabad','Jaipur','Kochi','Indore',
-    'Remote','USA','United States','UK','Canada','Singapore','Australia']
+  // ── Location — search only in the first 8 header lines ───────────────────
+  const headerLines = lines.slice(0, 8).join(' ')
+  const LOC_CITIES = [
+    'Vancouver','Toronto','Ottawa','Calgary','Montreal','Edmonton',
+    'New York','San Francisco','Seattle','Boston','Austin','Chicago','Los Angeles','New Jersey',
+    'Baltimore','Washington','Houston','Dallas','Atlanta','Miami','Denver',
+    'Bengaluru','Bangalore','Mumbai','Hyderabad','Chennai','Pune','Gurugram','Noida',
+    'Delhi','Kolkata','Ahmedabad','Jaipur','Kochi','Indore','Chandigarh',
+  ]
+  const LOC_REGIONS = ['BC','ON','QC','AB','NY','CA','TX','WA','IL','MD','NJ']
+  const LOC_COUNTRIES = ['India','USA','United States','UK','Canada','Singapore','Australia','Remote']
   let location = ''
-  for (const anchor of LOC_ANCHORS) {
-    const m = raw.match(new RegExp(`([A-Za-z ]{1,30},?\\s*${anchor})`, 'i'))
-    if (m) { location = m[1].trim(); break }
+  // Try "City, Region/Country" first
+  for (const city of LOC_CITIES) {
+    const re = new RegExp(`${city}[,\\s]+([A-Z]{2}|${LOC_COUNTRIES.join('|')})`, 'i')
+    const m = headerLines.match(re)
+    if (m) { location = m[0].trim(); break }
   }
+  // Fallback: just a city name in header
+  if (!location) {
+    for (const city of LOC_CITIES) {
+      if (headerLines.toLowerCase().includes(city.toLowerCase())) { location = city; break }
+    }
+  }
+  // Fallback: country only
+  if (!location) {
+    for (const country of LOC_COUNTRIES) {
+      if (headerLines.toLowerCase().includes(country.toLowerCase())) { location = country; break }
+    }
+  }
+  // Ignore US state codes standing alone (false positives like "BC" in company names)
+  if (LOC_REGIONS.includes(location)) location = ''
 
-  // Name: first 2–5-word line that looks like a proper name
+  // ── Name ─────────────────────────────────────────────────────────────────
   const name = lines.find(l => {
-    if (l.includes('@') || l.includes('http') || l.includes('|') || l.includes('·')) return false
+    if (l.includes('@') || l.includes('http') || l.includes('|') || l.includes('·') || l.includes('•')) return false
     if (/^\+?\d/.test(l)) return false
+    if (/linkedin|resume|curriculum|vitae/i.test(l)) return false
     const words = l.split(/\s+/)
-    return words.length >= 2 && words.length <= 5 &&
-      words.every(w => /^[A-Z][a-zA-Z'-]*$/.test(w))
+    return words.length >= 2 && words.length <= 4 &&
+      words.every(w => /^[A-Z][a-zA-Z'-]{1,}$/.test(w))
   }) ?? lines[0] ?? ''
 
   // ── Section splitter ──────────────────────────────────────────────────────
   const SECTION_RE: Record<string, RegExp> = {
     summary:    /^(summary|profile|about me|objective|professional summary|career objective|personal statement)/i,
-    skills:     /^(skills|core skills|technical skills|competencies|key skills|areas of expertise|tools)/i,
-    experience: /^(experience|work experience|employment|professional experience|career history|work history|internship)/i,
-    education:  /^(education|academic|qualification|educational background|academic background)/i,
-    certifications:/^(certification|certificate|course|training|awards)/i,
+    skills:     /^(skills|core skills|technical skills|competencies|key skills|areas of expertise|tools & technologies)/i,
+    experience: /^(experience|work experience|employment|professional experience|career history|work history)/i,
+    education:  /^(education|academic|qualification|educational background)/i,
+    additional: /^(additional information|additional|interests|certifications?|awards|volunteer|community service)/i,
   }
   const sections: Record<string, string[]> = { preamble: [] }
   let cur = 'preamble'
   for (const line of lines) {
     let matched = false
     for (const [key, re] of Object.entries(SECTION_RE)) {
-      if (re.test(line) && line.length < 60) {
+      if (re.test(line) && line.length < 70) {
         cur = key; sections[key] = sections[key] ?? []; matched = true; break
       }
     }
@@ -254,76 +278,121 @@ function parseResumeText(raw: string): ParsedResume {
   }
   const sec = (k: string) => sections[k] ?? []
 
-  // ── Job title: look in preamble after name ────────────────────────────────
-  const TITLE_WORDS = /\b(manager|designer|engineer|developer|analyst|consultant|lead|director|vp|head|architect|scientist|specialist|strategist|associate|intern|officer|coordinator)\b/i
+  // ── Job title ─────────────────────────────────────────────────────────────
+  const TITLE_RE = /\b(manager|designer|engineer|developer|analyst|consultant|lead|director|vp|head|architect|scientist|specialist|strategist|associate|intern|officer|coordinator|advisor|executive|president|founder|recruiter)\b/i
   const preamble = sec('preamble')
   const jobTitle = preamble.find(l =>
     l !== name && !l.includes('@') && !l.includes('http') && !l.match(/^\+?\d/) &&
-    TITLE_WORDS.test(l) && l.length < 80
+    TITLE_RE.test(l) && l.length < 80
   ) ?? ''
 
   // ── Summary ───────────────────────────────────────────────────────────────
   const summary = sec('summary').filter(l => l.length > 30).join(' ')
 
-  // ── Skills ────────────────────────────────────────────────────────────────
+  // ── Skills — multi-source extraction, priority order ─────────────────────
   const skillSet: string[] = []
+  const addSkills = (csv: string) =>
+    csv.split(/[,;|]/).map(s => s.trim()).filter(s => s.length > 1 && s.length < 40 && !/^\d+$/.test(s)).forEach(s => skillSet.push(s))
+
+  // 1. Explicit skills section (e.g. "SKILLS", "CORE SKILLS")
   for (const line of sec('skills')) {
-    const clean = line.replace(/^[•\-*▸◆→>]\s*/, '').replace(/[•|▸◆]/g, ',')
-    clean.split(/[,;]/).map(s => s.trim()).filter(s => s.length > 1 && s.length < 40).forEach(s => skillSet.push(s))
+    addSkills(line.replace(/^[•\-*▸◆→>]\s*/, '').replace(/[•▸◆]/g, ','))
+  }
+
+  // 2. "Tech Skills:" / "Technical Skills:" / "Tools:" labeled line anywhere in raw text
+  const techLineMatch = raw.match(/(?:tech(?:nical)?\s+skills?|tools?\s*(?:&\s*technologies?)?)\s*[:：]\s*([^\n]{3,})/i)
+  if (techLineMatch) addSkills(techLineMatch[1])
+
+  // 3. Similar labeled lines inside the additional section
+  for (const line of sec('additional')) {
+    const m = line.match(/^(?:tech(?:nical)?\s+skills?|tools?|technologies)\s*[:：]\s*(.+)/i)
+    if (m) addSkills(m[1])
+  }
+
+  // 4. Last resort: match from SKILL_POOL against document text
+  if (skillSet.length === 0) {
+    const lower = raw.toLowerCase()
+    SKILL_POOL.filter(s => lower.includes(s)).forEach(s => skillSet.push(s))
   }
 
   // ── Work Experience ───────────────────────────────────────────────────────
-  const DATE_RE = /(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d{4})/i
-  const PERIOD_RE = /(\d{4})\s*[-–—]\s*(\d{4}|present|current|now|till date)/i
+  // Handles "Month YYYY – Month YYYY" and "YYYY – YYYY" date ranges
+  const PERIOD_RE = /(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+)?(\d{4})\s*[-–—]\s*(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+)?(\d{4}|present|current|now|till date)/i
+  const ORG_RE    = /\b(llc|inc|ltd|limited|pvt|private|corporation|corp|gmbh|consulting|solutions|technologies|services|group|associates)\b/i
 
   interface RawExp { title: string; company: string; period: string; bullets: string[] }
   const workExps: RawExp[] = []
   let curExp: Partial<RawExp> | null = null
+  let pendingCompany = ''   // holds a company line seen before the title+date line
 
   const flushExp = () => {
-    if (curExp?.title) {
+    if (curExp?.title || curExp?.company) {
       workExps.push({
-        title: curExp.title,
+        title:   curExp.title   ?? '',
         company: curExp.company ?? '',
-        period: curExp.period ?? '',
+        period:  curExp.period  ?? '',
         bullets: curExp.bullets?.length ? curExp.bullets : [''],
       })
     }
     curExp = null
+    pendingCompany = ''
   }
 
-  for (const line of sec('experience')) {
-    const isBullet = /^[•\-*◆▸→>•]\s/.test(line) || /^\d+\.\s/.test(line)
-    const hasPeriod = PERIOD_RE.test(line)
-    const hasDate   = DATE_RE.test(line) && line.length < 100
+  const expLines = sec('experience')
+  for (let i = 0; i < expLines.length; i++) {
+    const line = expLines[i]
+    const isBullet  = /^[•\-*◆▸→>]\s/.test(line) || /^\d+\.\s/.test(line)
+    const periodMatch = line.match(PERIOD_RE)
+    const hasTitle  = TITLE_RE.test(line)
+    const looksOrg  = ORG_RE.test(line) || (!hasTitle && !periodMatch && !isBullet && line.length < 60)
 
     if (isBullet) {
-      if (curExp) curExp.bullets = [...(curExp.bullets ?? []), line.replace(/^[•\-*◆▸→>•1-9.]\s*/, '').trim()]
-    } else if (hasPeriod) {
-      const pm = line.match(PERIOD_RE)!
-      const period = `${pm[1]} — ${pm[2].toUpperCase().replace(/CURRENT|NOW|TILL DATE/, 'PRESENT')}`
-      const company = line.replace(pm[0], '').replace(/[|,·\t]/g, '').trim()
-      if (curExp && !curExp.period) {
-        curExp.period = period
-        if (company && company.length > 1 && !curExp.company) curExp.company = company
+      if (curExp) curExp.bullets = [...(curExp.bullets ?? []), line.replace(/^[•\-*◆▸→>1-9.]\s*/, '').trim()]
+    } else if (periodMatch) {
+      // Extract the matched date range text
+      const dateText = line.match(/(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4}|\d{4})\s*[-–—]\s*(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4}|\d{4}|present|current|now|till date)/i)?.[0] ?? `${periodMatch[1]} — ${periodMatch[2]}`
+      const period = dateText
+      // Strip date from line to get the title/company text
+      const rest = line.replace(dateText, '').replace(/[,·\t]+$/,'').trim()
+
+      if (hasTitle && rest.length > 0) {
+        // Pattern: "Title – Role  Jun 2023 – March 2025"
+        flushExp()
+        curExp = {
+          title:   rest,
+          company: pendingCompany,
+          period,
+          bullets: [],
+        }
+        pendingCompany = ''
+      } else if (!curExp) {
+        // Date line with no prior title — store and keep going
+        flushExp()
+        curExp = { company: pendingCompany || rest, period, bullets: [] }
+        pendingCompany = ''
       } else {
-        flushExp()
-        curExp = { period, company, bullets: [] }
+        // Additional role at same company, or period for existing entry
+        if (!curExp.period) {
+          curExp.period = period
+          if (rest && !curExp.title && rest.length > 1) curExp.title = rest
+        } else {
+          // Second role at same company
+          flushExp()
+          curExp = { title: rest || '', company: pendingCompany, period, bullets: [] }
+          pendingCompany = ''
+        }
       }
-    } else if (hasDate && line.length < 80) {
-      // Company + date on same line without full period match
-      const yearMatch = line.match(/(\d{4})/)
-      if (curExp && !curExp.company) {
-        curExp.company = line.replace(yearMatch?.[0] ?? '', '').replace(/[|,·]/g, '').trim()
-        curExp.period = curExp.period ?? yearMatch?.[1] ?? ''
-      }
-    } else if (line.length > 3 && line.length < 90 && !line.includes('@') && !line.includes('http')) {
-      // Check if this is a role title (not a bullet continuation)
-      const looksLikeTitle = TITLE_WORDS.test(line) || line.split(/\s+/).length <= 6
-      if (looksLikeTitle) {
+    } else if (!isBullet && line.length > 2 && line.length < 100 && !line.includes('@')) {
+      if (hasTitle) {
+        // Title line without a date (date may follow on next line)
         flushExp()
-        curExp = { title: line, bullets: [] }
-      } else if (curExp && !curExp.company) {
+        curExp = { title: line, company: pendingCompany, bullets: [] }
+        pendingCompany = ''
+      } else if (looksOrg && !curExp) {
+        // Likely a company/org name before the title+date line
+        pendingCompany = line.replace(/,?\s*(vancouver|toronto|new york|mumbai|bengaluru|bangalore|hyderabad|pune|delhi|india|usa|canada|bc|on|ny|ca)[^,]*/i, '').trim()
+        if (!pendingCompany) pendingCompany = line
+      } else if (curExp && !curExp.company && !hasTitle) {
         curExp.company = line
       }
     }
@@ -331,29 +400,52 @@ function parseResumeText(raw: string): ParsedResume {
   flushExp()
 
   // ── Education ─────────────────────────────────────────────────────────────
-  const DEGREE_RE = /\b(b\.?tech|b\.?e|b\.?sc|m\.?tech|m\.?sc|mba|phd|bachelor|master|doctor|b\.des|m\.des|bca|mca|b\.com|m\.com|diploma|pgdm|bba|llb|llm|b\.arch)\b/i
+  const DEGREE_RE  = /\b(b\.?tech|b\.?e\b|b\.?sc\b|m\.?tech|m\.?sc\b|mba|phd|bachelor|master|doctor|b\.des|m\.des|bca|mca|b\.com|m\.com|diploma|pgdm|bba|llb|llm|b\.arch)\b/i
+  const SCHOOL_RE  = /\b(university|college|institute|school|academy|polytechnic|iit|iim|nit|bits|johns\s+hopkins|nmims|harvard|stanford|mit)\b/i
+  const ACTIVITY_RE = /\b(president|co-president|delegate|volunteer|club|initiative|project|competition|council|team leader)\b/i
+
   interface RawEdu { degree: string; school: string; period: string }
   const edus: RawEdu[] = []
   let curEdu: Partial<RawEdu> | null = null
 
-  for (const line of sec('education')) {
-    const yearMatch = line.match(/(\d{4})\s*[-–—]\s*(\d{4}|present|\w+)/i)
-    if (DEGREE_RE.test(line)) {
-      if (curEdu?.degree) edus.push({ degree: curEdu.degree, school: curEdu.school ?? '', period: curEdu.period ?? '' })
-      curEdu = { degree: line.replace(yearMatch?.[0] ?? '', '').trim() }
-      if (yearMatch) curEdu.period = `${yearMatch[1]} — ${yearMatch[2]}`
-    } else if (yearMatch) {
-      if (curEdu) {
-        if (!curEdu.period) curEdu.period = `${yearMatch[1]} — ${yearMatch[2]}`
-        const school = line.replace(yearMatch[0], '').replace(/[|,·]/g, '').trim()
-        if (school && !curEdu.school) curEdu.school = school
-      }
-    } else if (line.length > 3 && line.length < 100) {
-      if (curEdu && !curEdu.school) curEdu.school = line
-      else if (!curEdu) curEdu = { degree: line }
+  const flushEdu = () => {
+    if (curEdu && (curEdu.degree || curEdu.school)) {
+      edus.push({ degree: curEdu.degree ?? '', school: curEdu.school ?? '', period: curEdu.period ?? '' })
     }
+    curEdu = null
   }
-  if (curEdu?.degree) edus.push({ degree: curEdu.degree, school: curEdu.school ?? '', period: curEdu.period ?? '' })
+
+  for (const line of sec('education')) {
+    const yearMatch = line.match(/(\d{4})\s*[-–—]?\s*(\d{4}|present)?/)
+    const hasDegree = DEGREE_RE.test(line)
+    const hasSchool = SCHOOL_RE.test(line)
+    const isActivity = ACTIVITY_RE.test(line)
+    const period = yearMatch?.[1]
+      ? `${yearMatch[1]}${yearMatch[2] ? ` — ${yearMatch[2]}` : ''}` : ''
+
+    if (isActivity && !hasDegree && !hasSchool) continue  // skip activity/achievement lines
+
+    if (hasSchool && !hasDegree) {
+      // New institution line
+      flushEdu()
+      const schoolName = line.replace(/\s*\d{4}.*$/, '').replace(/[,·|]\s*$/, '').trim()
+      curEdu = { school: schoolName, period }
+    } else if (hasDegree) {
+      if (curEdu && !curEdu.degree) {
+        // Degree line after institution line (most common pattern)
+        curEdu.degree = line.replace(/:\s*.+$/, '').replace(/\s*\d{4}.*$/, '').trim()
+        if (period && !curEdu.period) curEdu.period = period
+      } else {
+        flushEdu()
+        curEdu = { degree: line.replace(/:\s*.+$/, '').replace(/\s*\d{4}.*$/, '').trim(), period }
+      }
+    } else if (period && !hasSchool && !hasDegree) {
+      // Pure date line — attach to current entry
+      if (curEdu && !curEdu.period) curEdu.period = period
+    }
+    // All other lines (activities, descriptions) are intentionally skipped
+  }
+  flushEdu()
 
   return {
     name,
