@@ -389,9 +389,12 @@ function parseResumeText(raw: string): ParsedResume {
         curExp = { title: line, company: pendingCompany, bullets: [] }
         pendingCompany = ''
       } else if (looksOrg && !curExp) {
-        // Likely a company/org name before the title+date line
-        pendingCompany = line.replace(/,?\s*(vancouver|toronto|new york|mumbai|bengaluru|bangalore|hyderabad|pune|delhi|india|usa|canada|bc|on|ny|ca)[^,]*/i, '').trim()
-        if (!pendingCompany) pendingCompany = line
+        // Likely a company/org name before the title+date line — skip pure location lines
+        const WX_LOC_RE = /^(new york|san francisco|los angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|vancouver|montreal|mumbai|bangalore|bengaluru|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|lima|peru)[,\s]/i
+        if (!WX_LOC_RE.test(line.trim())) {
+          pendingCompany = line.replace(/,?\s*(vancouver|toronto|new york|mumbai|bengaluru|bangalore|hyderabad|pune|delhi|india|usa|canada|bc|on|ny|ca)[^,]*/i, '').trim()
+          if (!pendingCompany) pendingCompany = line
+        }
       } else if (curExp && !curExp.company && !hasTitle) {
         curExp.company = line
       }
@@ -400,9 +403,10 @@ function parseResumeText(raw: string): ParsedResume {
   flushExp()
 
   // ── Education ─────────────────────────────────────────────────────────────
-  const DEGREE_RE  = /\b(b\.?tech|b\.?e\b|b\.?sc\b|m\.?tech|m\.?sc\b|mba|phd|bachelor|master|doctor|b\.des|m\.des|bca|mca|b\.com|m\.com|diploma|pgdm|bba|llb|llm|b\.arch)\b/i
-  const SCHOOL_RE  = /\b(university|college|institute|school|academy|polytechnic|iit|iim|nit|bits|johns\s+hopkins|nmims|harvard|stanford|mit)\b/i
-  const ACTIVITY_RE = /\b(president|co-president|delegate|volunteer|club|initiative|project|competition|council|team leader)\b/i
+  const DEGREE_RE   = /\b(b\.?tech|b\.?e\b|b\.?sc\b|m\.?tech|m\.?sc\b|mba|phd|ph\.d|bachelor|master|doctor|b\.des|m\.des|bca|mca|b\.com|m\.com|diploma|pgdm|bba|llb|llm|b\.arch|associate|honours|honors|certificate)\b/i
+  const SCHOOL_RE   = /\b(university|college|institute|school|academy|polytechnic|iit|iim|nit|bits|nmims|johns\s+hop|harvard|stanford|wharton|columbia|yale|princeton|cornell|lse|insead|carey|business\s+school|technology|management|mukesh)\b/i
+  const ACTIVITY_RE = /\b(president|co-president|delegate|volunteer|club|initiative|competition|council|team\s+leader|merit\s+list|honor\s+roll|clean\s+india|ambulance)\b/i
+  const LOC_LINE_RE = /^(new york|san francisco|los angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|vancouver|montreal|mumbai|bangalore|bengaluru|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|lima|peru)[,\s]/i
 
   interface RawEdu { degree: string; school: string; period: string }
   const edus: RawEdu[] = []
@@ -416,34 +420,42 @@ function parseResumeText(raw: string): ParsedResume {
   }
 
   for (const line of sec('education')) {
-    const yearMatch = line.match(/(\d{4})\s*[-–—]?\s*(\d{4}|present)?/)
-    const hasDegree = DEGREE_RE.test(line)
-    const hasSchool = SCHOOL_RE.test(line)
-    const isActivity = ACTIVITY_RE.test(line)
-    const period = yearMatch?.[1]
-      ? `${yearMatch[1]}${yearMatch[2] ? ` — ${yearMatch[2]}` : ''}` : ''
+    const periodFull = line.match(/(\d{4})\s*[-–—]\s*(\d{4}|present|current|now)/i)
+    const singleYear = line.match(/\b(\d{4})\b/)
+    const period = periodFull
+      ? `${periodFull[1]} — ${periodFull[2].charAt(0).toUpperCase() + periodFull[2].slice(1)}`
+      : (singleYear ? singleYear[1] : '')
 
-    if (isActivity && !hasDegree && !hasSchool) continue  // skip activity/achievement lines
+    const hasDegree  = DEGREE_RE.test(line)
+    const hasSchool  = SCHOOL_RE.test(line)
+    const isActivity = ACTIVITY_RE.test(line) && !hasDegree && !hasSchool
+    const isLocation = LOC_LINE_RE.test(line.trim())
 
-    if (hasSchool && !hasDegree) {
-      // New institution line
+    if (isActivity || isLocation) continue
+
+    // Clean: strip year range + trailing city/region fragments
+    const lineClean = line
+      .replace(periodFull ? periodFull[0] : /\b\d{4}\b/, '')
+      .replace(/,?\s*(baltimore|new york|mumbai|bengaluru|bangalore|hyderabad|pune|delhi|india|usa|canada|bc|on|ny|ca|md|il)[^,]*/i, '')
+      .replace(/[,·|\t]+$/, '')
+      .trim()
+
+    if (hasSchool) {
       flushEdu()
-      const schoolName = line.replace(/\s*\d{4}.*$/, '').replace(/[,·|]\s*$/, '').trim()
-      curEdu = { school: schoolName, period }
+      curEdu = { school: lineClean || line.replace(/\s*\d{4}.*$/, '').trim(), period }
     } else if (hasDegree) {
+      const degreeText = lineClean.replace(/:\s*.+$/, '').trim()
       if (curEdu && !curEdu.degree) {
-        // Degree line after institution line (most common pattern)
-        curEdu.degree = line.replace(/:\s*.+$/, '').replace(/\s*\d{4}.*$/, '').trim()
+        curEdu.degree = degreeText
         if (period && !curEdu.period) curEdu.period = period
       } else {
         flushEdu()
-        curEdu = { degree: line.replace(/:\s*.+$/, '').replace(/\s*\d{4}.*$/, '').trim(), period }
+        curEdu = { degree: degreeText, period }
       }
-    } else if (period && !hasSchool && !hasDegree) {
-      // Pure date line — attach to current entry
-      if (curEdu && !curEdu.period) curEdu.period = period
+    } else if (period && curEdu && !curEdu.period) {
+      curEdu.period = period
     }
-    // All other lines (activities, descriptions) are intentionally skipped
+    // Descriptive/activity lines intentionally skipped
   }
   flushEdu()
 
@@ -522,7 +534,7 @@ export default function ResumeBuilder() {
     ]},
   ])
   const [openExp, setOpenExp] = useState<number | null>(1)
-  const [education] = useState<EduEntry[]>([
+  const [education, setEducation] = useState<EduEntry[]>([
     { id: 1, degree: 'B.Des — Interaction Design', school: 'National Institute of Design', period: '2014 — 2018' },
   ])
 
@@ -630,6 +642,7 @@ export default function ResumeBuilder() {
     if (parsedResume.summary)  setSummary(parsedResume.summary)
     if (parsedResume.skills.length > 0) setSkills(parsedResume.skills)
     if (parsedResume.workExp.length > 0) { setWorkExp(parsedResume.workExp); setOpenExp(parsedResume.workExp[0].id) }
+    if (parsedResume.education.length > 0) setEducation(parsedResume.education)
     setParsedResume(null)
     setImportFile(null)
     setActiveTab('editor')
@@ -1123,16 +1136,42 @@ body { margin: 0; padding: 0; background: #fff; }
             </div>
 
             <div>
-              <div className="form-section-head"><IconDoc size={14} /> Education</div>
+              <div className="form-section-head" style={{ justifyContent: 'space-between' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><IconDoc size={14} /> Education</span>
+              </div>
               {education.map(edu => (
-                <div key={edu.id}>
-                  <div style={{ marginBottom: 8 }}><div className="f-label">Degree</div><input className="f-input" defaultValue={edu.degree} /></div>
-                  <div className="form-grid">
-                    <div><div className="f-label">School</div><input className="f-input" defaultValue={edu.school} /></div>
-                    <div><div className="f-label">Period</div><input className="f-input" defaultValue={edu.period} /></div>
+                <div key={edu.id} className="rb-exp-entry" style={{ marginBottom: 10 }}>
+                  <div style={{ marginBottom: 8 }}>
+                    <div className="f-label">Degree</div>
+                    <input className="f-input" value={edu.degree}
+                      onChange={e => setEducation(prev => prev.map(x => x.id === edu.id ? { ...x, degree: e.target.value } : x))} />
                   </div>
+                  <div className="form-grid">
+                    <div>
+                      <div className="f-label">School</div>
+                      <input className="f-input" value={edu.school}
+                        onChange={e => setEducation(prev => prev.map(x => x.id === edu.id ? { ...x, school: e.target.value } : x))} />
+                    </div>
+                    <div>
+                      <div className="f-label">Period</div>
+                      <input className="f-input" value={edu.period}
+                        onChange={e => setEducation(prev => prev.map(x => x.id === edu.id ? { ...x, period: e.target.value } : x))} />
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setEducation(prev => prev.filter(x => x.id !== edu.id))}
+                    style={{ marginTop: 6, fontSize: 11.5, color: 'var(--text-mute)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}
+                  >
+                    Remove
+                  </button>
                 </div>
               ))}
+              <button className="rb-add-exp" onClick={() => {
+                const n = { id: Date.now(), degree: '', school: '', period: '' }
+                setEducation(prev => [...prev, n])
+              }}>
+                <IconPlus size={12} /> Add Education
+              </button>
             </div>
           </div>
         )}
