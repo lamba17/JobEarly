@@ -12,6 +12,7 @@ async function extractTextFromFile(file: File): Promise<string> {
     const buf = await file.arrayBuffer()
     const doc = await pdfjs.getDocument({ data: new Uint8Array(buf) }).promise
     let text = ''
+    let linkedinAnnotation = ''
     for (let i = 1; i <= doc.numPages; i++) {
       const page = await doc.getPage(i)
       const content = await page.getTextContent()
@@ -23,7 +24,19 @@ async function extractTextFromFile(file: File): Promise<string> {
         lastY = item.transform[5]
       }
       text += '\n'
+      // Extract hyperlink annotations to find LinkedIn URL (not visible as text in PDF)
+      if (!linkedinAnnotation) {
+        const annotations = await page.getAnnotations()
+        for (const ann of annotations as any[]) {
+          if (ann.url && /linkedin\.com\/in\//i.test(ann.url)) {
+            linkedinAnnotation = ann.url
+            break
+          }
+        }
+      }
     }
+    // Prepend LinkedIn URL so the text parser can pick it up
+    if (linkedinAnnotation) text = linkedinAnnotation + '\n' + text
     return text
   }
 
@@ -323,10 +336,12 @@ function parseResumeText(raw: string): ParsedResume {
   interface RawExp { title: string; company: string; period: string; bullets: string[] }
   const workExps: RawExp[] = []
   let curExp: Partial<RawExp> | null = null
-  let pendingCompany = ''   // holds a company line seen before the title+date line
+  let pendingCompany = ''      // explicit company line seen before the title+date line
+  let lastFlushedCompany = ''  // company of last flushed entry, for same-company multi-role inheritance
 
   const flushExp = () => {
     if (curExp?.title || curExp?.company) {
+      if (curExp.company) lastFlushedCompany = curExp.company
       workExps.push({
         title:   curExp.title   ?? '',
         company: curExp.company ?? '',
@@ -356,11 +371,11 @@ function parseResumeText(raw: string): ParsedResume {
       const rest = line.replace(dateText, '').replace(/[,·\t]+$/,'').trim()
 
       if (hasTitle && rest.length > 0) {
-        // Pattern: "Title – Role  Jun 2023 – March 2025"
+        // Pattern: "Title  Jun 2023 – March 2025"
         flushExp()
         curExp = {
           title:   rest,
-          company: pendingCompany,
+          company: pendingCompany || lastFlushedCompany,  // inherit company for same-company multi-role
           period,
           bullets: [],
         }
@@ -368,7 +383,7 @@ function parseResumeText(raw: string): ParsedResume {
       } else if (!curExp) {
         // Date line with no prior title — store and keep going
         flushExp()
-        curExp = { company: pendingCompany || rest, period, bullets: [] }
+        curExp = { company: pendingCompany || rest || lastFlushedCompany, period, bullets: [] }
         pendingCompany = ''
       } else {
         // Additional role at same company, or period for existing entry
@@ -378,25 +393,33 @@ function parseResumeText(raw: string): ParsedResume {
         } else {
           // Second role at same company
           flushExp()
-          curExp = { title: rest || '', company: pendingCompany, period, bullets: [] }
+          curExp = { title: rest || '', company: pendingCompany || lastFlushedCompany, period, bullets: [] }
           pendingCompany = ''
         }
       }
     } else if (!isBullet && line.length > 2 && line.length < 100 && !line.includes('@')) {
+      const WX_LOC_RE = /^(new york|san francisco|los angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|vancouver|montreal|mumbai|bangalore|bengaluru|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|lima|peru)[,\s]/i
       if (hasTitle) {
         // Title line without a date (date may follow on next line)
         flushExp()
-        curExp = { title: line, company: pendingCompany, bullets: [] }
+        curExp = { title: line, company: pendingCompany || lastFlushedCompany, bullets: [] }
         pendingCompany = ''
       } else if (looksOrg && !curExp) {
-        // Likely a company/org name before the title+date line — skip pure location lines
-        const WX_LOC_RE = /^(new york|san francisco|los angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|vancouver|montreal|mumbai|bangalore|bengaluru|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|lima|peru)[,\s]/i
+        // Likely a company/org name — skip pure location lines
         if (!WX_LOC_RE.test(line.trim())) {
-          pendingCompany = line.replace(/,?\s*(vancouver|toronto|new york|mumbai|bengaluru|bangalore|hyderabad|pune|delhi|india|usa|canada|bc|on|ny|ca)[^,]*/i, '').trim()
+          pendingCompany = line.replace(/\s*[,–\-]\s*(new york|san francisco|los angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|vancouver|montreal|mumbai|bangalore|bengaluru|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|lima|peru|india|usa|canada|uk|bc|on|ny|ca|md|il|tx|wa)\b.*/i, '').trim()
           if (!pendingCompany) pendingCompany = line
+          lastFlushedCompany = pendingCompany  // new company resets inheritance
         }
-      } else if (curExp && !curExp.company && !hasTitle) {
+      } else if (curExp && !curExp.company && (curExp.bullets?.length ?? 0) === 0 && !WX_LOC_RE.test(line.trim()) && !hasTitle) {
+        // Company name that appears after the title line (before bullets start)
         curExp.company = line
+      } else if (curExp && (curExp.bullets?.length ?? 0) > 0 && !hasTitle) {
+        // Wrapped bullet continuation — append to last bullet
+        const bullets = curExp.bullets ?? []
+        if (bullets.length > 0) {
+          curExp.bullets = [...bullets.slice(0, -1), bullets[bullets.length - 1] + ' ' + line]
+        }
       }
     }
   }
@@ -433,14 +456,15 @@ function parseResumeText(raw: string): ParsedResume {
 
     if (isActivity || isLocation) continue
 
-    // Clean: strip year range + trailing city/region fragments
+    // Clean: strip year range + trailing city/region fragments (use .* to also capture ", USA" etc.)
     const lineClean = line
       .replace(periodFull ? periodFull[0] : /\b\d{4}\b/, '')
-      .replace(/,?\s*(baltimore|new york|mumbai|bengaluru|bangalore|hyderabad|pune|delhi|india|usa|canada|bc|on|ny|ca|md|il)[^,]*/i, '')
+      .replace(/,?\s*(baltimore|new york|san francisco|los angeles|chicago|seattle|boston|austin|miami|denver|toronto|vancouver|montreal|mumbai|bengaluru|bangalore|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|india|usa|canada|uk|singapore|bc|on|ny|ca|md|il|tx|wa).*/i, '')
       .replace(/[,·|\t]+$/, '')
       .trim()
 
-    if (hasSchool) {
+    // Degree takes priority over school when both match (e.g. "B.Tech ... NMIMS club ...")
+    if (hasSchool && !hasDegree) {
       flushEdu()
       curEdu = { school: lineClean || line.replace(/\s*\d{4}.*$/, '').trim(), period }
     } else if (hasDegree) {
