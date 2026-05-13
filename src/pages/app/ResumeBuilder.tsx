@@ -373,13 +373,15 @@ function parseResumeText(raw: string): ParsedResume {
       if (hasTitle && rest.length > 0) {
         // Pattern: "Title  Jun 2023 – March 2025" or "Title – Company Jun 2023 – March 2025"
         flushExp()
-        // Check if title contains " – " (dash separating title and company)
+        // Check if title contains " – " (dash separating title and company) — ONLY if no pending company
         let titlePart = rest
         let companyPart = pendingCompany || lastFlushedCompany
-        const dashMatch = rest.match(/^([^–—\-]+?)\s+[–—\-]\s+(.+)$/)
-        if (dashMatch) {
-          titlePart = dashMatch[1].trim()
-          companyPart = dashMatch[2].trim() || companyPart
+        if (!pendingCompany) {
+          const dashMatch = rest.match(/^([^–—\-]+?)\s+[–—\-]\s+(.+)$/)
+          if (dashMatch) {
+            titlePart = dashMatch[1].trim()
+            companyPart = dashMatch[2].trim() || companyPart
+          }
         }
         curExp = {
           title:   titlePart,
@@ -464,10 +466,11 @@ function parseResumeText(raw: string): ParsedResume {
 
     if (isActivity || isLocation) continue
 
-    // Clean: strip year range + trailing city/region fragments (use .* to also capture ", USA" etc.)
+    // Clean: strip year range + trailing city/region fragments
+    // Only strip if preceded by comma (to avoid stripping words that contain location names)
     const lineClean = line
       .replace(periodFull ? periodFull[0] : /\b\d{4}\b/, '')
-      .replace(/,?\s*(baltimore|new york|san francisco|los angeles|chicago|seattle|boston|austin|miami|denver|toronto|vancouver|montreal|mumbai|bengaluru|bangalore|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|india|usa|canada|uk|singapore|bc|on|ny|ca|md|il|tx|wa).*/i, '')
+      .replace(/,\s*(baltimore|new york|san francisco|los angeles|chicago|seattle|boston|austin|miami|denver|toronto|vancouver|montreal|mumbai|bengaluru|bangalore|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|india|usa|canada|uk|singapore|bc|on|ny|ca|md|il|tx|wa|maryland|california|texas|washington|new york|illinois)\s*.*$/i, '')
       .replace(/[,·|\t]+$/, '')
       .trim()
 
