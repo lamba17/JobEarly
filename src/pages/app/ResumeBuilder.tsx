@@ -410,7 +410,6 @@ function parseResumeText(raw: string): ParsedResume {
           // Strip location (handles both "Company, City" and "Company City" formats)
           pendingCompany = line.replace(/[\s,–\-]+(new york|san francisco|los angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|vancouver|montreal|mumbai|bangalore|bengaluru|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|lima|peru|india|usa|canada|uk|singapore|bc|on|ny|ca|md|il|tx|wa)\b.*/i, '').trim()
           if (!pendingCompany) pendingCompany = line
-          lastFlushedCompany = pendingCompany  // new company resets inheritance
         }
       } else if (curExp && !curExp.company && (curExp.bullets?.length ?? 0) === 0 && !WX_LOC_RE.test(line.trim()) && !hasTitle) {
         // Company name that appears after the title line (before bullets start)
