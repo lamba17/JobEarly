@@ -467,10 +467,10 @@ function parseResumeText(raw: string): ParsedResume {
     if (isActivity || isLocation) continue
 
     // Clean: strip year range + trailing city/region fragments
-    // Only strip if preceded by comma (to avoid stripping words that contain location names)
+    // Strip location when preceded by comma or space at the end of line (after school name)
     const lineClean = line
       .replace(periodFull ? periodFull[0] : /\b\d{4}\b/, '')
-      .replace(/,\s*(baltimore|new york|san francisco|los angeles|chicago|seattle|boston|austin|miami|denver|toronto|vancouver|montreal|mumbai|bengaluru|bangalore|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|india|usa|canada|uk|singapore|bc|on|ny|ca|md|il|tx|wa|maryland|california|texas|washington|new york|illinois)\s*.*$/i, '')
+      .replace(/\s+(?:,-?\s*)?(baltimore|new york|san francisco|los angeles|chicago|seattle|boston|austin|miami|denver|toronto|vancouver|montreal|mumbai|bengaluru|bangalore|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|washington|lima|peru|india|usa|canada|uk|singapore|bc|on|ny|ca|md|il|tx|wa|maryland|california|texas|washington|illinois)\b.*/i, '')
       .replace(/[,·|\t]+$/, '')
       .trim()
 
