@@ -407,7 +407,8 @@ function parseResumeText(raw: string): ParsedResume {
       } else if (looksOrg && !curExp) {
         // Likely a company/org name — skip pure location lines
         if (!WX_LOC_RE.test(line.trim())) {
-          pendingCompany = line.replace(/\s*[,–\-]\s*(new york|san francisco|los angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|vancouver|montreal|mumbai|bangalore|bengaluru|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|lima|peru|india|usa|canada|uk|bc|on|ny|ca|md|il|tx|wa)\b.*/i, '').trim()
+          // Strip location (handles both "Company, City" and "Company City" formats)
+          pendingCompany = line.replace(/[\s,–\-]+(new york|san francisco|los angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|vancouver|montreal|mumbai|bangalore|bengaluru|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|lima|peru|india|usa|canada|uk|singapore|bc|on|ny|ca|md|il|tx|wa)\b.*/i, '').trim()
           if (!pendingCompany) pendingCompany = line
           lastFlushedCompany = pendingCompany  // new company resets inheritance
         }
