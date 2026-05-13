@@ -1329,8 +1329,8 @@ body { margin: 0; padding: 0; background: #fff; }
                 <div className="resume-sec-title" style={{ marginTop: 18, color: resumeAccent }}>Education</div>
                 {education.map(edu => (
                   <div key={edu.id} className="resume-entry">
-                    <div className="title">{edu.degree}</div>
-                    <div className="sub">{edu.school}</div>
+                    <div className="title">{edu.school}</div>
+                    <div className="sub">{edu.degree}</div>
                     <div className="sub">{edu.period}</div>
                   </div>
                 ))}
@@ -1341,9 +1341,11 @@ body { margin: 0; padding: 0; background: #fff; }
                 <div className="resume-sec-title" style={{ color: resumeAccent }}>Work Experience</div>
                 {workExp.map(exp => (
                   <div key={exp.id} className="resume-entry">
-                    <div className="title">{exp.title}</div>
-                    <div className="sub" style={{ color: resumeAccent, fontWeight: 600 }}>{exp.company}</div>
-                    <div className="sub">{exp.period}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 2 }}>
+                      <div className="title" style={{ flex: 1 }}>{exp.company}</div>
+                      <div className="sub" style={{ whiteSpace: 'nowrap', marginLeft: 8 }}>{exp.period}</div>
+                    </div>
+                    <div className="sub" style={{ fontWeight: 500, marginBottom: 3 }}>{exp.title}</div>
                     <ul>{exp.bullets.filter(b => b.trim()).map((b, i) => <li key={i}>{b}</li>)}</ul>
                   </div>
                 ))}
