@@ -578,27 +578,39 @@ ${rawText}`
 async function enrichCompanyNames(rawText: string, parsedWorkExp: WorkExp[], apiKey: string): Promise<WorkExp[]> {
   if (parsedWorkExp.length === 0) return parsedWorkExp
 
-  const prompt = `Extract ONLY the actual company names from this resume. Each company name should appear right before a location or job title.
-Return ONLY valid JSON array with exact company names found:
+  const prompt = `You are a resume parser expert. Extract the ACTUAL company names from this resume's work experience section.
+
+IMPORTANT DISTINCTIONS:
+- COMPANY NAMES are proper nouns: Microsoft, Google, Apple, Accenture, JPMorgan Chase, etc.
+- NOT company names: "Retail", "Finance", "Consumer goods", "Technology", "Manufacturing", "Sales", "Marketing"
+- NOT company names: Job titles, departments, or descriptions
+- NOT company names: Sectors or industry types
+
+For EACH work experience entry, find:
+1. The company name (who they worked for)
+2. The date period (when they worked)
+3. The position/title (what they did)
+
+Work backwards from the job date - the company name usually appears RIGHT BEFORE the dates or in the same line.
+
+Return ONLY valid JSON array with this exact format:
 [
   {
+    "position": 0,
     "company": "Microsoft",
-    "period": "Jun 2023- March 2025"
-  },
-  {
-    "company": "Another Company",
-    "period": "Aug 2021 – Jun 2023"
+    "period": "Jun 2023 – Mar 2025",
+    "title": "Senior Product Manager"
   }
 ]
 
-IMPORTANT:
-- Look for company names that appear at the START of work experience entries
-- Company names are typically followed by location (city, state) or job title
-- Return ONLY real company names (Google, Microsoft, Apple, Accenture, etc.)
-- Skip sectors/industries (Retail, Finance, Technology, etc.)
-- Match by date period to link with resume jobs
+Rules:
+- Include ONLY real company names (proper organizations)
+- Skip entries where you cannot identify a clear company name
+- Position is the index (0, 1, 2, ...) of the work entry
+- Match the period EXACTLY as it appears in the resume
+- Period must match one of the work experiences in the resume
 
-Resume text:
+Resume:
 ${rawText}`
 
   try {
@@ -622,24 +634,23 @@ ${rawText}`
     if (!jsonText) return parsedWorkExp
 
     const extracted = JSON.parse(jsonText)
-    // Merge extracted company names back into parsed work exp, matching by period
-    return parsedWorkExp.map((exp, idx) => {
-      if (extracted.length === 0) return exp
 
-      // Try to match by year in period
-      const expYear = exp.period.match(/\d{4}/)?.[0]
-      const match = extracted.find((e: any) => {
-        if (!e.period) return false
-        const eYear = e.period.match(/\d{4}/)?.[0]
-        // Match if year matches or if it's the first/only entry
-        return eYear === expYear || (idx === 0 && extracted.length === 1)
-      })
+    // Map extracted companies by position and also by matching periods
+    const updated = [...parsedWorkExp]
+    for (const item of extracted) {
+      if (item.position !== undefined && item.position >= 0 && item.position < updated.length && item.company) {
+        // Only update if company is not empty and not a sector keyword
+        const company = item.company.trim()
+        const sectors = ['retail', 'finance', 'tech', 'consumer', 'manufacturing', 'services', 'software', 'consulting', 'sales', 'marketing', 'it', 'hr', 'operations', 'legal', 'media']
+        const isSector = sectors.some(s => company.toLowerCase().includes(s) && company.length < 20)
 
-      if (match && match.company && match.company.length > 0 && !match.company.toLowerCase().includes('retail') && !match.company.toLowerCase().includes('finance')) {
-        return { ...exp, company: match.company }
+        if (company.length > 2 && !isSector && updated[item.position].company !== company) {
+          updated[item.position] = { ...updated[item.position], company }
+        }
       }
-      return exp
-    })
+    }
+
+    return updated
   } catch {
     return parsedWorkExp
   }
