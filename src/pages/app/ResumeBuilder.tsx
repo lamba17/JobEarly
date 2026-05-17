@@ -811,6 +811,7 @@ export default function ResumeBuilder() {
   const [originalResumeFile, setOriginalResumeFile] = useState<File | null>(null)
   const [resumeRawText, setResumeRawText] = useState('')
   const [analysisReport, setAnalysisReport] = useState<ResumeAnalysisReport | null>(null)
+  const [analysisError, setAnalysisError] = useState('')
   const fileInputRef                      = useRef<HTMLInputElement>(null)
   const [showCustomize, setShowCustomize] = useState(false)
   const [showShare, setShowShare]       = useState(false)
@@ -922,6 +923,7 @@ export default function ResumeBuilder() {
   const handleAnalyse = async () => {
     if (!jobDesc.trim() && !jobUrl.trim()) return
     setAnalysing(true)
+    setAnalysisError('')
     try {
       const fallback = `${jobTitle} role. Requirements: UX Research, Figma, Design Systems, Prototyping, Stakeholder Management, Data Analysis, A/B Testing, Cross-functional, Roadmap, User Research, Product Strategy, Agile, Metrics.`
       const jd = jobDesc.trim() || fallback
@@ -940,11 +942,15 @@ export default function ResumeBuilder() {
           setAnalysisReport(report)
           setActiveTab('analysis')
           setParsingStatus('')
-        } catch (err) {
+        } catch (err: any) {
+          const errorMsg = err?.message || 'Failed to generate analysis. Please check your Claude API key.'
           console.error('Analysis failed:', err)
+          setAnalysisError(errorMsg)
           setParsingStatus('')
           // Fallback: still show job target results even if analysis fails
         }
+      } else {
+        setAnalysisError('Please add your Claude API key in the Import tab under "Enable AI accuracy boost"')
       }
 
       setAnalysed(true)
@@ -1413,6 +1419,12 @@ body { margin: 0; padding: 0; background: #fff; }
         {/* ─── JOB TARGET TAB ─── */}
         {activeTab === 'jd' && (
           <div className="rb-tab-content">
+            {analysisError && (
+              <div style={{ padding: '10px 14px', borderRadius: 8, background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#DC2626', fontSize: 12.5, display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 12 }}>
+                <span style={{ flexShrink: 0 }}>⚠️</span>
+                <span>{analysisError}</span>
+              </div>
+            )}
             {!analysed ? (
               <>
                 <div>
