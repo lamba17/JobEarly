@@ -567,6 +567,8 @@ export default function ResumeBuilder() {
   const [claudeApiKey,  setClaudeApiKey]  = useState(user?.claudeApiKey ?? '')
   const [optimizationSuggestions, setOptimizationSuggestions] = useState<Array<{ id: string; type: 'ats' | 'bullet' | 'skill' | 'summary'; original: string; suggested: string; section: string; accepted: boolean }>>([])
   const [showOptimizations, setShowOptimizations] = useState(false)
+  const [originalResumeFile, setOriginalResumeFile] = useState<File | null>(null)
+  const [originalResumeText, setOriginalResumeText] = useState('')
   const fileInputRef                      = useRef<HTMLInputElement>(null)
   const [showCustomize, setShowCustomize] = useState(false)
   const [showShare, setShowShare]       = useState(false)
@@ -695,6 +697,10 @@ export default function ResumeBuilder() {
       const text = await extractTextFromFile(file)
       if (!text.trim()) throw new Error('Could not read any text from this file. Try a different format.')
 
+      // Store original file and text
+      setOriginalResumeFile(file)
+      setOriginalResumeText(text)
+
       // Parse for basic metadata only
       const result = parseResumeText(text)
       setParsedResume(result)
@@ -711,6 +717,9 @@ export default function ResumeBuilder() {
         }
         setParsingStatus('')
       }
+
+      // Auto-navigate to Job Target tab after successful import
+      setTimeout(() => setActiveTab('jd'), 800)
     } catch (err: any) {
       setImportError(err.message ?? 'Failed to read file. Please try a PDF, DOCX, or TXT.')
       setImportFile(null)
@@ -1385,95 +1394,108 @@ body { margin: 0; padding: 0; background: #fff; }
 
         {/* Toolbar */}
         <div className="builder-right-head">
-          <div className="template-tag">TEMPLATE: <strong>{templateName.toUpperCase()}</strong></div>
+          {originalResumeFile ? (
+            <div className="template-tag">📄 <strong>{originalResumeFile.name.toUpperCase()}</strong></div>
+          ) : (
+            <div className="template-tag">TEMPLATE: <strong>{templateName.toUpperCase()}</strong></div>
+          )}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {analysed && (
-              <div className="rb-ats-mini" style={{ borderColor: scoreColor }}>
-                <div className="rb-ats-mini-ring"
-                  style={{ background: `conic-gradient(${scoreColor} 0% ${scorePct}, var(--border) ${scorePct} 100%)` }}>
-                  <div className="rb-ats-mini-inner" />
-                </div>
-                <div>
-                  <div style={{ fontSize: 15, fontWeight: 800, color: scoreColor, lineHeight: 1 }}>{atsScore}</div>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-mute)', letterSpacing: '0.06em' }}>ATS</div>
-                </div>
-              </div>
-            )}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-mute)', fontSize: 13 }}>
-              <button
-                onClick={() => setZoom(z => Math.max(50, z - 5))}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-mute)', display: 'flex' }}
-                title="Zoom out"
-              ><IconZoomOut size={15} /></button>
-              <span style={{ minWidth: 34, textAlign: 'center', fontWeight: 600 }}>{zoom}%</span>
-              <button
-                onClick={() => setZoom(z => Math.min(130, z + 5))}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-mute)', display: 'flex' }}
-                title="Zoom in"
-              ><IconZoomIn size={15} /></button>
-            </div>
-          </div>
-
-          <div className="builder-actions">
-            {/* Customize button */}
-            <button
-              onClick={() => { setShowCustomize(v => !v); setShowShare(false) }}
-              style={showCustomize ? { background: 'var(--blue-50)', color: 'var(--accent)', borderColor: 'var(--blue-200)' } : {}}
-            >
-              <IconCustomize size={13} /> Customize
-            </button>
-
-            {/* Share button with popover */}
-            <div ref={shareRef} style={{ position: 'relative' }}>
-              <button
-                onClick={() => { setShowShare(v => !v); setShowCustomize(false) }}
-                style={showShare ? { background: 'var(--blue-50)', color: 'var(--accent)', borderColor: 'var(--blue-200)' } : {}}
-              >
-                <IconShare size={13} /> Share
-              </button>
-
-              {showShare && (
-                <div className="rb-share-pop">
-                  <div className="rb-share-header">Export &amp; Share</div>
-                  <button className="rb-share-item" onClick={handleCopyLink}>
-                    <span className="rb-share-icon blue"><IcoLink2 size={14} /></span>
-                    <div>
-                      <div className="rb-share-item-title">{copied ? '✓ Link copied!' : 'Copy shareable link'}</div>
-                      <div className="rb-share-item-sub">Share your resume page</div>
-                    </div>
-                  </button>
-                  <button className="rb-share-item" onClick={handlePrint}>
-                    <span className="rb-share-icon green"><IcoPrint size={14} /></span>
-                    <div>
-                      <div className="rb-share-item-title">Print / Save as PDF</div>
-                      <div className="rb-share-item-sub">Download via browser dialog</div>
-                    </div>
-                  </button>
-                  <button className="rb-share-item" onClick={handleEmail}>
-                    <span className="rb-share-icon amber"><IcoMail size={14} /></span>
-                    <div>
-                      <div className="rb-share-item-title">Email resume</div>
-                      <div className="rb-share-item-sub">Opens your email client</div>
-                    </div>
-                  </button>
-                  <div className="rb-share-divider" />
-                  <button className="rb-share-item" onClick={() => { handleSave(); setShowShare(false) }}>
-                    <span className="rb-share-icon slate"><IconDownload size={14} /></span>
-                    <div>
-                      <div className="rb-share-item-title">Save draft</div>
-                      <div className="rb-share-item-sub">Save to your dashboard</div>
-                    </div>
-                  </button>
+          {!originalResumeFile && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {analysed && (
+                <div className="rb-ats-mini" style={{ borderColor: scoreColor }}>
+                  <div className="rb-ats-mini-ring"
+                    style={{ background: `conic-gradient(${scoreColor} 0% ${scorePct}, var(--border) ${scorePct} 100%)` }}>
+                    <div className="rb-ats-mini-inner" />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: scoreColor, lineHeight: 1 }}>{atsScore}</div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-mute)', letterSpacing: '0.06em' }}>ATS</div>
+                  </div>
                 </div>
               )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-mute)', fontSize: 13 }}>
+                <button
+                  onClick={() => setZoom(z => Math.max(50, z - 5))}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-mute)', display: 'flex' }}
+                  title="Zoom out"
+                ><IconZoomOut size={15} /></button>
+                <span style={{ minWidth: 34, textAlign: 'center', fontWeight: 600 }}>{zoom}%</span>
+                <button
+                  onClick={() => setZoom(z => Math.min(130, z + 5))}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-mute)', display: 'flex' }}
+                  title="Zoom in"
+                ><IconZoomIn size={15} /></button>
+              </div>
             </div>
-          </div>
+          )}
+
+          {!originalResumeFile && (
+            <div className="builder-actions">
+              {/* Customize button */}
+              <button
+                onClick={() => { setShowCustomize(v => !v); setShowShare(false) }}
+                style={showCustomize ? { background: 'var(--blue-50)', color: 'var(--accent)', borderColor: 'var(--blue-200)' } : {}}
+              >
+                <IconCustomize size={13} /> Customize
+              </button>
+
+              {/* Share button with popover */}
+              <div ref={shareRef} style={{ position: 'relative' }}>
+                <button
+                  onClick={() => { setShowShare(v => !v); setShowCustomize(false) }}
+                  style={showShare ? { background: 'var(--blue-50)', color: 'var(--accent)', borderColor: 'var(--blue-200)' } : {}}
+                >
+                  <IconShare size={13} /> Share
+                </button>
+
+                {showShare && (
+                  <div className="rb-share-pop">
+                    <div className="rb-share-header">Export &amp; Share</div>
+                    <button className="rb-share-item" onClick={handleCopyLink}>
+                      <span className="rb-share-icon blue"><IcoLink2 size={14} /></span>
+                      <div>
+                        <div className="rb-share-item-title">{copied ? '✓ Link copied!' : 'Copy shareable link'}</div>
+                        <div className="rb-share-item-sub">Share your resume page</div>
+                      </div>
+                    </button>
+                    <button className="rb-share-item" onClick={handlePrint}>
+                      <span className="rb-share-icon green"><IcoPrint size={14} /></span>
+                      <div>
+                        <div className="rb-share-item-title">Print / Save as PDF</div>
+                        <div className="rb-share-item-sub">Download via browser dialog</div>
+                      </div>
+                    </button>
+                    <button className="rb-share-item" onClick={handleEmail}>
+                      <span className="rb-share-icon amber"><IcoMail size={14} /></span>
+                      <div>
+                        <div className="rb-share-item-title">Email resume</div>
+                        <div className="rb-share-item-sub">Opens your email client</div>
+                      </div>
+                    </button>
+                    <div className="rb-share-divider" />
+                    <button className="rb-share-item" onClick={() => { handleSave(); setShowShare(false) }}>
+                      <span className="rb-share-icon slate"><IconDownload size={14} /></span>
+                      <div>
+                        <div className="rb-share-item-title">Save draft</div>
+                        <div className="rb-share-item-sub">Save to your dashboard</div>
+                      </div>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Resume Document */}
         <div className="resume-preview">
-          <div className="resume-doc" style={{ fontFamily: resumeFont, transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}>
+          {originalResumeFile && originalResumeText ? (
+            <div style={{ padding: 40, background: 'white', color: '#1f2937', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordWrap: 'break-word', fontSize: 12, fontFamily: 'monospace', overflowY: 'auto', height: '100%', transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}>
+              {originalResumeText}
+            </div>
+          ) : (
+            <div className="resume-doc" style={{ fontFamily: resumeFont, transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}>
             <div className="resume-doc-head" style={{ background: headerColor }}>
               <div className="rname">{name}</div>
               <div className="rtitle">{jobTitle}</div>
@@ -1513,7 +1535,8 @@ body { margin: 0; padding: 0; background: #fff; }
                 ))}
               </div>
             </div>
-          </div>
+            </div>
+          )}
         </div>
 
         {/* ── Customize Panel (slide-over) ── */}
