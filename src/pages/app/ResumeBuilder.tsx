@@ -183,9 +183,34 @@ function splitKeywords(kws: string[], resumeText: string) {
   return { found, missing }
 }
 
-function computeScore(found: number, total: number, hasJD: boolean) {
+function computeScore(found: number, total: number, hasJD: boolean, resumeText?: string) {
   if (!hasJD || total === 0) return 72
-  return Math.min(98, Math.round(52 + (found / total) * 40 + (found >= 6 ? 6 : 0)))
+
+  // Base score
+  let score = 60
+
+  // Keyword match (up to 25 points)
+  const keywordBonus = (found / Math.max(total, 1)) * 25
+  score += keywordBonus
+
+  // Content quality bonus (up to 15 points)
+  // Check if resume has metrics, numbers, achievements
+  if (resumeText) {
+    const hasMetrics = /\d+[%+\-]|[$€£¥]\d+|x\s*\d+/.test(resumeText)
+    const hasImpact = /improved|increased|achieved|delivered|generated|secured|reduced|accelerated/i.test(resumeText)
+    const hasBullets = (resumeText.match(/[•\-*]\s/g) || []).length >= 5
+    const hasQuantity = (resumeText.match(/\d+/g) || []).length >= 8
+
+    let qualityPoints = 0
+    if (hasMetrics) qualityPoints += 4
+    if (hasImpact) qualityPoints += 4
+    if (hasBullets) qualityPoints += 4
+    if (hasQuantity) qualityPoints += 3
+
+    score += Math.min(qualityPoints, 15)
+  }
+
+  return Math.min(98, Math.round(score))
 }
 
 const FORMAT_CHECKS = [
@@ -598,13 +623,22 @@ ${rawText}`
 
     const extracted = JSON.parse(jsonText)
     // Merge extracted company names back into parsed work exp, matching by period
-    return parsedWorkExp.map(exp => {
+    return parsedWorkExp.map((exp, idx) => {
+      if (extracted.length === 0) return exp
+
+      // Try to match by year in period
+      const expYear = exp.period.match(/\d{4}/)?.[0]
       const match = extracted.find((e: any) => {
-        // Match by period or by finding the company name in work exp bullets
-        if (e.period && e.period.includes(exp.period.substring(0, 4))) return true
-        return false
+        if (!e.period) return false
+        const eYear = e.period.match(/\d{4}/)?.[0]
+        // Match if year matches or if it's the first/only entry
+        return eYear === expYear || (idx === 0 && extracted.length === 1)
       })
-      return match && match.company ? { ...exp, company: match.company } : exp
+
+      if (match && match.company && match.company.length > 0 && !match.company.toLowerCase().includes('retail') && !match.company.toLowerCase().includes('finance')) {
+        return { ...exp, company: match.company }
+      }
+      return exp
     })
   } catch {
     return parsedWorkExp
@@ -720,7 +754,7 @@ export default function ResumeBuilder() {
     ...education.flatMap(e => [e.degree, e.school]),
   ].join(' '), [name, jobTitle, summary, skills, workExp, education])
 
-  const atsScore   = useMemo(() => computeScore(keywords.found.length, keywords.found.length + keywords.missing.length, analysed), [keywords, analysed])
+  const atsScore   = useMemo(() => computeScore(keywords.found.length, keywords.found.length + keywords.missing.length, analysed, resumeText), [keywords, analysed, resumeText])
   const scoreColor = atsScore >= 85 ? '#10B981' : atsScore >= 65 ? '#F59E0B' : '#EF4444'
   const scorePct   = `${atsScore}%`
   const matchedKwSet = useMemo(() => new Set(keywords.found.map(k => k.toLowerCase())), [keywords.found])
