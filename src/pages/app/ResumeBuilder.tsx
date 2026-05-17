@@ -935,11 +935,15 @@ export default function ResumeBuilder() {
           setOptimizationSuggestions(suggestions.map((s, i) => ({ ...s, id: s.id || `suggestion-${i}`, accepted: false, type: s.type as 'bullet' | 'skill' | 'summary' })))
 
           // Generate and show analysis report
+          setParsingStatus('Generating analysis report…')
           const report = await generateResumeAnalysisReport(resumeText, jd, claudeApiKey)
           setAnalysisReport(report)
           setActiveTab('analysis')
-        } catch {
-          // Silently skip if Claude fails
+          setParsingStatus('')
+        } catch (err) {
+          console.error('Analysis failed:', err)
+          setParsingStatus('')
+          // Fallback: still show job target results even if analysis fails
         }
       }
 
