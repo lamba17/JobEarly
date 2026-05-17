@@ -508,7 +508,7 @@ function parseResumeText(raw: string): ParsedResume {
   }
 }
 
-function scoreParseConfidence(parsed: ParsedResume, rawLineCount: number): number {
+function scoreParseConfidence(parsed: ParsedResume): number {
   let score = 0
   if (parsed.name) score += 20
   if (parsed.email) score += 15
@@ -700,7 +700,7 @@ export default function ResumeBuilder() {
       if (!text.trim()) throw new Error('Could not read any text from this file. Try a different format.')
       let result = parseResumeText(text)
 
-      const confidence = scoreParseConfidence(result, text.split('\n').length)
+      const confidence = scoreParseConfidence(result)
       let aiUsed = false
 
       if (confidence < 70 && claudeApiKey.trim()) {
