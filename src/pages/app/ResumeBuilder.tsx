@@ -550,6 +550,102 @@ ${rawText}`
   return JSON.parse(jsonText)
 }
 
+async function enrichCompanyNames(rawText: string, parsedWorkExp: WorkExp[], apiKey: string): Promise<WorkExp[]> {
+  if (parsedWorkExp.length === 0) return parsedWorkExp
+
+  const prompt = `Extract the actual company names from this resume text. Return ONLY valid JSON array:
+[
+  {
+    "period": "date range like 'Jun 2023 — Mar 2025'",
+    "company": "actual company name (e.g., Microsoft, Google, Accenture)",
+    "title": "job title"
+  }
+]
+
+IMPORTANT: Return entries ONLY for work experiences where you can identify a clear company name. Skip generic sectors/industries.
+
+Resume text:
+${rawText}`
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 2000,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    })
+
+    if (!res.ok) return parsedWorkExp
+    const data = await res.json()
+    const jsonText = data.content[0]?.text.match(/\[[\s\S]*\]/)?.[0]
+    if (!jsonText) return parsedWorkExp
+
+    const extracted = JSON.parse(jsonText)
+    // Merge extracted company names back into parsed work exp, preserving ids
+    return parsedWorkExp.map(exp => {
+      const match = extracted.find((e: any) =>
+        e.period === exp.period || (e.title && e.title.toLowerCase() === exp.title.toLowerCase())
+      )
+      return match ? { ...exp, company: match.company || exp.company } : exp
+    })
+  } catch {
+    return parsedWorkExp
+  }
+}
+
+async function generateJobMatchSuggestions(resumeText: string, jobDescription: string, apiKey: string): Promise<Array<{ id: string; type: 'bullet' | 'skill' | 'summary'; original: string; suggested: string; section: string; missingKeyword: string }>> {
+  const prompt = `You are an ATS expert. Analyze this resume against the job description and suggest specific improvements to increase match. Return ONLY valid JSON array:
+[
+  {
+    "id": "unique-id",
+    "type": "bullet" | "skill" | "summary",
+    "section": "Work Experience or Skills or Summary",
+    "original": "current text from resume",
+    "suggested": "improved text that incorporates job keywords",
+    "missingKeyword": "the keyword/requirement from job that's missing from resume"
+  }
+]
+
+IMPORTANT:
+- Focus on resume sections that can be improved to match the job
+- Identify key skills/requirements from job that are missing from resume
+- Suggest concrete rewrites that naturally incorporate these keywords
+- Prioritize the most impactful changes
+
+RESUME:
+${resumeText}
+
+JOB DESCRIPTION:
+${jobDescription}`
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 4000,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  })
+
+  if (!res.ok) throw new Error(`Claude API error: ${res.status}`)
+  const data = await res.json()
+  const jsonText = data.content[0]?.text.match(/\[[\s\S]*\]/)?.[0]
+  if (!jsonText) throw new Error('No JSON in Claude response')
+  return JSON.parse(jsonText)
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function ResumeBuilder() {
@@ -568,6 +664,7 @@ export default function ResumeBuilder() {
   const [optimizationSuggestions, setOptimizationSuggestions] = useState<Array<{ id: string; type: 'ats' | 'bullet' | 'skill' | 'summary'; original: string; suggested: string; section: string; accepted: boolean }>>([])
   const [showOptimizations, setShowOptimizations] = useState(false)
   const [originalResumeFile, setOriginalResumeFile] = useState<File | null>(null)
+  const [resumeRawText, setResumeRawText] = useState('')
   const fileInputRef                      = useRef<HTMLInputElement>(null)
   const [showCustomize, setShowCustomize] = useState(false)
   const [showShare, setShowShare]       = useState(false)
@@ -627,6 +724,23 @@ export default function ResumeBuilder() {
     return () => document.removeEventListener('mousedown', handler)
   }, [showShare])
 
+  // Enrich company names using Claude API if available
+  useEffect(() => {
+    if (!parsedResume || !claudeApiKey.trim() || !resumeRawText || parsedResume.workExp.length === 0) return
+
+    const enrichNames = async () => {
+      try {
+        const enriched = await enrichCompanyNames(resumeRawText, parsedResume.workExp, claudeApiKey)
+        const updated = { ...parsedResume, workExp: enriched }
+        setParsedResume(updated)
+      } catch {
+        // Silently skip if enrichment fails
+      }
+    }
+
+    enrichNames()
+  }, [parsedResume?.workExp.length, claudeApiKey, resumeRawText])
+
   // Auto-apply parsed resume data when a resume is uploaded
   useEffect(() => {
     if (!parsedResume) return
@@ -659,16 +773,29 @@ export default function ResumeBuilder() {
   }, [parsedResume, optimizationSuggestions])
 
   // Handlers
-  const handleAnalyse = () => {
+  const handleAnalyse = async () => {
     if (!jobDesc.trim() && !jobUrl.trim()) return
     setAnalysing(true)
-    setTimeout(() => {
+    try {
       const fallback = `${jobTitle} role. Requirements: UX Research, Figma, Design Systems, Prototyping, Stakeholder Management, Data Analysis, A/B Testing, Cross-functional, Roadmap, User Research, Product Strategy, Agile, Metrics.`
-      const kws = extractJDKeywords(jobDesc.trim() || fallback)
+      const jd = jobDesc.trim() || fallback
+      const kws = extractJDKeywords(jd)
       setKeywords(splitKeywords(kws, resumeText))
+
+      // Generate job-match suggestions if Claude API is available
+      if (claudeApiKey.trim()) {
+        try {
+          const suggestions = await generateJobMatchSuggestions(resumeText, jd, claudeApiKey)
+          setOptimizationSuggestions(suggestions.map((s, i) => ({ ...s, id: s.id || `suggestion-${i}`, accepted: false, type: s.type as 'bullet' | 'skill' | 'summary' })))
+        } catch {
+          // Silently skip if Claude fails
+        }
+      }
+
       setAnalysed(true)
+    } finally {
       setAnalysing(false)
-    }, 950)
+    }
   }
 
   const handleTailor = () => {
@@ -711,8 +838,9 @@ export default function ResumeBuilder() {
       const text = await extractTextFromFile(file)
       if (!text.trim()) throw new Error('Could not read any text from this file. Try a different format.')
 
-      // Store original file
+      // Store original file and text
       setOriginalResumeFile(file)
+      setResumeRawText(text)
 
       // Parse for basic metadata only
       const result = parseResumeText(text)
