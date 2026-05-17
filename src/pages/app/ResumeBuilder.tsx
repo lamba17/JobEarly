@@ -508,6 +508,49 @@ function parseResumeText(raw: string): ParsedResume {
   }
 }
 
+function formatResumeAsHTML(rawText: string): string {
+  const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0)
+  let html = '<div style="padding: 40px; background: white; color: #1f2937; line-height: 1.8; font-family: Georgia, serif; max-width: 900px; margin: 0 auto;">'
+
+  let inSection = false
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+
+    // Detect headers (all caps, or followed by dashes)
+    if (line === line.toUpperCase() && line.length > 2 && !line.includes('@') && !line.includes('.com')) {
+      if (inSection) html += '</div>'
+      html += `<h2 style="font-size: 14px; font-weight: bold; text-transform: uppercase; margin-top: 20px; margin-bottom: 10px; letter-spacing: 1px; border-bottom: 1px solid #d1d5db; padding-bottom: 6px; color: #111827;">${line}</h2>`
+      html += '<div style="margin-bottom: 12px;">'
+      inSection = true
+    } else if (inSection) {
+      // Bold lines that look like job titles or education names (contain years or specific patterns)
+      if (line.match(/\d{4}|Manager|Engineer|Designer|Developer|Analyst|Consultant|Director|Lead/i) && line.length < 80) {
+        html += `<p style="margin: 10px 0; font-weight: 600; color: #1f2937;">${line}</p>`
+      } else if (line.startsWith('-') || line.startsWith('•')) {
+        // Bullet points
+        html += `<p style="margin: 6px 0 6px 20px; font-size: 13px;">${line.replace(/^[-•]\s*/, '')}</p>`
+      } else {
+        // Regular text
+        html += `<p style="margin: 6px 0; font-size: 13px;">${line}</p>`
+      }
+    } else {
+      // Header content (name, contact info)
+      if (i < 5) {
+        if (line.match(/[a-z]+@[a-z]+\.[a-z]+/i) || line.includes('linkedin') || line.match(/\d{3}[-.\d]+\d{4}/)) {
+          html += `<p style="margin: 4px 0; font-size: 12px; color: #6b7280;">${line}</p>`
+        } else {
+          html += `<h1 style="margin: 0; font-size: 28px; font-weight: bold; color: #1f2937;">${line}</h1>`
+        }
+      }
+    }
+  }
+
+  if (inSection) html += '</div>'
+  html += '</div>'
+  return html
+}
+
 async function generateResumeSuggestions(rawText: string, apiKey: string): Promise<Array<{ id: string; type: 'ats' | 'bullet' | 'skill' | 'summary'; original: string; suggested: string; section: string }>> {
   const prompt = `Analyze this resume and suggest ATS optimization improvements. Return ONLY valid JSON array matching this exact schema:
 [
@@ -1491,9 +1534,10 @@ body { margin: 0; padding: 0; background: #fff; }
         {/* Resume Document */}
         <div className="resume-preview">
           {originalResumeFile && originalResumeText ? (
-            <div style={{ padding: 40, background: 'white', color: '#1f2937', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordWrap: 'break-word', fontSize: 12, fontFamily: 'monospace', overflowY: 'auto', height: '100%', transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}>
-              {originalResumeText}
-            </div>
+            <div
+              style={{ overflowY: 'auto', height: '100%', transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}
+              dangerouslySetInnerHTML={{ __html: formatResumeAsHTML(originalResumeText) }}
+            />
           ) : (
             <div className="resume-doc" style={{ fontFamily: resumeFont, transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}>
             <div className="resume-doc-head" style={{ background: headerColor }}>
