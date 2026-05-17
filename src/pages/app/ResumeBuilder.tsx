@@ -636,34 +636,18 @@ export default function ResumeBuilder() {
   const [tailored, setTailored] = useState(false)
   const [keywords, setKeywords] = useState<{ found: string[]; missing: string[] }>({ found: [], missing: [] })
 
-  // Resume fields
-  const [name,     setName]     = useState(user?.name ?? 'Akash Lamba')
-  const [jobTitle, setJobTitle] = useState(user?.jobTitle ?? 'Product Designer')
-  const [email,    setEmail]    = useState(user?.email ?? 'lamba.akash1994@gmail.com')
-  const [location, setLocation] = useState('Bangalore, India')
-  const [linkedin, setLinkedin] = useState('linkedin.com/in/akshlamba')
-  const [summary,  setSummary]  = useState(
-    `${user?.jobTitle ?? 'Product Designer'} with 6+ years of experience building user-centric digital products. Led end-to-end design for consumer apps reaching 2M+ users. Proven track record of cross-functional collaboration with engineering and product stakeholders to ship high-impact features on time.`
-  )
-  const [skills,   setSkills]   = useState([
-    'Product Strategy', 'UX Research', 'Figma', 'Design Systems',
-    'Prototyping', 'A/B Testing', 'User Interviews', 'Data Analysis',
-  ])
+  // Resume fields (all blank initially, populated only from uploaded resume)
+  const [name,     setName]     = useState('')
+  const [jobTitle, setJobTitle] = useState('')
+  const [email,    setEmail]    = useState('')
+  const [location, setLocation] = useState('')
+  const [linkedin, setLinkedin] = useState('')
+  const [summary,  setSummary]  = useState('')
+  const [skills,   setSkills]   = useState<string[]>([])
   const [newSkill, setNewSkill] = useState('')
-  const [workExp, setWorkExp]   = useState<WorkExp[]>([
-    { id: 1, title: 'Senior Product Designer', company: 'Razorpay', period: '2021 — PRESENT', bullets: [
-      'Led redesign of the merchant onboarding flow, reducing drop-off by 34% and increasing activation by 28%.',
-      'Built and maintained a cross-platform design system used by 20+ engineers across 3 products.',
-    ]},
-    { id: 2, title: 'Product Designer', company: 'Swiggy', period: '2018 — 2021', bullets: [
-      'Designed the restaurant discovery experience used by 8M+ daily active users across India.',
-      'Ran 12 A/B tests per quarter; shipped variants that increased order conversion by 18%.',
-    ]},
-  ])
-  const [openExp, setOpenExp] = useState<number | null>(1)
-  const [education, setEducation] = useState<EduEntry[]>([
-    { id: 1, degree: 'B.Des — Interaction Design', school: 'National Institute of Design', period: '2014 — 2018' },
-  ])
+  const [workExp, setWorkExp]   = useState<WorkExp[]>([])
+  const [openExp, setOpenExp] = useState<number | null>(null)
+  const [education, setEducation] = useState<EduEntry[]>([])
 
   // Derived
   const resumeText = useMemo(() => [
