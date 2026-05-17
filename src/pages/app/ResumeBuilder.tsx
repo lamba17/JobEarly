@@ -508,49 +508,6 @@ function parseResumeText(raw: string): ParsedResume {
   }
 }
 
-function formatResumeAsHTML(rawText: string): string {
-  const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0)
-  let html = '<div style="padding: 40px; background: white; color: #1f2937; line-height: 1.8; font-family: Georgia, serif; max-width: 900px; margin: 0 auto;">'
-
-  let inSection = false
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-
-    // Detect headers (all caps, or followed by dashes)
-    if (line === line.toUpperCase() && line.length > 2 && !line.includes('@') && !line.includes('.com')) {
-      if (inSection) html += '</div>'
-      html += `<h2 style="font-size: 14px; font-weight: bold; text-transform: uppercase; margin-top: 20px; margin-bottom: 10px; letter-spacing: 1px; border-bottom: 1px solid #d1d5db; padding-bottom: 6px; color: #111827;">${line}</h2>`
-      html += '<div style="margin-bottom: 12px;">'
-      inSection = true
-    } else if (inSection) {
-      // Bold lines that look like job titles or education names (contain years or specific patterns)
-      if (line.match(/\d{4}|Manager|Engineer|Designer|Developer|Analyst|Consultant|Director|Lead/i) && line.length < 80) {
-        html += `<p style="margin: 10px 0; font-weight: 600; color: #1f2937;">${line}</p>`
-      } else if (line.startsWith('-') || line.startsWith('•')) {
-        // Bullet points
-        html += `<p style="margin: 6px 0 6px 20px; font-size: 13px;">${line.replace(/^[-•]\s*/, '')}</p>`
-      } else {
-        // Regular text
-        html += `<p style="margin: 6px 0; font-size: 13px;">${line}</p>`
-      }
-    } else {
-      // Header content (name, contact info)
-      if (i < 5) {
-        if (line.match(/[a-z]+@[a-z]+\.[a-z]+/i) || line.includes('linkedin') || line.match(/\d{3}[-.\d]+\d{4}/)) {
-          html += `<p style="margin: 4px 0; font-size: 12px; color: #6b7280;">${line}</p>`
-        } else {
-          html += `<h1 style="margin: 0; font-size: 28px; font-weight: bold; color: #1f2937;">${line}</h1>`
-        }
-      }
-    }
-  }
-
-  if (inSection) html += '</div>'
-  html += '</div>'
-  return html
-}
-
 async function generateResumeSuggestions(rawText: string, apiKey: string): Promise<Array<{ id: string; type: 'ats' | 'bullet' | 'skill' | 'summary'; original: string; suggested: string; section: string }>> {
   const prompt = `Analyze this resume and suggest ATS optimization improvements. Return ONLY valid JSON array matching this exact schema:
 [
@@ -611,7 +568,6 @@ export default function ResumeBuilder() {
   const [optimizationSuggestions, setOptimizationSuggestions] = useState<Array<{ id: string; type: 'ats' | 'bullet' | 'skill' | 'summary'; original: string; suggested: string; section: string; accepted: boolean }>>([])
   const [showOptimizations, setShowOptimizations] = useState(false)
   const [originalResumeFile, setOriginalResumeFile] = useState<File | null>(null)
-  const [originalResumeText, setOriginalResumeText] = useState('')
   const fileInputRef                      = useRef<HTMLInputElement>(null)
   const [showCustomize, setShowCustomize] = useState(false)
   const [showShare, setShowShare]       = useState(false)
@@ -671,6 +627,37 @@ export default function ResumeBuilder() {
     return () => document.removeEventListener('mousedown', handler)
   }, [showShare])
 
+  // Auto-apply parsed resume data when a resume is uploaded
+  useEffect(() => {
+    if (!parsedResume) return
+    const acceptedSuggestions = optimizationSuggestions.filter(s => s.accepted)
+    let updatedParsedResume = { ...parsedResume }
+
+    // Apply accepted optimization suggestions
+    for (const sugg of acceptedSuggestions) {
+      if (sugg.type === 'summary' && updatedParsedResume.summary === sugg.original) {
+        updatedParsedResume.summary = sugg.suggested
+      } else if (sugg.type === 'bullet') {
+        updatedParsedResume.workExp = updatedParsedResume.workExp.map(exp => ({
+          ...exp,
+          bullets: exp.bullets.map(b => b === sugg.original ? sugg.suggested : b)
+        }))
+      } else if (sugg.type === 'skill') {
+        updatedParsedResume.skills = updatedParsedResume.skills.map(s => s === sugg.original ? sugg.suggested : s)
+      }
+    }
+
+    if (updatedParsedResume.name)     setName(updatedParsedResume.name)
+    if (updatedParsedResume.email)    setEmail(updatedParsedResume.email)
+    if (updatedParsedResume.location) setLocation(updatedParsedResume.location)
+    if (updatedParsedResume.linkedin) setLinkedin(updatedParsedResume.linkedin)
+    if (updatedParsedResume.jobTitle) setJobTitle(updatedParsedResume.jobTitle)
+    if (updatedParsedResume.summary)  setSummary(updatedParsedResume.summary)
+    if (updatedParsedResume.skills.length > 0) setSkills(updatedParsedResume.skills)
+    if (updatedParsedResume.workExp.length > 0) { setWorkExp(updatedParsedResume.workExp); setOpenExp(updatedParsedResume.workExp[0].id) }
+    if (updatedParsedResume.education.length > 0) setEducation(updatedParsedResume.education)
+  }, [parsedResume, optimizationSuggestions])
+
   // Handlers
   const handleAnalyse = () => {
     if (!jobDesc.trim() && !jobUrl.trim()) return
@@ -724,9 +711,8 @@ export default function ResumeBuilder() {
       const text = await extractTextFromFile(file)
       if (!text.trim()) throw new Error('Could not read any text from this file. Try a different format.')
 
-      // Store original file and text
+      // Store original file
       setOriginalResumeFile(file)
-      setOriginalResumeText(text)
 
       // Parse for basic metadata only
       const result = parseResumeText(text)
@@ -1517,11 +1503,11 @@ body { margin: 0; padding: 0; background: #fff; }
 
         {/* Resume Document */}
         <div className="resume-preview">
-          {originalResumeFile && originalResumeText ? (
-            <div
-              style={{ overflowY: 'auto', height: '100%', transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}
-              dangerouslySetInnerHTML={{ __html: formatResumeAsHTML(originalResumeText) }}
-            />
+          {!name && !jobTitle && !email && !location && !linkedin && skills.length === 0 && workExp.length === 0 && education.length === 0 ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-mute)', textAlign: 'center', flexDirection: 'column', gap: 16 }}>
+              <div style={{ fontSize: 18, fontWeight: 600 }}>📄 Please upload your resume</div>
+              <div style={{ fontSize: 13 }}>Your styled resume preview will appear here once uploaded</div>
+            </div>
           ) : (
             <div className="resume-doc" style={{ fontFamily: resumeFont, transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}>
             <div className="resume-doc-head" style={{ background: headerColor }}>
