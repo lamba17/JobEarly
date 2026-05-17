@@ -214,6 +214,7 @@ interface ParsedResume {
   name: string; email: string; location: string; linkedin: string
   jobTitle: string; summary: string; skills: string[]
   workExp: WorkExp[]; education: EduEntry[]
+  aiUsed?: boolean
 }
 
 // ── Resume Text Parser ────────────────────────────────────────────────────────
@@ -507,10 +508,60 @@ function parseResumeText(raw: string): ParsedResume {
   }
 }
 
+function scoreParseConfidence(parsed: ParsedResume, rawLineCount: number): number {
+  let score = 0
+  if (parsed.name) score += 20
+  if (parsed.email) score += 15
+  if (parsed.workExp.length > 0) score += 20
+  if (parsed.workExp.every(e => e.company)) score += 20
+  if (parsed.workExp.every(e => e.period)) score += 10
+  if (parsed.education.length > 0) score += 10
+  if (parsed.summary) score += 5
+  return Math.min(score, 100)
+}
+
+async function parseResumeWithClaude(rawText: string, apiKey: string): Promise<Partial<ParsedResume>> {
+  const prompt = `Extract resume data from the text below and return ONLY valid JSON matching this exact schema:
+{
+  "name": string,
+  "email": string,
+  "location": string,
+  "linkedin": string,
+  "jobTitle": string,
+  "summary": string,
+  "skills": string[],
+  "workExp": [{ "title": string, "company": string, "period": string, "bullets": string[] }],
+  "education": [{ "degree": string, "school": string, "period": string }]
+}
+
+Resume text:
+${rawText}`
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 2048,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  })
+
+  if (!res.ok) throw new Error(`Claude API error: ${res.status}`)
+  const data = await res.json()
+  const jsonText = data.content[0]?.text.match(/\{[\s\S]*\}/)?.[0]
+  if (!jsonText) throw new Error('No JSON in Claude response')
+  return JSON.parse(jsonText)
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function ResumeBuilder() {
-  const { user } = useAuth()
+  const { user, updateApiKey } = useAuth()
 
   // UI state
   const [saved, setSaved]               = useState(false)
@@ -518,8 +569,10 @@ export default function ResumeBuilder() {
   const [importFile,    setImportFile]    = useState<File | null>(null)
   const [parsedResume,  setParsedResume]  = useState<ParsedResume | null>(null)
   const [parsing,       setParsing]       = useState(false)
+  const [parsingStatus, setParsingStatus] = useState('')
   const [importError,   setImportError]   = useState('')
   const [dragOver,      setDragOver]      = useState(false)
+  const [claudeApiKey,  setClaudeApiKey]  = useState(user?.claudeApiKey ?? '')
   const fileInputRef                      = useRef<HTMLInputElement>(null)
   const [showCustomize, setShowCustomize] = useState(false)
   const [showShare, setShowShare]       = useState(false)
@@ -640,19 +693,44 @@ export default function ResumeBuilder() {
   const processFile = useCallback(async (file: File) => {
     setImportError('')
     setImportFile(file)
+    setParsingStatus('')
     setParsing(true)
     try {
       const text = await extractTextFromFile(file)
       if (!text.trim()) throw new Error('Could not read any text from this file. Try a different format.')
-      const result = parseResumeText(text)
+      let result = parseResumeText(text)
+
+      const confidence = scoreParseConfidence(result, text.split('\n').length)
+      let aiUsed = false
+
+      if (confidence < 70 && claudeApiKey.trim()) {
+        setParsingStatus('🤖 AI is improving accuracy…')
+        try {
+          const aiResult = await parseResumeWithClaude(text, claudeApiKey)
+          if (aiResult.workExp?.length) result.workExp = aiResult.workExp.map((e, i) => ({ id: i + 1, title: e.title || '', company: e.company || '', period: e.period || '', bullets: e.bullets || [] }))
+          if (aiResult.education?.length) result.education = aiResult.education.map((e, i) => ({ id: i + 1, degree: e.degree || '', school: e.school || '', period: e.period || '' }))
+          if (aiResult.name && !result.name) result.name = aiResult.name
+          if (aiResult.email && !result.email) result.email = aiResult.email
+          if (aiResult.summary && !result.summary) result.summary = aiResult.summary
+          if (aiResult.location && !result.location) result.location = aiResult.location
+          if (aiResult.skills?.length && result.skills.length === 0) result.skills = aiResult.skills.slice(0, 24)
+          aiUsed = true
+        } catch {
+          // Silently fall back to pattern-based results
+        }
+        setParsingStatus('')
+      }
+
+      if (aiUsed) result.aiUsed = true
       setParsedResume(result)
     } catch (err: any) {
       setImportError(err.message ?? 'Failed to read file. Please try a PDF, DOCX, or TXT.')
       setImportFile(null)
+      setParsingStatus('')
     } finally {
       setParsing(false)
     }
-  }, [])
+  }, [claudeApiKey])
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -835,7 +913,9 @@ body { margin: 0; padding: 0; background: #fff; }
                   {parsing ? (
                     <>
                       <span className="rb-spinner" style={{ width: 28, height: 28, borderWidth: 3 }} />
-                      <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>Reading your resume…</div>
+                      <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>
+                        {parsingStatus ? parsingStatus : 'Reading your resume…'}
+                      </div>
                       <div style={{ fontSize: 12.5, color: 'var(--text-mute)' }}>
                         {importFile?.name ?? 'Processing file'}
                       </div>
@@ -876,6 +956,25 @@ body { margin: 0; padding: 0; background: #fff; }
                   </div>
                 )}
 
+                <details style={{ display: 'flex', flexDirection: 'column', gap: 8, borderRadius: 10, border: '1px solid var(--border)', padding: '12px 14px', background: 'var(--bg-soft)' }}>
+                  <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: 13.5, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    🤖 Enable AI accuracy boost
+                  </summary>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <input
+                      type="password"
+                      placeholder="sk-ant-..."
+                      value={claudeApiKey}
+                      onChange={e => setClaudeApiKey(e.target.value)}
+                      onBlur={() => { if (claudeApiKey) updateApiKey(claudeApiKey) }}
+                      style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 12.5, fontFamily: 'inherit', background: 'var(--bg)', color: 'var(--text)' }}
+                    />
+                    <div style={{ fontSize: 11.5, color: 'var(--text-mute)', lineHeight: 1.4 }}>
+                      When confidence is low, Claude will enhance results. <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 500 }}>Get API key →</a>
+                    </div>
+                  </div>
+                </details>
+
                 <button
                   onClick={() => setActiveTab('editor')}
                   style={{ width: '100%', padding: '9px 0', borderRadius: 8, border: '1px solid var(--border)', background: 'none', color: 'var(--text-mute)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
@@ -911,8 +1010,13 @@ body { margin: 0; padding: 0; background: #fff; }
               <>
                 {/* Parse results preview */}
                 <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 10, padding: '12px 14px', marginBottom: 4 }}>
-                  <div style={{ fontWeight: 700, fontSize: 13.5, color: '#15803D', marginBottom: 8 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13.5, color: '#15803D', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
                     ✅ Resume parsed successfully
+                    {parsedResume.aiUsed && (
+                      <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4, background: 'rgba(16, 185, 129, 0.2)', color: '#059669' }}>
+                        ✨ AI-enhanced
+                      </span>
+                    )}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12.5, color: '#166534' }}>
                     {parsedResume.name     && <div>👤 <strong>Name:</strong> {parsedResume.name}</div>}
