@@ -533,49 +533,7 @@ function parseResumeText(raw: string): ParsedResume {
   }
 }
 
-async function generateResumeSuggestions(rawText: string, apiKey: string): Promise<Array<{ id: string; type: 'ats' | 'bullet' | 'skill' | 'summary'; original: string; suggested: string; section: string }>> {
-  const prompt = `Analyze this resume and suggest ATS optimization improvements. Return ONLY valid JSON array matching this exact schema:
-[
-  {
-    "id": "unique-id",
-    "type": "ats" | "bullet" | "skill" | "summary",
-    "section": "section name (e.g., 'Work Experience', 'Summary', 'Skills')",
-    "original": "original text from resume",
-    "suggested": "improved text for ATS optimization"
-  }
-]
-
-Focus on:
-1. Strengthening weak bullet points with metrics and action verbs
-2. Adding ATS-friendly keywords (technical skills, methodologies)
-3. Improving summary for keyword density
-4. Making vague skills more specific
-
-Resume text:
-${rawText}`
-
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 3000,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  })
-
-  if (!res.ok) throw new Error(`Claude API error: ${res.status}`)
-  const data = await res.json()
-  const jsonText = data.content[0]?.text.match(/\[[\s\S]*\]/)?.[0]
-  if (!jsonText) throw new Error('No JSON in Claude response')
-  return JSON.parse(jsonText)
-}
-
-async function enrichCompanyNames(rawText: string, parsedWorkExp: WorkExp[], apiKey: string): Promise<WorkExp[]> {
+async function enrichCompanyNames(rawText: string, parsedWorkExp: WorkExp[]): Promise<WorkExp[]> {
   if (parsedWorkExp.length === 0) return parsedWorkExp
 
   try {
@@ -592,132 +550,6 @@ async function enrichCompanyNames(rawText: string, parsedWorkExp: WorkExp[], api
   }
 }
 
-async function enrichCompanyNamesOld(rawText: string, parsedWorkExp: WorkExp[], apiKey: string): Promise<WorkExp[]> {
-  if (parsedWorkExp.length === 0) return parsedWorkExp
-
-  const prompt = `You are a resume parser expert. Extract the ACTUAL company names from this resume's work experience section.
-
-IMPORTANT DISTINCTIONS:
-- COMPANY NAMES are proper nouns: Microsoft, Google, Apple, Accenture, JPMorgan Chase, etc.
-- NOT company names: "Retail", "Finance", "Consumer goods", "Technology", "Manufacturing", "Sales", "Marketing"
-- NOT company names: Job titles, departments, or descriptions
-- NOT company names: Sectors or industry types
-
-For EACH work experience entry, find:
-1. The company name (who they worked for)
-2. The date period (when they worked)
-3. The position/title (what they did)
-
-Work backwards from the job date - the company name usually appears RIGHT BEFORE the dates or in the same line.
-
-Return ONLY valid JSON array with this exact format:
-[
-  {
-    "position": 0,
-    "company": "Microsoft",
-    "period": "Jun 2023 – Mar 2025",
-    "title": "Senior Product Manager"
-  }
-]
-
-Rules:
-- Include ONLY real company names (proper organizations)
-- Skip entries where you cannot identify a clear company name
-- Position is the index (0, 1, 2, ...) of the work entry
-- Match the period EXACTLY as it appears in the resume
-- Period must match one of the work experiences in the resume
-
-Resume:
-${rawText}`
-
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 2000,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    })
-
-    if (!res.ok) return parsedWorkExp
-    const data = await res.json()
-    const jsonText = data.content[0]?.text.match(/\[[\s\S]*\]/)?.[0]
-    if (!jsonText) return parsedWorkExp
-
-    const extracted = JSON.parse(jsonText)
-
-    // Map extracted companies by position and also by matching periods
-    const updated = [...parsedWorkExp]
-    for (const item of extracted) {
-      if (item.position !== undefined && item.position >= 0 && item.position < updated.length && item.company) {
-        // Only update if company is not empty and not a sector keyword
-        const company = item.company.trim()
-        const sectors = ['retail', 'finance', 'tech', 'consumer', 'manufacturing', 'services', 'software', 'consulting', 'sales', 'marketing', 'it', 'hr', 'operations', 'legal', 'media']
-        const isSector = sectors.some(s => company.toLowerCase().includes(s) && company.length < 20)
-
-        if (company.length > 2 && !isSector && updated[item.position].company !== company) {
-          updated[item.position] = { ...updated[item.position], company }
-        }
-      }
-    }
-
-    return updated
-  } catch {
-    return parsedWorkExp
-  }
-}
-
-async function generateJobMatchSuggestions(resumeText: string, jobDescription: string, apiKey: string): Promise<Array<{ id: string; type: 'bullet' | 'skill' | 'summary'; original: string; suggested: string; section: string; missingKeyword: string }>> {
-  const prompt = `You are an ATS expert. Analyze this resume against the job description and suggest specific improvements to increase match. Return ONLY valid JSON array:
-[
-  {
-    "id": "unique-id",
-    "type": "bullet" | "skill" | "summary",
-    "section": "Work Experience or Skills or Summary",
-    "original": "current text from resume",
-    "suggested": "improved text that incorporates job keywords",
-    "missingKeyword": "the keyword/requirement from job that's missing from resume"
-  }
-]
-
-IMPORTANT:
-- Focus on resume sections that can be improved to match the job
-- Identify key skills/requirements from job that are missing from resume
-- Suggest concrete rewrites that naturally incorporate these keywords
-- Prioritize the most impactful changes
-
-RESUME:
-${resumeText}
-
-JOB DESCRIPTION:
-${jobDescription}`
-
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 4000,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  })
-
-  if (!res.ok) throw new Error(`Claude API error: ${res.status}`)
-  const data = await res.json()
-  const jsonText = data.content[0]?.text.match(/\[[\s\S]*\]/)?.[0]
-  if (!jsonText) throw new Error('No JSON in Claude response')
-  return JSON.parse(jsonText)
-}
 
 interface ResumeIssue {
   category: 'urgent' | 'critical' | 'optional'
@@ -740,7 +572,7 @@ interface ResumeAnalysisReport {
   optionalCount: number
 }
 
-async function generateResumeAnalysisReport(resumeText: string, jobDescription: string, apiKey: string): Promise<ResumeAnalysisReport> {
+async function generateResumeAnalysisReport(resumeText: string, jobDescription: string): Promise<ResumeAnalysisReport> {
   try {
     const res = await fetch('http://localhost:3001/api/analyze-resume', {
       method: 'POST',
@@ -759,99 +591,10 @@ async function generateResumeAnalysisReport(resumeText: string, jobDescription: 
   }
 }
 
-async function generateResumeAnalysisReportOld(resumeText: string, jobDescription: string, apiKey: string): Promise<ResumeAnalysisReport> {
-  if (!apiKey) throw new Error('Claude API key is required')
-  if (!apiKey.startsWith('sk-ant-')) throw new Error('Invalid API key format. Should start with sk-ant-')
-
-  const prompt = `You are an expert resume coach. Analyze this resume and identify specific issues that need fixing to improve ATS compatibility and recruiter appeal. Return ONLY valid JSON:
-{
-  "grade": "A" | "B" | "C" | "D" | "F",
-  "status": "EXCELLENT" | "GOOD" | "FAIR" | "NEEDS IMPROVEMENT" | "POOR",
-  "summary": "brief overall assessment",
-  "issues": [
-    {
-      "category": "urgent" | "critical" | "optional",
-      "section": "impact" | "brevity" | "style" | "personalInfo",
-      "sectionLabel": "Impact & Achievements" | "Brevity & Effectiveness" | "Style & Sections" | "Personal Info",
-      "title": "short issue title",
-      "issue": "detailed description of the problem",
-      "whyImportant": "why this matters for ATS and recruiters",
-      "howToImprove": "specific actionable guidance to fix it",
-      "example": {
-        "before": "weak example from resume",
-        "after": "improved version"
-      }
-    }
-  ]
-}
-
-URGENT FIX = Critical blocker (missing sections, wrong format, contact info issues)
-CRITICAL FIX = Significant problem (weak achievements, poor structure, missing keywords from job)
-OPTIONAL FIX = Nice-to-have improvements (wording, style, minor optimizations)
-
-Resume text:
-${resumeText}
-
-Job description (for context):
-${jobDescription}
-
-Guidelines:
-- Return 6-10 total issues
-- Include at least 1 urgent, 1 critical, and 1 optional
-- Be specific and actionable
-- Include before/after examples for the most impactful issues
-- Score should reflect overall quality (A=excellent, B=good, C=fair, D=poor, F=critical issues)`
-
-  let res
-  try {
-    res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 4000,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    })
-  } catch (fetchErr: any) {
-    throw new Error(`Network error: ${fetchErr.message}. Check your internet connection or try again later.`)
-  }
-
-  if (!res.ok) {
-    const errorText = await res.text().catch(() => 'Unknown error')
-    if (res.status === 401) throw new Error('Invalid Claude API key. Please check your key at console.anthropic.com')
-    if (res.status === 403) throw new Error('Access denied. Make sure your Claude API key has permission to use the API.')
-    if (res.status === 429) throw new Error('Rate limit exceeded. Please wait a moment and try again.')
-    throw new Error(`Claude API error (${res.status}): ${errorText}`)
-  }
-
-  let data
-  try {
-    data = await res.json()
-  } catch {
-    throw new Error('Invalid response from Claude API. The API may be temporarily unavailable.')
-  }
-
-  const jsonText = data.content[0]?.text.match(/\{[\s\S]*\}/)?.[0]
-  if (!jsonText) throw new Error('Claude did not return valid JSON in response')
-
-  const parsed = JSON.parse(jsonText)
-  return {
-    ...parsed,
-    urgentCount: parsed.issues.filter((i: ResumeIssue) => i.category === 'urgent').length,
-    criticalCount: parsed.issues.filter((i: ResumeIssue) => i.category === 'critical').length,
-    optionalCount: parsed.issues.filter((i: ResumeIssue) => i.category === 'optional').length,
-  }
-}
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function ResumeBuilder() {
-  const { user, updateApiKey } = useAuth()
+  const { user } = useAuth()
 
   // UI state
   const [saved, setSaved]               = useState(false)
@@ -862,7 +605,6 @@ export default function ResumeBuilder() {
   const [parsingStatus, setParsingStatus] = useState('')
   const [importError,   setImportError]   = useState('')
   const [dragOver,      setDragOver]      = useState(false)
-  const [claudeApiKey,  setClaudeApiKey]  = useState(user?.claudeApiKey ?? '')
   const [optimizationSuggestions, setOptimizationSuggestions] = useState<Array<{ id: string; type: 'ats' | 'bullet' | 'skill' | 'summary'; original: string; suggested: string; section: string; accepted: boolean }>>([])
   const [showOptimizations, setShowOptimizations] = useState(false)
   const [originalResumeFile, setOriginalResumeFile] = useState<File | null>(null)
@@ -928,13 +670,13 @@ export default function ResumeBuilder() {
     return () => document.removeEventListener('mousedown', handler)
   }, [showShare])
 
-  // Enrich company names using Claude API if available
+  // Enrich company names via backend
   useEffect(() => {
-    if (!parsedResume || !claudeApiKey.trim() || !resumeRawText || parsedResume.workExp.length === 0) return
+    if (!parsedResume || !resumeRawText || parsedResume.workExp.length === 0) return
 
     const enrichNames = async () => {
       try {
-        const enriched = await enrichCompanyNames(resumeRawText, parsedResume.workExp, claudeApiKey)
+        const enriched = await enrichCompanyNames(resumeRawText, parsedResume.workExp)
         const updated = { ...parsedResume, workExp: enriched }
         setParsedResume(updated)
       } catch {
@@ -943,7 +685,7 @@ export default function ResumeBuilder() {
     }
 
     enrichNames()
-  }, [parsedResume?.workExp.length, claudeApiKey, resumeRawText])
+  }, [parsedResume?.workExp.length, resumeRawText])
 
   // Auto-apply parsed resume data when a resume is uploaded
   useEffect(() => {
@@ -987,27 +729,18 @@ export default function ResumeBuilder() {
       const kws = extractJDKeywords(jd)
       setKeywords(splitKeywords(kws, resumeText))
 
-      // Generate job-match suggestions and analysis report if Claude API is available
-      if (claudeApiKey.trim()) {
-        try {
-          const suggestions = await generateJobMatchSuggestions(resumeText, jd, claudeApiKey)
-          setOptimizationSuggestions(suggestions.map((s, i) => ({ ...s, id: s.id || `suggestion-${i}`, accepted: false, type: s.type as 'bullet' | 'skill' | 'summary' })))
-
-          // Generate and show analysis report
-          setParsingStatus('Generating analysis report…')
-          const report = await generateResumeAnalysisReport(resumeText, jd, claudeApiKey)
-          setAnalysisReport(report)
-          setActiveTab('analysis')
-          setParsingStatus('')
-        } catch (err: any) {
-          const errorMsg = err?.message || 'Failed to generate analysis. Please check your Claude API key.'
-          console.error('Analysis failed:', err)
-          setAnalysisError(errorMsg)
-          setParsingStatus('')
-          // Fallback: still show job target results even if analysis fails
-        }
-      } else {
-        setAnalysisError('Please add your Claude API key in the Import tab under "Enable AI accuracy boost"')
+      // Generate analysis report
+      try {
+        setParsingStatus('Generating analysis report…')
+        const report = await generateResumeAnalysisReport(resumeText, jd)
+        setAnalysisReport(report)
+        setActiveTab('analysis')
+        setParsingStatus('')
+      } catch (err: any) {
+        const errorMsg = err?.message || 'Failed to generate analysis. Make sure the backend server is running on port 3001.'
+        console.error('Analysis failed:', err)
+        setAnalysisError(errorMsg)
+        setParsingStatus('')
       }
 
       setAnalysed(true)
@@ -1064,19 +797,6 @@ export default function ResumeBuilder() {
       const result = parseResumeText(text)
       setParsedResume(result)
 
-      // Generate optimization suggestions if Claude API key available
-      if (claudeApiKey.trim()) {
-        setParsingStatus('🤖 Analyzing for ATS optimization…')
-        try {
-          const suggestions = await generateResumeSuggestions(text, claudeApiKey)
-          setOptimizationSuggestions(suggestions.map((s, i) => ({ ...s, id: s.id || `suggestion-${i}`, accepted: false })))
-          setShowOptimizations(true)
-        } catch {
-          // Silently skip suggestions if Claude fails
-        }
-        setParsingStatus('')
-      }
-
       // Auto-navigate to Job Target tab after successful import
       setTimeout(() => setActiveTab('jd'), 800)
     } catch (err: any) {
@@ -1086,7 +806,7 @@ export default function ResumeBuilder() {
     } finally {
       setParsing(false)
     }
-  }, [claudeApiKey])
+  }, [])
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -1335,26 +1055,7 @@ body { margin: 0; padding: 0; background: #fff; }
                   </div>
                 )}
 
-                <details style={{ display: 'flex', flexDirection: 'column', gap: 8, borderRadius: 10, border: '1px solid var(--border)', padding: '12px 14px', background: 'var(--bg-soft)' }}>
-                  <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: 13.5, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    🤖 Enable AI accuracy boost
-                  </summary>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <input
-                      type="password"
-                      placeholder="sk-ant-..."
-                      value={claudeApiKey}
-                      onChange={e => setClaudeApiKey(e.target.value)}
-                      onBlur={() => { if (claudeApiKey) updateApiKey(claudeApiKey) }}
-                      style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 12.5, fontFamily: 'inherit', background: 'var(--bg)', color: 'var(--text)' }}
-                    />
-                    <div style={{ fontSize: 11.5, color: 'var(--text-mute)', lineHeight: 1.4 }}>
-                      When confidence is low, Claude will enhance results. <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 500 }}>Get API key →</a>
-                    </div>
-                  </div>
-                </details>
-
-                <button
+<button
                   onClick={() => setActiveTab('editor')}
                   style={{ width: '100%', padding: '9px 0', borderRadius: 8, border: '1px solid var(--border)', background: 'none', color: 'var(--text-mute)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
                 >
