@@ -691,6 +691,95 @@ ${jobDescription}`
   return JSON.parse(jsonText)
 }
 
+interface ResumeIssue {
+  category: 'urgent' | 'critical' | 'optional'
+  section: 'impact' | 'brevity' | 'style' | 'personalInfo'
+  sectionLabel: string
+  title: string
+  issue: string
+  whyImportant: string
+  howToImprove: string
+  example?: { before: string; after: string }
+}
+
+interface ResumeAnalysisReport {
+  grade: 'A' | 'B' | 'C' | 'D' | 'F'
+  status: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'NEEDS IMPROVEMENT' | 'POOR'
+  summary: string
+  issues: ResumeIssue[]
+  urgentCount: number
+  criticalCount: number
+  optionalCount: number
+}
+
+async function generateResumeAnalysisReport(resumeText: string, jobDescription: string, apiKey: string): Promise<ResumeAnalysisReport> {
+  const prompt = `You are an expert resume coach. Analyze this resume and identify specific issues that need fixing to improve ATS compatibility and recruiter appeal. Return ONLY valid JSON:
+{
+  "grade": "A" | "B" | "C" | "D" | "F",
+  "status": "EXCELLENT" | "GOOD" | "FAIR" | "NEEDS IMPROVEMENT" | "POOR",
+  "summary": "brief overall assessment",
+  "issues": [
+    {
+      "category": "urgent" | "critical" | "optional",
+      "section": "impact" | "brevity" | "style" | "personalInfo",
+      "sectionLabel": "Impact & Achievements" | "Brevity & Effectiveness" | "Style & Sections" | "Personal Info",
+      "title": "short issue title",
+      "issue": "detailed description of the problem",
+      "whyImportant": "why this matters for ATS and recruiters",
+      "howToImprove": "specific actionable guidance to fix it",
+      "example": {
+        "before": "weak example from resume",
+        "after": "improved version"
+      }
+    }
+  ]
+}
+
+URGENT FIX = Critical blocker (missing sections, wrong format, contact info issues)
+CRITICAL FIX = Significant problem (weak achievements, poor structure, missing keywords from job)
+OPTIONAL FIX = Nice-to-have improvements (wording, style, minor optimizations)
+
+Resume text:
+${resumeText}
+
+Job description (for context):
+${jobDescription}
+
+Guidelines:
+- Return 6-10 total issues
+- Include at least 1 urgent, 1 critical, and 1 optional
+- Be specific and actionable
+- Include before/after examples for the most impactful issues
+- Score should reflect overall quality (A=excellent, B=good, C=fair, D=poor, F=critical issues)`
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 4000,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  })
+
+  if (!res.ok) throw new Error(`Claude API error: ${res.status}`)
+  const data = await res.json()
+  const jsonText = data.content[0]?.text.match(/\{[\s\S]*\}/)?.[0]
+  if (!jsonText) throw new Error('No JSON in Claude response')
+
+  const parsed = JSON.parse(jsonText)
+  return {
+    ...parsed,
+    urgentCount: parsed.issues.filter((i: ResumeIssue) => i.category === 'urgent').length,
+    criticalCount: parsed.issues.filter((i: ResumeIssue) => i.category === 'critical').length,
+    optionalCount: parsed.issues.filter((i: ResumeIssue) => i.category === 'optional').length,
+  }
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function ResumeBuilder() {
@@ -698,7 +787,7 @@ export default function ResumeBuilder() {
 
   // UI state
   const [saved, setSaved]               = useState(false)
-  const [activeTab, setActiveTab]       = useState<'import' | 'jd' | 'editor'>('import')
+  const [activeTab, setActiveTab]       = useState<'import' | 'jd' | 'analysis' | 'editor'>('import')
   const [importFile,    setImportFile]    = useState<File | null>(null)
   const [parsedResume,  setParsedResume]  = useState<ParsedResume | null>(null)
   const [parsing,       setParsing]       = useState(false)
@@ -710,6 +799,7 @@ export default function ResumeBuilder() {
   const [showOptimizations, setShowOptimizations] = useState(false)
   const [originalResumeFile, setOriginalResumeFile] = useState<File | null>(null)
   const [resumeRawText, setResumeRawText] = useState('')
+  const [analysisReport, setAnalysisReport] = useState<ResumeAnalysisReport | null>(null)
   const fileInputRef                      = useRef<HTMLInputElement>(null)
   const [showCustomize, setShowCustomize] = useState(false)
   const [showShare, setShowShare]       = useState(false)
@@ -827,11 +917,16 @@ export default function ResumeBuilder() {
       const kws = extractJDKeywords(jd)
       setKeywords(splitKeywords(kws, resumeText))
 
-      // Generate job-match suggestions if Claude API is available
+      // Generate job-match suggestions and analysis report if Claude API is available
       if (claudeApiKey.trim()) {
         try {
           const suggestions = await generateJobMatchSuggestions(resumeText, jd, claudeApiKey)
           setOptimizationSuggestions(suggestions.map((s, i) => ({ ...s, id: s.id || `suggestion-${i}`, accepted: false, type: s.type as 'bullet' | 'skill' | 'summary' })))
+
+          // Generate and show analysis report
+          const report = await generateResumeAnalysisReport(resumeText, jd, claudeApiKey)
+          setAnalysisReport(report)
+          setActiveTab('analysis')
         } catch {
           // Silently skip if Claude fails
         }
@@ -1066,6 +1161,11 @@ body { margin: 0; padding: 0; background: #fff; }
             <IcoTarget /> Job Target
             {analysed && <span className="rb-tab-dot" style={{ background: scoreColor }} />}
           </button>
+          {analysisReport && (
+            <button className={`rb-tab${activeTab === 'analysis' ? ' active' : ''}`} onClick={() => setActiveTab('analysis')}>
+              <IconSparkle size={13} /> Analysis
+            </button>
+          )}
           <button className={`rb-tab${activeTab === 'editor' ? ' active' : ''}`} onClick={() => setActiveTab('editor')}>
             <IcoEditPen /> Edit Resume
           </button>
@@ -1426,6 +1526,239 @@ body { margin: 0; padding: 0; background: #fff; }
                 </button>
               </>
             )}
+          </div>
+        )}
+
+        {/* ─── ANALYSIS TAB ─── */}
+        {activeTab === 'analysis' && analysisReport && (
+          <div className="rb-tab-content" style={{ gap: 16 }}>
+
+            {/* Grade Card */}
+            <div style={{
+              background: 'linear-gradient(135deg, var(--blue-50), var(--blue-100))',
+              border: '1px solid var(--blue-200)',
+              borderRadius: 12,
+              padding: '20px 16px',
+              textAlign: 'center',
+            }}>
+              <div style={{ fontSize: 48, fontWeight: 700, color: 'var(--accent)', lineHeight: 1 }}>
+                {analysisReport.grade}
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginTop: 4 }}>
+                {analysisReport.status}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-mute)', marginTop: 8 }}>
+                {analysisReport.summary}
+              </div>
+            </div>
+
+            {/* Issue Summary */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr 1fr',
+              gap: 8,
+            }}>
+              <div style={{
+                background: '#FEF2F2',
+                border: '1px solid #FECACA',
+                borderRadius: 8,
+                padding: '12px 10px',
+                textAlign: 'center',
+              }}>
+                <div style={{ fontSize: 18, fontWeight: 700, color: '#DC2626' }}>
+                  {analysisReport.urgentCount}
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#7F1D1D', marginTop: 2 }}>
+                  Urgent Fix
+                </div>
+              </div>
+              <div style={{
+                background: '#FEF3C7',
+                border: '1px solid #FCD34D',
+                borderRadius: 8,
+                padding: '12px 10px',
+                textAlign: 'center',
+              }}>
+                <div style={{ fontSize: 18, fontWeight: 700, color: '#F59E0B' }}>
+                  {analysisReport.criticalCount}
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#92400E', marginTop: 2 }}>
+                  Critical Fix
+                </div>
+              </div>
+              <div style={{
+                background: '#DBEAFE',
+                border: '1px solid #93C5FD',
+                borderRadius: 8,
+                padding: '12px 10px',
+                textAlign: 'center',
+              }}>
+                <div style={{ fontSize: 18, fontWeight: 700, color: '#2563EB' }}>
+                  {analysisReport.optionalCount}
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#1E40AF', marginTop: 2 }}>
+                  Optional Fix
+                </div>
+              </div>
+            </div>
+
+            {/* Issues by section */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {['impact', 'brevity', 'style', 'personalInfo'].map(section => {
+                const sectionIssues = analysisReport.issues.filter(i => i.section === section)
+                if (sectionIssues.length === 0) return null
+
+                const sectionLabels: Record<string, string> = {
+                  impact: 'Impact & Achievements',
+                  brevity: 'Brevity & Effectiveness',
+                  style: 'Style & Sections',
+                  personalInfo: 'Personal Info',
+                }
+
+                return (
+                  <div key={section} style={{
+                    border: '1px solid var(--border)',
+                    borderRadius: 10,
+                    overflow: 'hidden',
+                  }}>
+                    <div style={{
+                      background: 'var(--bg-soft)',
+                      padding: '10px 14px',
+                      borderBottom: '1px solid var(--border)',
+                      fontWeight: 600,
+                      fontSize: 13,
+                      color: 'var(--text)',
+                    }}>
+                      {sectionLabels[section]}
+                    </div>
+
+                    {sectionIssues.map((issue, idx) => {
+                      const categoryColors: Record<string, { bg: string; border: string; text: string }> = {
+                        urgent: { bg: '#FEF2F2', border: '#FCA5A5', text: '#DC2626' },
+                        critical: { bg: '#FEF3C7', border: '#FCD34D', text: '#D97706' },
+                        optional: { bg: '#DBEAFE', border: '#93C5FD', text: '#2563EB' },
+                      }
+                      const colors = categoryColors[issue.category]
+
+                      return (
+                        <div key={idx} style={{
+                          padding: '12px 14px',
+                          borderBottom: idx < sectionIssues.length - 1 ? '1px solid var(--border)' : 'none',
+                        }}>
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            marginBottom: 8,
+                          }}>
+                            <span style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                              padding: '2px 8px',
+                              borderRadius: 4,
+                              background: colors.bg,
+                              border: `1px solid ${colors.border}`,
+                              color: colors.text,
+                            }}>
+                              {issue.category === 'urgent' ? '⚠️' : issue.category === 'critical' ? '⚡' : '•'} {issue.category.replace('urgent', 'URGENT').replace('critical', 'CRITICAL').replace('optional', 'OPTIONAL')}
+                            </span>
+                          </div>
+
+                          <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)', marginBottom: 6 }}>
+                            {issue.title}
+                          </div>
+
+                          <div style={{ fontSize: 12, color: 'var(--text-mute)', marginBottom: 8, lineHeight: 1.4 }}>
+                            {issue.issue}
+                          </div>
+
+                          <div style={{
+                            fontSize: 11,
+                            color: 'var(--text-mute)',
+                            background: 'var(--bg-soft)',
+                            borderLeft: `3px solid ${colors.text}`,
+                            padding: '8px 10px',
+                            borderRadius: 4,
+                            marginBottom: 8,
+                          }}>
+                            <div style={{ fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Why This Matters:</div>
+                            {issue.whyImportant}
+                          </div>
+
+                          <div style={{
+                            fontSize: 11,
+                            color: 'var(--text-mute)',
+                            background: 'var(--bg-soft)',
+                            borderLeft: '3px solid var(--text-soft)',
+                            padding: '8px 10px',
+                            borderRadius: 4,
+                            marginBottom: issue.example ? 8 : 0,
+                          }}>
+                            <div style={{ fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>How to Improve:</div>
+                            {issue.howToImprove}
+                          </div>
+
+                          {issue.example && (
+                            <div style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 8,
+                              fontSize: 11,
+                            }}>
+                              <div style={{
+                                background: '#FEF2F2',
+                                border: '1px solid #FCA5A5',
+                                borderRadius: 6,
+                                padding: '8px 10px',
+                              }}>
+                                <div style={{ fontWeight: 600, color: '#DC2626', marginBottom: 4 }}>Before:</div>
+                                <div style={{ color: 'var(--text-soft)', fontFamily: 'monospace', fontSize: 10 }}>
+                                  "{issue.example.before}"
+                                </div>
+                              </div>
+                              <div style={{
+                                background: '#F0FDF4',
+                                border: '1px solid #86EFAC',
+                                borderRadius: 6,
+                                padding: '8px 10px',
+                              }}>
+                                <div style={{ fontWeight: 600, color: '#16A34A', marginBottom: 4 }}>After:</div>
+                                <div style={{ color: 'var(--text-soft)', fontFamily: 'monospace', fontSize: 10 }}>
+                                  "{issue.example.after}"
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })}
+            </div>
+
+            <button
+              onClick={() => setActiveTab('editor')}
+              style={{
+                width: '100%',
+                padding: '9px 0',
+                borderRadius: 8,
+                background: 'var(--accent)',
+                color: 'white',
+                border: 'none',
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+              }}
+            >
+              <IcoEditPen size={13} /> Start Improving
+            </button>
           </div>
         )}
 
