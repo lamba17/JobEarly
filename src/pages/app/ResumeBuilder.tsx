@@ -724,6 +724,9 @@ interface ResumeAnalysisReport {
 }
 
 async function generateResumeAnalysisReport(resumeText: string, jobDescription: string, apiKey: string): Promise<ResumeAnalysisReport> {
+  if (!apiKey) throw new Error('Claude API key is required')
+  if (!apiKey.startsWith('sk-ant-')) throw new Error('Invalid API key format. Should start with sk-ant-')
+
   const prompt = `You are an expert resume coach. Analyze this resume and identify specific issues that need fixing to improve ATS compatibility and recruiter appeal. Return ONLY valid JSON:
 {
   "grade": "A" | "B" | "C" | "D" | "F",
@@ -763,24 +766,42 @@ Guidelines:
 - Include before/after examples for the most impactful issues
 - Score should reflect overall quality (A=excellent, B=good, C=fair, D=poor, F=critical issues)`
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 4000,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  })
+  let res
+  try {
+    res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 4000,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    })
+  } catch (fetchErr: any) {
+    throw new Error(`Network error: ${fetchErr.message}. Check your internet connection or try again later.`)
+  }
 
-  if (!res.ok) throw new Error(`Claude API error: ${res.status}`)
-  const data = await res.json()
+  if (!res.ok) {
+    const errorText = await res.text().catch(() => 'Unknown error')
+    if (res.status === 401) throw new Error('Invalid Claude API key. Please check your key at console.anthropic.com')
+    if (res.status === 403) throw new Error('Access denied. Make sure your Claude API key has permission to use the API.')
+    if (res.status === 429) throw new Error('Rate limit exceeded. Please wait a moment and try again.')
+    throw new Error(`Claude API error (${res.status}): ${errorText}`)
+  }
+
+  let data
+  try {
+    data = await res.json()
+  } catch {
+    throw new Error('Invalid response from Claude API. The API may be temporarily unavailable.')
+  }
+
   const jsonText = data.content[0]?.text.match(/\{[\s\S]*\}/)?.[0]
-  if (!jsonText) throw new Error('No JSON in Claude response')
+  if (!jsonText) throw new Error('Claude did not return valid JSON in response')
 
   const parsed = JSON.parse(jsonText)
   return {
