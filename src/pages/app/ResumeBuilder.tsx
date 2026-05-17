@@ -578,6 +578,23 @@ ${rawText}`
 async function enrichCompanyNames(rawText: string, parsedWorkExp: WorkExp[], apiKey: string): Promise<WorkExp[]> {
   if (parsedWorkExp.length === 0) return parsedWorkExp
 
+  try {
+    const res = await fetch('http://localhost:3001/api/enrich-company-names', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resumeText: rawText, workExp: parsedWorkExp }),
+    })
+
+    if (!res.ok) return parsedWorkExp
+    return await res.json()
+  } catch {
+    return parsedWorkExp
+  }
+}
+
+async function enrichCompanyNamesOld(rawText: string, parsedWorkExp: WorkExp[], apiKey: string): Promise<WorkExp[]> {
+  if (parsedWorkExp.length === 0) return parsedWorkExp
+
   const prompt = `You are a resume parser expert. Extract the ACTUAL company names from this resume's work experience section.
 
 IMPORTANT DISTINCTIONS:
@@ -724,6 +741,25 @@ interface ResumeAnalysisReport {
 }
 
 async function generateResumeAnalysisReport(resumeText: string, jobDescription: string, apiKey: string): Promise<ResumeAnalysisReport> {
+  try {
+    const res = await fetch('http://localhost:3001/api/analyze-resume', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resumeText, jobDescription }),
+    })
+
+    if (!res.ok) {
+      const errorData = await res.json()
+      throw new Error(errorData.error || `Server error: ${res.status}`)
+    }
+
+    return await res.json()
+  } catch (err: any) {
+    throw new Error(err.message || 'Failed to generate analysis report. Make sure the backend server is running on port 3001.')
+  }
+}
+
+async function generateResumeAnalysisReportOld(resumeText: string, jobDescription: string, apiKey: string): Promise<ResumeAnalysisReport> {
   if (!apiKey) throw new Error('Claude API key is required')
   if (!apiKey.startsWith('sk-ant-')) throw new Error('Invalid API key format. Should start with sk-ant-')
 
