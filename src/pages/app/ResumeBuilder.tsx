@@ -520,19 +520,23 @@ function scoreParseConfidence(parsed: ParsedResume): number {
   return Math.min(score, 100)
 }
 
-async function parseResumeWithClaude(rawText: string, apiKey: string): Promise<Partial<ParsedResume>> {
-  const prompt = `Extract resume data from the text below and return ONLY valid JSON matching this exact schema:
-{
-  "name": string,
-  "email": string,
-  "location": string,
-  "linkedin": string,
-  "jobTitle": string,
-  "summary": string,
-  "skills": string[],
-  "workExp": [{ "title": string, "company": string, "period": string, "bullets": string[] }],
-  "education": [{ "degree": string, "school": string, "period": string }]
-}
+async function generateResumeSuggestions(rawText: string, apiKey: string): Promise<Array<{ id: string; type: 'ats' | 'bullet' | 'skill' | 'summary'; original: string; suggested: string; section: string }>> {
+  const prompt = `Analyze this resume and suggest ATS optimization improvements. Return ONLY valid JSON array matching this exact schema:
+[
+  {
+    "id": "unique-id",
+    "type": "ats" | "bullet" | "skill" | "summary",
+    "section": "section name (e.g., 'Work Experience', 'Summary', 'Skills')",
+    "original": "original text from resume",
+    "suggested": "improved text for ATS optimization"
+  }
+]
+
+Focus on:
+1. Strengthening weak bullet points with metrics and action verbs
+2. Adding ATS-friendly keywords (technical skills, methodologies)
+3. Improving summary for keyword density
+4. Making vague skills more specific
 
 Resume text:
 ${rawText}`
@@ -546,14 +550,14 @@ ${rawText}`
     },
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2048,
+      max_tokens: 3000,
       messages: [{ role: 'user', content: prompt }],
     }),
   })
 
   if (!res.ok) throw new Error(`Claude API error: ${res.status}`)
   const data = await res.json()
-  const jsonText = data.content[0]?.text.match(/\{[\s\S]*\}/)?.[0]
+  const jsonText = data.content[0]?.text.match(/\[[\s\S]*\]/)?.[0]
   if (!jsonText) throw new Error('No JSON in Claude response')
   return JSON.parse(jsonText)
 }
@@ -573,6 +577,9 @@ export default function ResumeBuilder() {
   const [importError,   setImportError]   = useState('')
   const [dragOver,      setDragOver]      = useState(false)
   const [claudeApiKey,  setClaudeApiKey]  = useState(user?.claudeApiKey ?? '')
+  const [originalResumeText, setOriginalResumeText] = useState('')
+  const [optimizationSuggestions, setOptimizationSuggestions] = useState<Array<{ id: string; type: 'ats' | 'bullet' | 'skill' | 'summary'; original: string; suggested: string; section: string; accepted: boolean }>>([])
+  const [showOptimizations, setShowOptimizations] = useState(false)
   const fileInputRef                      = useRef<HTMLInputElement>(null)
   const [showCustomize, setShowCustomize] = useState(false)
   const [showShare, setShowShare]       = useState(false)
@@ -695,34 +702,31 @@ export default function ResumeBuilder() {
     setImportFile(file)
     setParsingStatus('')
     setParsing(true)
+    setOptimizationSuggestions([])
+    setShowOptimizations(false)
     try {
       const text = await extractTextFromFile(file)
       if (!text.trim()) throw new Error('Could not read any text from this file. Try a different format.')
-      let result = parseResumeText(text)
 
-      const confidence = scoreParseConfidence(result)
-      let aiUsed = false
+      // Store original resume text
+      setOriginalResumeText(text)
 
-      if (confidence < 70 && claudeApiKey.trim()) {
-        setParsingStatus('🤖 AI is improving accuracy…')
+      // Parse for basic metadata only
+      const result = parseResumeText(text)
+      setParsedResume(result)
+
+      // Generate optimization suggestions if Claude API key available
+      if (claudeApiKey.trim()) {
+        setParsingStatus('🤖 Analyzing for ATS optimization…')
         try {
-          const aiResult = await parseResumeWithClaude(text, claudeApiKey)
-          if (aiResult.workExp?.length) result.workExp = aiResult.workExp.map((e, i) => ({ id: i + 1, title: e.title || '', company: e.company || '', period: e.period || '', bullets: e.bullets || [] }))
-          if (aiResult.education?.length) result.education = aiResult.education.map((e, i) => ({ id: i + 1, degree: e.degree || '', school: e.school || '', period: e.period || '' }))
-          if (aiResult.name && !result.name) result.name = aiResult.name
-          if (aiResult.email && !result.email) result.email = aiResult.email
-          if (aiResult.summary && !result.summary) result.summary = aiResult.summary
-          if (aiResult.location && !result.location) result.location = aiResult.location
-          if (aiResult.skills?.length && result.skills.length === 0) result.skills = aiResult.skills.slice(0, 24)
-          aiUsed = true
+          const suggestions = await generateResumeSuggestions(text, claudeApiKey)
+          setOptimizationSuggestions(suggestions.map((s, i) => ({ ...s, id: s.id || `suggestion-${i}`, accepted: false })))
+          setShowOptimizations(true)
         } catch {
-          // Silently fall back to pattern-based results
+          // Silently skip suggestions if Claude fails
         }
         setParsingStatus('')
       }
-
-      if (aiUsed) result.aiUsed = true
-      setParsedResume(result)
     } catch (err: any) {
       setImportError(err.message ?? 'Failed to read file. Please try a PDF, DOCX, or TXT.')
       setImportFile(null)
@@ -747,17 +751,36 @@ export default function ResumeBuilder() {
 
   const handleApplyParsed = () => {
     if (!parsedResume) return
-    if (parsedResume.name)     setName(parsedResume.name)
-    if (parsedResume.email)    setEmail(parsedResume.email)
-    if (parsedResume.location) setLocation(parsedResume.location)
-    if (parsedResume.linkedin) setLinkedin(parsedResume.linkedin)
-    if (parsedResume.jobTitle) setJobTitle(parsedResume.jobTitle)
-    if (parsedResume.summary)  setSummary(parsedResume.summary)
-    if (parsedResume.skills.length > 0) setSkills(parsedResume.skills)
-    if (parsedResume.workExp.length > 0) { setWorkExp(parsedResume.workExp); setOpenExp(parsedResume.workExp[0].id) }
-    if (parsedResume.education.length > 0) setEducation(parsedResume.education)
+    let updatedParsedResume = { ...parsedResume }
+
+    // Apply accepted optimization suggestions
+    const acceptedSuggestions = optimizationSuggestions.filter(s => s.accepted)
+    for (const sugg of acceptedSuggestions) {
+      if (sugg.type === 'summary' && updatedParsedResume.summary === sugg.original) {
+        updatedParsedResume.summary = sugg.suggested
+      } else if (sugg.type === 'bullet') {
+        updatedParsedResume.workExp = updatedParsedResume.workExp.map(exp => ({
+          ...exp,
+          bullets: exp.bullets.map(b => b === sugg.original ? sugg.suggested : b)
+        }))
+      } else if (sugg.type === 'skill') {
+        updatedParsedResume.skills = updatedParsedResume.skills.map(s => s === sugg.original ? sugg.suggested : s)
+      }
+    }
+
+    if (updatedParsedResume.name)     setName(updatedParsedResume.name)
+    if (updatedParsedResume.email)    setEmail(updatedParsedResume.email)
+    if (updatedParsedResume.location) setLocation(updatedParsedResume.location)
+    if (updatedParsedResume.linkedin) setLinkedin(updatedParsedResume.linkedin)
+    if (updatedParsedResume.jobTitle) setJobTitle(updatedParsedResume.jobTitle)
+    if (updatedParsedResume.summary)  setSummary(updatedParsedResume.summary)
+    if (updatedParsedResume.skills.length > 0) setSkills(updatedParsedResume.skills)
+    if (updatedParsedResume.workExp.length > 0) { setWorkExp(updatedParsedResume.workExp); setOpenExp(updatedParsedResume.workExp[0].id) }
+    if (updatedParsedResume.education.length > 0) setEducation(updatedParsedResume.education)
     setParsedResume(null)
     setImportFile(null)
+    setOriginalResumeText('')
+    setOptimizationSuggestions([])
     setActiveTab('editor')
   }
 
@@ -1030,22 +1053,63 @@ body { margin: 0; padding: 0; background: #fff; }
                   </div>
                 </div>
 
-                {/* Missing fields warning */}
-                {(!parsedResume.name || !parsedResume.summary || parsedResume.workExp.length === 0) && (
-                  <div style={{ background: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: '#92400E' }}>
-                    ⚠️ Some fields weren't detected. You can fill them in manually after importing.
-                  </div>
+                {/* Optimization suggestions */}
+                {showOptimizations && optimizationSuggestions.length > 0 && (
+                  <>
+                    <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 10, padding: '12px 14px', marginBottom: 8 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13.5, color: '#1E40AF', marginBottom: 8 }}>
+                        💡 {optimizationSuggestions.length} ATS Optimization Suggestions
+                      </div>
+                      <div style={{ fontSize: 12, color: '#1E3A8A', lineHeight: 1.5 }}>
+                        Click to accept improvements to your resume. All accepted changes will be applied.
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 300, overflowY: 'auto', marginBottom: 8 }}>
+                      {optimizationSuggestions.map((sugg, i) => (
+                        <div key={sugg.id} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--border)', background: sugg.accepted ? '#F0FDF4' : 'var(--bg-soft)' }}>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-mute)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            {sugg.section} — {sugg.type}
+                          </div>
+                          <div style={{ fontSize: 12, color: 'var(--text-mute)', marginBottom: 4, lineHeight: 1.4 }}>
+                            <strong>Before:</strong> {sugg.original.substring(0, 80)}{sugg.original.length > 80 ? '...' : ''}
+                          </div>
+                          <div style={{ fontSize: 12, color: '#059669', marginBottom: 8, lineHeight: 1.4 }}>
+                            <strong>After:</strong> {sugg.suggested.substring(0, 80)}{sugg.suggested.length > 80 ? '...' : ''}
+                          </div>
+                          <button
+                            onClick={() => {
+                              setOptimizationSuggestions(prev => prev.map(s => s.id === sugg.id ? { ...s, accepted: !s.accepted } : s))
+                            }}
+                            style={{
+                              padding: '6px 10px',
+                              borderRadius: 6,
+                              border: 'none',
+                              fontSize: 12,
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              background: sugg.accepted ? '#10B981' : 'var(--border)',
+                              color: sugg.accepted ? 'white' : 'var(--text-mute)',
+                              transition: 'all 0.2s'
+                            }}
+                          >
+                            {sugg.accepted ? '✓ Accepted' : '+ Accept'}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 )}
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <button className="rb-tailor-btn" style={{ border: 'none' }} onClick={handleApplyParsed}>
-                    <IcoEditPen size={13} /> Apply &amp; Edit Resume →
+                    <IcoEditPen size={13} /> {showOptimizations ? 'Apply Suggestions & Edit' : 'Edit Resume'} →
                   </button>
                   <button
-                    onClick={() => setParsedResume(null)}
+                    onClick={() => { setParsedResume(null); setOriginalResumeText(''); setOptimizationSuggestions([]) }}
                     style={{ width: '100%', padding: '9px 0', borderRadius: 8, border: '1px solid var(--border)', background: 'none', color: 'var(--text-mute)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
                   >
-                    ← Try again with different text
+                    ← Try again with different file
                   </button>
                 </div>
               </>
