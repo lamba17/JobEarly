@@ -553,16 +553,25 @@ ${rawText}`
 async function enrichCompanyNames(rawText: string, parsedWorkExp: WorkExp[], apiKey: string): Promise<WorkExp[]> {
   if (parsedWorkExp.length === 0) return parsedWorkExp
 
-  const prompt = `Extract the actual company names from this resume text. Return ONLY valid JSON array:
+  const prompt = `Extract ONLY the actual company names from this resume. Each company name should appear right before a location or job title.
+Return ONLY valid JSON array with exact company names found:
 [
   {
-    "period": "date range like 'Jun 2023 — Mar 2025'",
-    "company": "actual company name (e.g., Microsoft, Google, Accenture)",
-    "title": "job title"
+    "company": "Microsoft",
+    "period": "Jun 2023- March 2025"
+  },
+  {
+    "company": "Another Company",
+    "period": "Aug 2021 – Jun 2023"
   }
 ]
 
-IMPORTANT: Return entries ONLY for work experiences where you can identify a clear company name. Skip generic sectors/industries.
+IMPORTANT:
+- Look for company names that appear at the START of work experience entries
+- Company names are typically followed by location (city, state) or job title
+- Return ONLY real company names (Google, Microsoft, Apple, Accenture, etc.)
+- Skip sectors/industries (Retail, Finance, Technology, etc.)
+- Match by date period to link with resume jobs
 
 Resume text:
 ${rawText}`
@@ -588,12 +597,14 @@ ${rawText}`
     if (!jsonText) return parsedWorkExp
 
     const extracted = JSON.parse(jsonText)
-    // Merge extracted company names back into parsed work exp, preserving ids
+    // Merge extracted company names back into parsed work exp, matching by period
     return parsedWorkExp.map(exp => {
-      const match = extracted.find((e: any) =>
-        e.period === exp.period || (e.title && e.title.toLowerCase() === exp.title.toLowerCase())
-      )
-      return match ? { ...exp, company: match.company || exp.company } : exp
+      const match = extracted.find((e: any) => {
+        // Match by period or by finding the company name in work exp bullets
+        if (e.period && e.period.includes(exp.period.substring(0, 4))) return true
+        return false
+      })
+      return match && match.company ? { ...exp, company: match.company } : exp
     })
   } catch {
     return parsedWorkExp
@@ -1320,7 +1331,25 @@ body { margin: 0; padding: 0; background: #fff; }
 
                 {keywords.missing.length > 0 && (
                   <div className="ats-kw-section">
-                    <div className="ats-kw-head">MISSING — CLICK TO ADD <span className="ats-kw-count bad">{keywords.missing.length}</span></div>
+                    <div className="ats-kw-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>MISSING — CLICK TO ADD <span className="ats-kw-count bad">{keywords.missing.length}</span></span>
+                      <button
+                        onClick={() => keywords.missing.forEach(kw => addMissingKw(kw))}
+                        style={{
+                          background: 'var(--accent)',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: 6,
+                          padding: '6px 12px',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        Add All
+                      </button>
+                    </div>
                     <div className="ats-kw-grid">
                       {keywords.missing.map(kw => (
                         <button key={kw} className="ats-kw-chip missing" onClick={() => addMissingKw(kw)}>+ {kw}</button>
