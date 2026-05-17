@@ -508,18 +508,6 @@ function parseResumeText(raw: string): ParsedResume {
   }
 }
 
-function scoreParseConfidence(parsed: ParsedResume): number {
-  let score = 0
-  if (parsed.name) score += 20
-  if (parsed.email) score += 15
-  if (parsed.workExp.length > 0) score += 20
-  if (parsed.workExp.every(e => e.company)) score += 20
-  if (parsed.workExp.every(e => e.period)) score += 10
-  if (parsed.education.length > 0) score += 10
-  if (parsed.summary) score += 5
-  return Math.min(score, 100)
-}
-
 async function generateResumeSuggestions(rawText: string, apiKey: string): Promise<Array<{ id: string; type: 'ats' | 'bullet' | 'skill' | 'summary'; original: string; suggested: string; section: string }>> {
   const prompt = `Analyze this resume and suggest ATS optimization improvements. Return ONLY valid JSON array matching this exact schema:
 [
@@ -577,7 +565,6 @@ export default function ResumeBuilder() {
   const [importError,   setImportError]   = useState('')
   const [dragOver,      setDragOver]      = useState(false)
   const [claudeApiKey,  setClaudeApiKey]  = useState(user?.claudeApiKey ?? '')
-  const [originalResumeText, setOriginalResumeText] = useState('')
   const [optimizationSuggestions, setOptimizationSuggestions] = useState<Array<{ id: string; type: 'ats' | 'bullet' | 'skill' | 'summary'; original: string; suggested: string; section: string; accepted: boolean }>>([])
   const [showOptimizations, setShowOptimizations] = useState(false)
   const fileInputRef                      = useRef<HTMLInputElement>(null)
@@ -708,9 +695,6 @@ export default function ResumeBuilder() {
       const text = await extractTextFromFile(file)
       if (!text.trim()) throw new Error('Could not read any text from this file. Try a different format.')
 
-      // Store original resume text
-      setOriginalResumeText(text)
-
       // Parse for basic metadata only
       const result = parseResumeText(text)
       setParsedResume(result)
@@ -779,7 +763,6 @@ export default function ResumeBuilder() {
     if (updatedParsedResume.education.length > 0) setEducation(updatedParsedResume.education)
     setParsedResume(null)
     setImportFile(null)
-    setOriginalResumeText('')
     setOptimizationSuggestions([])
     setActiveTab('editor')
   }
@@ -1066,7 +1049,7 @@ body { margin: 0; padding: 0; background: #fff; }
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 300, overflowY: 'auto', marginBottom: 8 }}>
-                      {optimizationSuggestions.map((sugg, i) => (
+                      {optimizationSuggestions.map((sugg) => (
                         <div key={sugg.id} style={{ padding: 10, borderRadius: 8, border: '1px solid var(--border)', background: sugg.accepted ? '#F0FDF4' : 'var(--bg-soft)' }}>
                           <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-mute)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                             {sugg.section} — {sugg.type}
@@ -1106,7 +1089,7 @@ body { margin: 0; padding: 0; background: #fff; }
                     <IcoEditPen size={13} /> {showOptimizations ? 'Apply Suggestions & Edit' : 'Edit Resume'} →
                   </button>
                   <button
-                    onClick={() => { setParsedResume(null); setOriginalResumeText(''); setOptimizationSuggestions([]) }}
+                    onClick={() => { setParsedResume(null); setOptimizationSuggestions([]) }}
                     style={{ width: '100%', padding: '9px 0', borderRadius: 8, border: '1px solid var(--border)', background: 'none', color: 'var(--text-mute)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
                   >
                     ← Try again with different file
