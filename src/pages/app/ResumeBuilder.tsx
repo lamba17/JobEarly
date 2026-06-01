@@ -537,7 +537,7 @@ async function enrichCompanyNames(rawText: string, parsedWorkExp: WorkExp[]): Pr
   if (parsedWorkExp.length === 0) return parsedWorkExp
 
   try {
-    const res = await fetch('http://localhost:3001/api/enrich-company-names', {
+    const res = await fetch('/api/enrich-company-names', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ resumeText: rawText, workExp: parsedWorkExp }),
@@ -574,7 +574,7 @@ interface ResumeAnalysisReport {
 
 async function generateResumeAnalysisReport(resumeText: string, jobDescription: string): Promise<ResumeAnalysisReport> {
   try {
-    const res = await fetch('http://localhost:3001/api/analyze-resume', {
+    const res = await fetch('/api/analyze-resume', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ resumeText, jobDescription }),

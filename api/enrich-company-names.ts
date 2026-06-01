@@ -1,0 +1,76 @@
+import { VercelRequest, VercelResponse } from '@vercel/node'
+import Anthropic from '@anthropic-ai/sdk'
+
+interface WorkExp {
+  id: number
+  title: string
+  company: string
+  period: string
+  bullets: string[]
+}
+
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
+
+  const { resumeText, workExp } = req.body as { resumeText: string; workExp: WorkExp[] }
+
+  if (!resumeText || !workExp) {
+    return res.status(400).json({ error: 'Missing resumeText or workExp' })
+  }
+
+  const apiKey = process.env.CLAUDE_API_KEY
+  if (!apiKey) {
+    return res.status(500).json({ error: 'CLAUDE_API_KEY not configured' })
+  }
+
+  try {
+    const client = new Anthropic({ apiKey })
+
+    const workExpList = workExp
+      .map((exp, i) => `${i + 1}. Position: ${exp.title}, Company: ${exp.company}`)
+      .join('\n')
+
+    const prompt = `Extract the actual company names from this resume. The user has already extracted these positions:
+
+${workExpList}
+
+Resume text:
+${resumeText}
+
+Rules:
+1. ONLY extract company names that appear in the resume text
+2. Return ONLY a JSON array of company names in the same order as the positions above
+3. If a company name is not found in the resume, use the one already extracted
+4. DO NOT invent company names
+5. Company names should NOT include location information
+
+Return ONLY valid JSON array format:
+["Company Name 1", "Company Name 2", ...]`
+
+    const message = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: prompt }],
+    })
+
+    const responseText = message.content[0].type === 'text' ? message.content[0].text : ''
+    const companyNames: string[] = JSON.parse(responseText)
+
+    const enrichedWorkExp: WorkExp[] = workExp.map((exp, i) => ({
+      ...exp,
+      company: companyNames[i] || exp.company,
+    }))
+
+    res.status(200).json(enrichedWorkExp)
+  } catch (error: any) {
+    console.error('Error enriching company names:', error)
+    res.status(500).json({
+      error: error?.message || 'Failed to enrich company names',
+    })
+  }
+}
