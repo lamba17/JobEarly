@@ -35,22 +35,16 @@ export default async function handler(
       .map((exp, i) => `${i + 1}. Position: ${exp.title}, Company: ${exp.company}`)
       .join('\n')
 
-    const prompt = `Extract the actual company names from this resume. The user has already extracted these positions:
+    const prompt = `Extract company names from this resume.
 
+Positions found:
 ${workExpList}
 
-Resume text:
+Resume:
 ${resumeText}
 
-Rules:
-1. ONLY extract company names that appear in the resume text
-2. Return ONLY a JSON array of company names in the same order as the positions above
-3. If a company name is not found in the resume, use the one already extracted
-4. DO NOT invent company names
-5. Company names should NOT include location information
-
-Return ONLY valid JSON array format:
-["Company Name 1", "Company Name 2", ...]`
+Output ONLY a JSON array with no markdown, no text, no comments. Just the array:
+["Company 1", "Company 2"]`
 
     const message = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',

@@ -23,34 +23,18 @@ export default async function handler(
   try {
     const client = new Anthropic({ apiKey })
 
-    const prompt = `You are an expert resume analyst. Analyze this resume against the job description and provide specific, actionable improvements.
+    const prompt = `Analyze resume against job description.
 
-RESUME:
-${resumeText}
+Resume: ${resumeText.slice(0, 2000)}
 
-JOB DESCRIPTION:
-${jobDescription}
+Job: ${jobDescription.slice(0, 1000)}
 
-CRITICAL: Respond with ONLY valid JSON (no markdown, no code blocks, no extra text). Ensure all strings are properly escaped with backslashes before quotes. Matching this exact structure:
+Output ONLY JSON with no markdown, text, or markdown code blocks:
 {
-  "grade": "A" | "B" | "C" | "D" | "F",
-  "status": "EXCELLENT" | "GOOD" | "FAIR" | "NEEDS IMPROVEMENT" | "POOR",
-  "summary": "2-3 sentence summary of the resume's fitness for this role",
-  "issues": [
-    {
-      "category": "urgent" | "critical" | "optional",
-      "section": "impact" | "brevity" | "style" | "personalInfo",
-      "sectionLabel": "Personal Information" | "Impact & Accomplishments" | "Clarity & Brevity" | "Grammar & Professional Tone",
-      "title": "Brief title",
-      "issue": "Detailed description",
-      "whyImportant": "Why this matters",
-      "howToImprove": "How to fix it",
-      "example": {
-        "before": "Original text from resume",
-        "after": "Improved version"
-      }
-    }
-  ],
+  "grade": "A",
+  "status": "EXCELLENT",
+  "summary": "Brief summary",
+  "issues": [{"category": "urgent", "section": "impact", "sectionLabel": "Impact & Accomplishments", "title": "Title", "issue": "Description", "whyImportant": "Why", "howToImprove": "How", "example": {"before": "before", "after": "after"}}],
   "urgentCount": 0,
   "criticalCount": 0,
   "optionalCount": 0
