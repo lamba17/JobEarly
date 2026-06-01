@@ -1524,7 +1524,39 @@ body { margin: 0; padding: 0; background: #fff; }
             </div>
 
             <button
-              onClick={() => setActiveTab('editor')}
+              onClick={() => {
+                // Apply improvements from analysis to resume
+                if (analysisReport && parsedResume) {
+                  let improved = { ...parsedResume }
+
+                  // Apply changes based on issues identified
+                  analysisReport.issues.forEach(issue => {
+                    if (issue.example?.after) {
+                      // Example improvements to apply
+                      if (issue.section === 'impact') {
+                        // Enhance work experience bullets
+                        if (improved.workExp && improved.workExp.length > 0) {
+                          improved.workExp = improved.workExp.map(exp => ({
+                            ...exp,
+                            bullets: (exp.bullets || []).map(b =>
+                              b.length < 50 ? `${b} with measurable impact` : b
+                            )
+                          }))
+                        }
+                      }
+                      if (issue.section === 'personalInfo' && !improved.linkedin && issue.title.toLowerCase().includes('linkedin')) {
+                        improved.linkedin = '[Add your LinkedIn profile]'
+                      }
+                      if (issue.section === 'personalInfo' && !improved.summary && issue.title.toLowerCase().includes('summary')) {
+                        improved.summary = issue.example.after
+                      }
+                    }
+                  })
+
+                  setParsedResume(improved)
+                }
+                setActiveTab('editor')
+              }}
               style={{
                 width: '100%',
                 padding: '9px 0',
