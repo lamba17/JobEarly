@@ -1531,22 +1531,20 @@ body { margin: 0; padding: 0; background: #fff; }
 
                   // Apply direct text replacements from before/after examples
                   analysisReport.issues.forEach(issue => {
-                    if (issue.example?.before && issue.example?.after) {
+                    if (issue.example && issue.example.before && issue.example.after) {
+                      const before = issue.example.before
+                      const after = issue.example.after
+
                       // Replace in work experience bullets
                       if (improved.workExp) {
                         improved.workExp = improved.workExp.map(exp => ({
                           ...exp,
                           bullets: (exp.bullets || []).map(bullet =>
-                            bullet.includes(issue.example.before)
-                              ? bullet.replace(issue.example.before, issue.example.after)
-                              : bullet
+                            bullet.includes(before) ? bullet.replace(before, after) : bullet
                           ),
-                          title: exp.title?.includes(issue.example.before)
-                            ? exp.title.replace(issue.example.before, issue.example.after)
-                            : exp.title,
-                          description: exp.description?.includes(issue.example.before)
-                            ? exp.description.replace(issue.example.before, issue.example.after)
-                            : exp.description
+                          title: exp.title?.includes(before)
+                            ? exp.title.replace(before, after)
+                            : exp.title
                         }))
                       }
 
@@ -1554,26 +1552,24 @@ body { margin: 0; padding: 0; background: #fff; }
                       if (improved.education) {
                         improved.education = improved.education.map(edu => ({
                           ...edu,
-                          school: edu.school?.includes(issue.example.before)
-                            ? edu.school.replace(issue.example.before, issue.example.after)
+                          school: edu.school?.includes(before)
+                            ? edu.school.replace(before, after)
                             : edu.school,
-                          degree: edu.degree?.includes(issue.example.before)
-                            ? edu.degree.replace(issue.example.before, issue.example.after)
+                          degree: edu.degree?.includes(before)
+                            ? edu.degree.replace(before, after)
                             : edu.degree
                         }))
                       }
 
                       // Replace in summary
-                      if (improved.summary?.includes(issue.example.before)) {
-                        improved.summary = improved.summary.replace(issue.example.before, issue.example.after)
+                      if (improved.summary?.includes(before)) {
+                        improved.summary = improved.summary.replace(before, after)
                       }
 
                       // Replace in skills
                       if (improved.skills) {
                         improved.skills = improved.skills.map(skill =>
-                          skill.includes(issue.example.before)
-                            ? skill.replace(issue.example.before, issue.example.after)
-                            : skill
+                          skill.includes(before) ? skill.replace(before, after) : skill
                         )
                       }
                     }
