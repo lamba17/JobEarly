@@ -31,7 +31,7 @@ ${resumeText}
 JOB DESCRIPTION:
 ${jobDescription}
 
-Respond with ONLY valid JSON (no markdown, no code blocks) matching this exact structure:
+CRITICAL: Respond with ONLY valid JSON (no markdown, no code blocks, no extra text). Ensure all strings are properly escaped with backslashes before quotes. Matching this exact structure:
 {
   "grade": "A" | "B" | "C" | "D" | "F",
   "status": "EXCELLENT" | "GOOD" | "FAIR" | "NEEDS IMPROVEMENT" | "POOR",
@@ -75,6 +75,12 @@ Respond with ONLY valid JSON (no markdown, no code blocks) matching this exact s
 
     // Remove any leading/trailing whitespace and markdown
     jsonText = jsonText.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '').trim()
+
+    // Try to find the JSON object if it's embedded in text
+    const objectMatch = jsonText.match(/\{[\s\S]*\}/)
+    if (objectMatch) {
+      jsonText = objectMatch[0]
+    }
 
     const report = JSON.parse(jsonText)
 

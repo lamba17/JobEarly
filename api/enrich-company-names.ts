@@ -72,6 +72,12 @@ Return ONLY valid JSON array format:
     // Remove any leading/trailing whitespace and markdown
     jsonText = jsonText.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '').trim()
 
+    // Try to find the JSON array if it's embedded in text
+    const arrayMatch = jsonText.match(/\[[\s\S]*\]/)
+    if (arrayMatch) {
+      jsonText = arrayMatch[0]
+    }
+
     const companyNames: string[] = JSON.parse(jsonText)
 
     const enrichedWorkExp: WorkExp[] = workExp.map((exp, i) => ({
