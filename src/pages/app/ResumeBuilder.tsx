@@ -628,7 +628,6 @@ export default function ResumeBuilder() {
   const templateName = TEMPLATES.find(t => t.id === selectedTemplate)?.name ?? 'Editorial Pro'
 
   // Job target state
-  const [jobUrl, setJobUrl]     = useState('')
   const [jobDesc, setJobDesc]   = useState('')
   const [analysed, setAnalysed] = useState(false)
   const [analysing, setAnalysing] = useState(false)
@@ -720,7 +719,7 @@ export default function ResumeBuilder() {
 
   // Handlers
   const handleAnalyse = async () => {
-    if (!jobDesc.trim() && !jobUrl.trim()) return
+    if (!jobDesc.trim()) return
     if (!resumeRawText) {
       setAnalysisError('Please upload a resume first')
       return
@@ -1193,19 +1192,6 @@ body { margin: 0; padding: 0; background: #fff; }
                   <h2 className="builder-title" style={{ fontSize: 17, marginBottom: 4 }}>Target a Job</h2>
                   <p className="builder-sub">Paste the job description to get a live ATS score and tailor your resume to the role.</p>
                 </div>
-
-                <div>
-                  <div className="f-label" style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 5 }}>
-                    <IcoLink2 size={12} /> LinkedIn Job URL or ID
-                  </div>
-                  <input className="f-input" placeholder="https://linkedin.com/jobs/view/1234567890"
-                    value={jobUrl} onChange={e => setJobUrl(e.target.value)} />
-                  <div style={{ fontSize: 11, color: 'var(--text-mute)', marginTop: 4 }}>
-                    We'll auto-fetch the JD — or paste below
-                  </div>
-                </div>
-
-                <div className="rb-or-divider"><span>OR</span></div>
 
                 <div>
                   <div className="f-label" style={{ marginBottom: 5 }}>Paste Job Description</div>
