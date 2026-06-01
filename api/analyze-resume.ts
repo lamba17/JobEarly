@@ -64,12 +64,17 @@ Respond with ONLY valid JSON (no markdown, no code blocks) matching this exact s
 
     const responseText = message.content[0].type === 'text' ? message.content[0].text : ''
 
-    // Extract JSON from markdown code blocks if present
-    let jsonText = responseText
-    const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/)
+    // Extract JSON from markdown code blocks or raw JSON
+    let jsonText = responseText.trim()
+
+    // Try to extract from markdown code blocks first
+    const jsonMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/)
     if (jsonMatch) {
       jsonText = jsonMatch[1].trim()
     }
+
+    // Remove any leading/trailing whitespace and markdown
+    jsonText = jsonText.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '').trim()
 
     const report = JSON.parse(jsonText)
 
