@@ -611,6 +611,7 @@ export default function ResumeBuilder() {
   const [resumeRawText, setResumeRawText] = useState('')
   const [analysisReport, setAnalysisReport] = useState<ResumeAnalysisReport | null>(null)
   const [analysisError, setAnalysisError] = useState('')
+  const [showExportModal, setShowExportModal] = useState(false)
   const fileInputRef                      = useRef<HTMLInputElement>(null)
   const [showCustomize, setShowCustomize] = useState(false)
   const [showShare, setShowShare]       = useState(false)
@@ -1513,81 +1514,104 @@ body { margin: 0; padding: 0; background: #fff; }
               })}
             </div>
 
-            <button
-              onClick={() => {
-                // Apply improvements from analysis to resume
-                if (analysisReport && parsedResume) {
-                  let improved = { ...parsedResume }
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => setShowExportModal(true)}
+                style={{
+                  flex: 1,
+                  padding: '9px 0',
+                  borderRadius: 8,
+                  background: '#e5e7eb',
+                  color: '#1f2937',
+                  border: 'none',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                }}
+              >
+                <IconDownload size={13} /> Export Improvements
+              </button>
+              <button
+                onClick={() => {
+                  // Apply improvements from analysis to resume
+                  if (analysisReport && parsedResume) {
+                    let improved = { ...parsedResume }
 
-                  // Apply direct text replacements from before/after examples
-                  analysisReport.issues.forEach(issue => {
-                    if (issue.example && issue.example.before && issue.example.after) {
-                      const before = issue.example.before
-                      const after = issue.example.after
+                    // Apply direct text replacements from before/after examples
+                    analysisReport.issues.forEach(issue => {
+                      if (issue.example && issue.example.before && issue.example.after) {
+                        const before = issue.example.before
+                        const after = issue.example.after
 
-                      // Replace in work experience bullets
-                      if (improved.workExp) {
-                        improved.workExp = improved.workExp.map(exp => ({
-                          ...exp,
-                          bullets: (exp.bullets || []).map(bullet =>
-                            bullet.includes(before) ? bullet.replace(before, after) : bullet
-                          ),
-                          title: exp.title?.includes(before)
-                            ? exp.title.replace(before, after)
-                            : exp.title
-                        }))
+                        // Replace in work experience bullets
+                        if (improved.workExp) {
+                          improved.workExp = improved.workExp.map(exp => ({
+                            ...exp,
+                            bullets: (exp.bullets || []).map(bullet =>
+                              bullet.includes(before) ? bullet.replace(before, after) : bullet
+                            ),
+                            title: exp.title?.includes(before)
+                              ? exp.title.replace(before, after)
+                              : exp.title
+                          }))
+                        }
+
+                        // Replace in education
+                        if (improved.education) {
+                          improved.education = improved.education.map(edu => ({
+                            ...edu,
+                            school: edu.school?.includes(before)
+                              ? edu.school.replace(before, after)
+                              : edu.school,
+                            degree: edu.degree?.includes(before)
+                              ? edu.degree.replace(before, after)
+                              : edu.degree
+                          }))
+                        }
+
+                        // Replace in summary
+                        if (improved.summary?.includes(before)) {
+                          improved.summary = improved.summary.replace(before, after)
+                        }
+
+                        // Replace in skills
+                        if (improved.skills) {
+                          improved.skills = improved.skills.map(skill =>
+                            skill.includes(before) ? skill.replace(before, after) : skill
+                          )
+                        }
                       }
+                    })
 
-                      // Replace in education
-                      if (improved.education) {
-                        improved.education = improved.education.map(edu => ({
-                          ...edu,
-                          school: edu.school?.includes(before)
-                            ? edu.school.replace(before, after)
-                            : edu.school,
-                          degree: edu.degree?.includes(before)
-                            ? edu.degree.replace(before, after)
-                            : edu.degree
-                        }))
-                      }
-
-                      // Replace in summary
-                      if (improved.summary?.includes(before)) {
-                        improved.summary = improved.summary.replace(before, after)
-                      }
-
-                      // Replace in skills
-                      if (improved.skills) {
-                        improved.skills = improved.skills.map(skill =>
-                          skill.includes(before) ? skill.replace(before, after) : skill
-                        )
-                      }
-                    }
-                  })
-
-                  setParsedResume(improved)
-                }
-                setActiveTab('editor')
-              }}
-              style={{
-                width: '100%',
-                padding: '9px 0',
-                borderRadius: 8,
-                background: 'var(--accent)',
-                color: 'white',
-                border: 'none',
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-              }}
-            >
-              <IcoEditPen size={13} /> Start Improving
-            </button>
+                    setParsedResume(improved)
+                  }
+                  setActiveTab('editor')
+                }}
+                style={{
+                  flex: 1,
+                  padding: '9px 0',
+                  borderRadius: 8,
+                  background: 'var(--accent)',
+                  color: 'white',
+                  border: 'none',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                }}
+              >
+                <IcoEditPen size={13} /> Start Improving
+              </button>
+            </div>
           </div>
         )}
 
@@ -1980,6 +2004,273 @@ body { margin: 0; padding: 0; background: #fff; }
               </div>
             </div>
           </>
+        )}
+
+        {/* ─── EXPORT IMPROVEMENTS MODAL ─── */}
+        {showExportModal && analysisReport && (
+          <div style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px',
+            fontFamily: 'inherit',
+          }}>
+            <div style={{
+              background: 'white',
+              borderRadius: 12,
+              maxWidth: '800px',
+              width: '100%',
+              maxHeight: '80vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 20px 25px rgba(0, 0, 0, 0.15)',
+            }}>
+              {/* Header */}
+              <div style={{
+                padding: '20px',
+                borderBottom: '1px solid #e5e7eb',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#1f2937' }}>All Improvements</h2>
+                <button
+                  onClick={() => setShowExportModal(false)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    fontSize: 24,
+                    cursor: 'pointer',
+                    color: '#6b7280',
+                    padding: 0,
+                  }}
+                >
+                  <IcoX size={18} />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div style={{
+                flex: 1,
+                overflow: 'auto',
+                padding: '20px',
+              }}>
+                {/* Group by section */}
+                {['personalInfo', 'impact', 'brevity', 'style'].map(section => {
+                  const sectionIssues = analysisReport.issues.filter(issue => issue.section === section)
+                  if (sectionIssues.length === 0) return null
+
+                  const sectionLabel = {
+                    personalInfo: 'Personal Information',
+                    impact: 'Impact & Accomplishments',
+                    brevity: 'Clarity & Brevity',
+                    style: 'Grammar & Professional Tone',
+                  }[section] || section
+
+                  return (
+                    <div key={section} style={{ marginBottom: 24 }}>
+                      <h3 style={{
+                        fontSize: 14,
+                        fontWeight: 700,
+                        color: '#1f2937',
+                        marginBottom: 12,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                      }}>
+                        <span style={{
+                          display: 'inline-block',
+                          width: 4,
+                          height: 4,
+                          borderRadius: '50%',
+                          background: '#3b82f6',
+                        }}></span>
+                        {sectionLabel}
+                      </h3>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        {sectionIssues.map((issue, idx) => (
+                          <div key={idx} style={{
+                            border: '1px solid #e5e7eb',
+                            borderRadius: 8,
+                            padding: 12,
+                            background: '#f9fafb',
+                          }}>
+                            <div style={{
+                              fontSize: 12,
+                              fontWeight: 600,
+                              color: '#6b7280',
+                              marginBottom: 6,
+                              display: 'flex',
+                              gap: 8,
+                              alignItems: 'center',
+                            }}>
+                              <span style={{
+                                display: 'inline-block',
+                                width: 6,
+                                height: 6,
+                                borderRadius: '50%',
+                                background: issue.category === 'urgent' ? '#ef4444' : issue.category === 'critical' ? '#f97316' : '#84cc16',
+                              }}></span>
+                              {issue.category.toUpperCase()} — {issue.title}
+                            </div>
+                            <p style={{
+                              fontSize: 12,
+                              color: '#6b7280',
+                              margin: '6px 0',
+                              lineHeight: 1.4,
+                            }}>
+                              {issue.issue}
+                            </p>
+                            {issue.example && issue.example.before && issue.example.after && (
+                              <div style={{
+                                marginTop: 10,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 8,
+                              }}>
+                                <div style={{
+                                  background: '#fef2f2',
+                                  border: '1px solid #fca5a5',
+                                  borderRadius: 6,
+                                  padding: '8px 10px',
+                                  fontSize: 11,
+                                }}>
+                                  <div style={{ fontWeight: 600, color: '#dc2626', marginBottom: 4 }}>Before:</div>
+                                  <div style={{
+                                    color: '#7f1d1d',
+                                    fontFamily: 'monospace',
+                                    fontSize: 10,
+                                    wordBreak: 'break-word',
+                                  }}>
+                                    {issue.example.before}
+                                  </div>
+                                  <button
+                                    onClick={() => {
+                                      if (issue.example) navigator.clipboard.writeText(issue.example.before)
+                                      alert('Copied to clipboard!')
+                                    }}
+                                    style={{
+                                      marginTop: 6,
+                                      padding: '4px 8px',
+                                      fontSize: 10,
+                                      background: '#dc2626',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: 4,
+                                      cursor: 'pointer',
+                                      fontWeight: 500,
+                                    }}
+                                  >
+                                    Copy
+                                  </button>
+                                </div>
+                                <div style={{
+                                  background: '#f0fdf4',
+                                  border: '1px solid #86efac',
+                                  borderRadius: 6,
+                                  padding: '8px 10px',
+                                  fontSize: 11,
+                                }}>
+                                  <div style={{ fontWeight: 600, color: '#16a34a', marginBottom: 4 }}>After:</div>
+                                  <div style={{
+                                    color: '#15803d',
+                                    fontFamily: 'monospace',
+                                    fontSize: 10,
+                                    wordBreak: 'break-word',
+                                  }}>
+                                    {issue.example.after}
+                                  </div>
+                                  <button
+                                    onClick={() => {
+                                      if (issue.example) navigator.clipboard.writeText(issue.example.after)
+                                      alert('Copied to clipboard!')
+                                    }}
+                                    style={{
+                                      marginTop: 6,
+                                      padding: '4px 8px',
+                                      fontSize: 10,
+                                      background: '#16a34a',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: 4,
+                                      cursor: 'pointer',
+                                      fontWeight: 500,
+                                    }}
+                                  >
+                                    Copy
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Footer */}
+              <div style={{
+                padding: '16px 20px',
+                borderTop: '1px solid #e5e7eb',
+                display: 'flex',
+                gap: 10,
+                justifyContent: 'flex-end',
+              }}>
+                <button
+                  onClick={() => setShowExportModal(false)}
+                  style={{
+                    padding: '8px 16px',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    background: '#e5e7eb',
+                    color: '#1f2937',
+                    border: 'none',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    const text = analysisReport.issues
+                      .map(issue => `${issue.sectionLabel} > ${issue.category.toUpperCase()}\n${issue.title}\n${issue.issue}\n${issue.example ? `Before: "${issue.example.before}"\nAfter: "${issue.example.after}"` : ''}`)
+                      .join('\n\n---\n\n')
+                    const blob = new Blob([text], { type: 'text/plain' })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = 'resume-improvements.txt'
+                    a.click()
+                    URL.revokeObjectURL(url)
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    background: '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <IconDownload size={13} /> Download as TXT
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
