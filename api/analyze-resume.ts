@@ -23,21 +23,37 @@ export default async function handler(
   try {
     const client = new Anthropic({ apiKey })
 
-    const prompt = `Analyze resume against job description.
+    const prompt = `Analyze resume vs job description. Find 5-8 specific improvements.
 
-Resume: ${resumeText.slice(0, 2000)}
+Resume (first 2000 chars):
+${resumeText.slice(0, 2000)}
 
-Job: ${jobDescription.slice(0, 1000)}
+Job Description (first 1000 chars):
+${jobDescription.slice(0, 1000)}
 
-Output ONLY JSON with no markdown, text, or markdown code blocks:
+Return ONLY this JSON structure with no markdown, no code blocks, no explanation text:
 {
-  "grade": "A",
-  "status": "EXCELLENT",
-  "summary": "Brief summary",
-  "issues": [{"category": "urgent", "section": "impact", "sectionLabel": "Impact & Accomplishments", "title": "Title", "issue": "Description", "whyImportant": "Why", "howToImprove": "How", "example": {"before": "before", "after": "after"}}],
-  "urgentCount": 0,
-  "criticalCount": 0,
-  "optionalCount": 0
+  "grade": "B",
+  "status": "GOOD",
+  "summary": "1-2 sentence overall assessment",
+  "issues": [
+    {
+      "category": "urgent|critical|optional",
+      "section": "impact|brevity|style|personalInfo",
+      "sectionLabel": "Impact & Achievements|Brevity & Effectiveness|Style & Sections|Personal Info",
+      "title": "Specific improvement title",
+      "issue": "What's wrong with current resume",
+      "whyImportant": "Why this matters for this job",
+      "howToImprove": "Specific actionable fix",
+      "example": {
+        "before": "Current text from resume",
+        "after": "Improved version"
+      }
+    }
+  ],
+  "urgentCount": 1,
+  "criticalCount": 2,
+  "optionalCount": 2
 }`
 
     const message = await client.messages.create({
