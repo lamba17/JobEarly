@@ -59,7 +59,15 @@ Return ONLY valid JSON array format:
     })
 
     const responseText = message.content[0].type === 'text' ? message.content[0].text : ''
-    const companyNames: string[] = JSON.parse(responseText)
+
+    // Extract JSON from markdown code blocks if present
+    let jsonText = responseText
+    const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/)
+    if (jsonMatch) {
+      jsonText = jsonMatch[1].trim()
+    }
+
+    const companyNames: string[] = JSON.parse(jsonText)
 
     const enrichedWorkExp: WorkExp[] = workExp.map((exp, i) => ({
       ...exp,
