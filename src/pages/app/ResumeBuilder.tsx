@@ -2184,25 +2184,85 @@ body { margin: 0; padding: 0; background: #fff; }
                                   }}>
                                     {issue.example.after}
                                   </div>
-                                  <button
-                                    onClick={() => {
-                                      if (issue.example) navigator.clipboard.writeText(issue.example.after)
-                                      alert('Copied to clipboard!')
-                                    }}
-                                    style={{
-                                      marginTop: 6,
-                                      padding: '4px 8px',
-                                      fontSize: 10,
-                                      background: '#16a34a',
-                                      color: 'white',
-                                      border: 'none',
-                                      borderRadius: 4,
-                                      cursor: 'pointer',
-                                      fontWeight: 500,
-                                    }}
-                                  >
-                                    Copy
-                                  </button>
+                                  <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                                    <button
+                                      onClick={() => {
+                                        if (issue.example) navigator.clipboard.writeText(issue.example.after)
+                                        alert('Copied to clipboard!')
+                                      }}
+                                      style={{
+                                        flex: 1,
+                                        padding: '4px 8px',
+                                        fontSize: 10,
+                                        background: '#16a34a',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: 4,
+                                        cursor: 'pointer',
+                                        fontWeight: 500,
+                                      }}
+                                    >
+                                      Copy
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        if (analysisReport && parsedResume && issue.example) {
+                                          const before = issue.example.before
+                                          const after = issue.example.after
+                                          let improved = { ...parsedResume }
+
+                                          // Apply this specific replacement
+                                          if (improved.workExp) {
+                                            improved.workExp = improved.workExp.map(exp => ({
+                                              ...exp,
+                                              bullets: (exp.bullets || []).map(bullet =>
+                                                bullet.includes(before) ? bullet.replace(before, after) : bullet
+                                              ),
+                                              title: exp.title?.includes(before)
+                                                ? exp.title.replace(before, after)
+                                                : exp.title
+                                            }))
+                                          }
+                                          if (improved.education) {
+                                            improved.education = improved.education.map(edu => ({
+                                              ...edu,
+                                              school: edu.school?.includes(before)
+                                                ? edu.school.replace(before, after)
+                                                : edu.school,
+                                              degree: edu.degree?.includes(before)
+                                                ? edu.degree.replace(before, after)
+                                                : edu.degree
+                                            }))
+                                          }
+                                          if (improved.summary?.includes(before)) {
+                                            improved.summary = improved.summary.replace(before, after)
+                                          }
+                                          if (improved.skills) {
+                                            improved.skills = improved.skills.map(skill =>
+                                              skill.includes(before) ? skill.replace(before, after) : skill
+                                            )
+                                          }
+
+                                          setParsedResume(improved)
+                                          setShowExportModal(false)
+                                          setActiveTab('editor')
+                                        }
+                                      }}
+                                      style={{
+                                        flex: 1,
+                                        padding: '4px 8px',
+                                        fontSize: 10,
+                                        background: '#059669',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: 4,
+                                        cursor: 'pointer',
+                                        fontWeight: 500,
+                                      }}
+                                    >
+                                      Apply
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
                             )}
