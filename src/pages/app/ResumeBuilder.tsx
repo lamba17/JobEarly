@@ -1529,26 +1529,52 @@ body { margin: 0; padding: 0; background: #fff; }
                 if (analysisReport && parsedResume) {
                   let improved = { ...parsedResume }
 
-                  // Apply changes based on issues identified
+                  // Apply direct text replacements from before/after examples
                   analysisReport.issues.forEach(issue => {
-                    if (issue.example?.after) {
-                      // Example improvements to apply
-                      if (issue.section === 'impact') {
-                        // Enhance work experience bullets
-                        if (improved.workExp && improved.workExp.length > 0) {
-                          improved.workExp = improved.workExp.map(exp => ({
-                            ...exp,
-                            bullets: (exp.bullets || []).map(b =>
-                              b.length < 50 ? `${b} with measurable impact` : b
-                            )
-                          }))
-                        }
+                    if (issue.example?.before && issue.example?.after) {
+                      // Replace in work experience bullets
+                      if (improved.workExp) {
+                        improved.workExp = improved.workExp.map(exp => ({
+                          ...exp,
+                          bullets: (exp.bullets || []).map(bullet =>
+                            bullet.includes(issue.example.before)
+                              ? bullet.replace(issue.example.before, issue.example.after)
+                              : bullet
+                          ),
+                          title: exp.title?.includes(issue.example.before)
+                            ? exp.title.replace(issue.example.before, issue.example.after)
+                            : exp.title,
+                          description: exp.description?.includes(issue.example.before)
+                            ? exp.description.replace(issue.example.before, issue.example.after)
+                            : exp.description
+                        }))
                       }
-                      if (issue.section === 'personalInfo' && !improved.linkedin && issue.title.toLowerCase().includes('linkedin')) {
-                        improved.linkedin = '[Add your LinkedIn profile]'
+
+                      // Replace in education
+                      if (improved.education) {
+                        improved.education = improved.education.map(edu => ({
+                          ...edu,
+                          school: edu.school?.includes(issue.example.before)
+                            ? edu.school.replace(issue.example.before, issue.example.after)
+                            : edu.school,
+                          degree: edu.degree?.includes(issue.example.before)
+                            ? edu.degree.replace(issue.example.before, issue.example.after)
+                            : edu.degree
+                        }))
                       }
-                      if (issue.section === 'personalInfo' && !improved.summary && issue.title.toLowerCase().includes('summary')) {
-                        improved.summary = issue.example.after
+
+                      // Replace in summary
+                      if (improved.summary?.includes(issue.example.before)) {
+                        improved.summary = improved.summary.replace(issue.example.before, issue.example.after)
+                      }
+
+                      // Replace in skills
+                      if (improved.skills) {
+                        improved.skills = improved.skills.map(skill =>
+                          skill.includes(issue.example.before)
+                            ? skill.replace(issue.example.before, issue.example.after)
+                            : skill
+                        )
                       }
                     }
                   })
