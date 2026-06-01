@@ -721,18 +721,22 @@ export default function ResumeBuilder() {
   // Handlers
   const handleAnalyse = async () => {
     if (!jobDesc.trim() && !jobUrl.trim()) return
+    if (!resumeRawText) {
+      setAnalysisError('Please upload a resume first')
+      return
+    }
     setAnalysing(true)
     setAnalysisError('')
     try {
       const fallback = `${jobTitle} role. Requirements: UX Research, Figma, Design Systems, Prototyping, Stakeholder Management, Data Analysis, A/B Testing, Cross-functional, Roadmap, User Research, Product Strategy, Agile, Metrics.`
       const jd = jobDesc.trim() || fallback
       const kws = extractJDKeywords(jd)
-      setKeywords(splitKeywords(kws, resumeText))
+      setKeywords(splitKeywords(kws, resumeRawText))
 
       // Generate analysis report
       try {
         setParsingStatus('Generating analysis report…')
-        const report = await generateResumeAnalysisReport(resumeText, jd)
+        const report = await generateResumeAnalysisReport(resumeRawText, jd)
         setAnalysisReport(report)
         setActiveTab('analysis')
         setParsingStatus('')
