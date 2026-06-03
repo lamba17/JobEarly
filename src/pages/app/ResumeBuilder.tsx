@@ -612,6 +612,7 @@ export default function ResumeBuilder() {
   const [analysisReport, setAnalysisReport] = useState<ResumeAnalysisReport | null>(null)
   const [analysisError, setAnalysisError] = useState('')
   const [showExportModal, setShowExportModal] = useState(false)
+  const [appliedImprovements, setAppliedImprovements] = useState<Set<number>>(new Set())
   const fileInputRef                      = useRef<HTMLInputElement>(null)
   const [showCustomize, setShowCustomize] = useState(false)
   const [showShare, setShowShare]       = useState(false)
@@ -1515,7 +1516,10 @@ body { margin: 0; padding: 0; background: #fff; }
             </div>
 
             <button
-              onClick={() => setShowExportModal(true)}
+              onClick={() => {
+                setShowExportModal(true)
+                setAppliedImprovements(new Set())
+              }}
               style={{
                 width: '100%',
                 padding: '9px 0',
@@ -1960,7 +1964,12 @@ body { margin: 0; padding: 0; background: #fff; }
                 justifyContent: 'space-between',
                 alignItems: 'center',
               }}>
-                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#1f2937' }}>All Improvements</h2>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#1f2937' }}>All Improvements</h2>
+                  <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#6b7280' }}>
+                    Applied: {appliedImprovements.size} / {analysisReport?.issues.length || 0}
+                  </p>
+                </div>
                 <button
                   onClick={() => setShowExportModal(false)}
                   style={{
@@ -2167,23 +2176,24 @@ body { margin: 0; padding: 0; background: #fff; }
                                           }
 
                                           setParsedResume(improved)
-                                          setShowExportModal(false)
-                                          setActiveTab('editor')
+                                          setAppliedImprovements(prev => new Set([...prev, idx]))
                                         }
                                       }}
+                                      disabled={appliedImprovements.has(idx)}
                                       style={{
                                         flex: 1,
                                         padding: '4px 8px',
                                         fontSize: 10,
-                                        background: '#059669',
+                                        background: appliedImprovements.has(idx) ? '#9ca3af' : '#059669',
                                         color: 'white',
                                         border: 'none',
                                         borderRadius: 4,
-                                        cursor: 'pointer',
+                                        cursor: appliedImprovements.has(idx) ? 'not-allowed' : 'pointer',
                                         fontWeight: 500,
+                                        opacity: appliedImprovements.has(idx) ? 0.7 : 1,
                                       }}
                                     >
-                                      Apply
+                                      {appliedImprovements.has(idx) ? '✓ Applied' : 'Apply'}
                                     </button>
                                   </div>
                                 </div>
