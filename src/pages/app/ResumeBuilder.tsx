@@ -55,7 +55,7 @@ async function extractTextFromFile(file: File): Promise<string> {
 import { useAuth } from '../../context/AuthContext'
 import { addResume } from '../../lib/userStore'
 import {
-  IconSparkle, IconDoc, IconUndo, IconRedo,
+  IconSparkle, IconUndo, IconRedo,
   IconDownload, IconShare, IconCustomize, IconZoomIn, IconZoomOut,
   IconCheck,
 } from '../../icons'
@@ -231,7 +231,7 @@ interface WorkExp { id: number; title: string; company: string; period: string; 
 interface EduEntry { id: number; degree: string; school: string; period: string }
 
 interface ParsedResume {
-  name: string; email: string; location: string; linkedin: string
+  name: string; email: string; phone: string; location: string; linkedin: string
   jobTitle: string; summary: string; skills: string[]
   workExp: WorkExp[]; education: EduEntry[]
   aiUsed?: boolean
@@ -243,6 +243,9 @@ function parseResumeText(raw: string): ParsedResume {
 
   // ── Email ─────────────────────────────────────────────────────────────────
   const email = raw.match(/[\w.+\-]+@[\w\-]+\.[\w.]+/)?.[0] ?? ''
+
+  // ── Phone ─────────────────────────────────────────────────────────────────
+  const phone = raw.match(/(?:\+1[-.\s]?)?\(?(\d{3})\)?[-.\s]?(\d{3})[-.\s]?(\d{4})\b/)?.[0] ?? ''
 
   // ── LinkedIn — only match proper profile URLs ─────────────────────────────
   const linkedinMatch = raw.match(/(?:https?:\/\/)?(?:www\.)?linkedin\.com\/in\/([\w\-]{2,50})/i)
@@ -518,6 +521,7 @@ function parseResumeText(raw: string): ParsedResume {
   return {
     name,
     email,
+    phone,
     location,
     linkedin,
     jobTitle,
@@ -619,7 +623,20 @@ export default function ResumeBuilder() {
   const [selectedTemplate, setSelectedTemplate] = useState('editorial')
   const [resumeAccent, setResumeAccent] = useState('#2563EB')
   const [selectedFont, setSelectedFont] = useState('georgia')
-  const [pdfPages, setPdfPages] = useState<any[]>([])
+
+  // Form state - resume fields
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
+  const [location, setLocation] = useState('')
+  const [linkedin, setLinkedin] = useState('')
+  const [jobTitle, setJobTitle] = useState('')
+  const [summary, setSummary] = useState('')
+  const [skills, setSkills] = useState<string[]>([])
+  const [workExp, setWorkExp] = useState<WorkExp[]>([])
+  const [education, setEducation] = useState<EduEntry[]>([])
+  const [openExp, setOpenExp] = useState<number | null>(null)
+  const [newSkill, setNewSkill] = useState('')
 
   const resumeFont = FONT_OPTIONS.find(f => f.id === selectedFont)?.family ?? 'Georgia, serif'
   const templateName = TEMPLATES.find(t => t.id === selectedTemplate)?.name ?? 'Editorial Pro'
@@ -720,7 +737,6 @@ export default function ResumeBuilder() {
     setParsing(true)
     setOptimizationSuggestions([])
     setShowOptimizations(false)
-    setPdfPages([])
     try {
       const text = await extractTextFromFile(file)
       if (!text.trim()) throw new Error('Could not read any text from this file. Try a different format.')
@@ -729,27 +745,22 @@ export default function ResumeBuilder() {
       setOriginalResumeFile(file)
       setResumeRawText(text)
 
-      // If PDF, render pages for preview
-      if (file.name.endsWith('.pdf')) {
-        const buf = await file.arrayBuffer()
-        const doc = await pdfjs.getDocument({ data: new Uint8Array(buf) }).promise
-        const pages = []
-        for (let i = 1; i <= doc.numPages; i++) {
-          const page = await doc.getPage(i)
-          const canvas = document.createElement('canvas')
-          const ctx = canvas.getContext('2d')
-          const viewport = page.getViewport({ scale: 2 })
-          canvas.width = viewport.width
-          canvas.height = viewport.height
-          await page.render({ canvasContext: ctx!, viewport, canvas }).promise
-          pages.push({ canvasRef: { current: canvas } })
-        }
-        setPdfPages(pages)
-      }
-
       // Parse for basic metadata only
       const result = parseResumeText(text)
       setParsedResume(result)
+
+      // Populate form fields from parsed resume
+      setName(result.name || '')
+      setEmail(result.email || '')
+      setPhone(result.phone || '')
+      setLocation(result.location || '')
+      setLinkedin(result.linkedin || '')
+      setJobTitle(result.jobTitle || '')
+      setSummary(result.summary || '')
+      setSkills(result.skills || [])
+      setWorkExp(result.workExp.map((e, i) => ({ ...e, id: i + 1 })) || [])
+      setEducation(result.education.map((e, i) => ({ ...e, id: i + 1 })) || [])
+      if (result.workExp.length > 0) setOpenExp(1)
 
       // Auto-navigate to Job Target tab after successful import
       setTimeout(() => setActiveTab('jd'), 800)
@@ -784,7 +795,9 @@ export default function ResumeBuilder() {
 
   const handleSave = () => {
     if (!user) return
-    addResume(user.email, `Resume — ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}.pdf`, atsScore)
+    const date = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+    const filename = name ? `${name} — ${date}.pdf` : `Resume — ${date}.pdf`
+    addResume(user.email, filename, atsScore)
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)
   }
@@ -1479,16 +1492,294 @@ body { margin: 0; padding: 0; background: #fff; }
               </div>
             </div>
 
-            <div>
-              <div className="form-section-head"><IconDoc size={14} /> Resume Text</div>
-              <p style={{ fontSize: 12, color: 'var(--text-mute)', marginBottom: 8 }}>Edit your resume directly. Your original formatting, bullets, and sections are preserved.</p>
+            {/* Personal Info Section */}
+            <div className="rb-form-section">
+              <h3 className="rb-form-title">Personal Information</h3>
+              <div className="rb-form-grid">
+                <input
+                  type="text"
+                  placeholder="Full Name"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  className="rb-form-input"
+                />
+                <input
+                  type="text"
+                  placeholder="Job Title"
+                  value={jobTitle}
+                  onChange={e => setJobTitle(e.target.value)}
+                  className="rb-form-input"
+                />
+                <input
+                  type="email"
+                  placeholder="Email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  className="rb-form-input"
+                />
+                <input
+                  type="tel"
+                  placeholder="Phone"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  className="rb-form-input"
+                />
+                <input
+                  type="text"
+                  placeholder="Location"
+                  value={location}
+                  onChange={e => setLocation(e.target.value)}
+                  className="rb-form-input"
+                />
+                <input
+                  type="text"
+                  placeholder="LinkedIn URL"
+                  value={linkedin}
+                  onChange={e => setLinkedin(e.target.value)}
+                  className="rb-form-input"
+                />
+              </div>
               <textarea
-                className="f-textarea"
-                value={resumeRawText}
-                onChange={e => setResumeRawText(e.target.value)}
-                rows={35}
-                style={{ fontFamily: 'monospace', fontSize: 12, lineHeight: 1.6 }}
+                placeholder="Professional Summary..."
+                value={summary}
+                onChange={e => setSummary(e.target.value)}
+                className="rb-form-textarea"
+                rows={3}
               />
+            </div>
+
+            {/* Work Experience Section */}
+            <div className="rb-form-section">
+              <h3 className="rb-form-title">Work Experience</h3>
+              {workExp.map((exp) => (
+                <div key={exp.id} className="rb-exp-entry">
+                  <div
+                    className="rb-exp-header"
+                    onClick={() => setOpenExp(openExp === exp.id ? null : exp.id)}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{exp.title || 'Job Title'}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-mute)' }}>{exp.company || 'Company'}</div>
+                    </div>
+                    <span style={{ color: 'var(--text-mute)' }}>{openExp === exp.id ? '▼' : '▶'}</span>
+                  </div>
+                  {openExp === exp.id && (
+                    <div className="rb-exp-body">
+                      <input
+                        type="text"
+                        placeholder="Job Title"
+                        value={exp.title}
+                        onChange={e => {
+                          const updated = workExp.map(w => w.id === exp.id ? { ...w, title: e.target.value } : w)
+                          setWorkExp(updated)
+                        }}
+                        className="rb-form-input"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Company"
+                        value={exp.company}
+                        onChange={e => {
+                          const updated = workExp.map(w => w.id === exp.id ? { ...w, company: e.target.value } : w)
+                          setWorkExp(updated)
+                        }}
+                        className="rb-form-input"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Period (e.g. Jan 2020 - Dec 2022)"
+                        value={exp.period}
+                        onChange={e => {
+                          const updated = workExp.map(w => w.id === exp.id ? { ...w, period: e.target.value } : w)
+                          setWorkExp(updated)
+                        }}
+                        className="rb-form-input"
+                      />
+                      <div>
+                        <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-mute)', marginBottom: 6, display: 'block' }}>Bullet Points</label>
+                        {exp.bullets.map((bullet, bidx) => (
+                          <div key={bidx} className="rb-bullet-row">
+                            <input
+                              type="text"
+                              placeholder={`Bullet ${bidx + 1}`}
+                              value={bullet}
+                              onChange={e => {
+                                const updated = workExp.map(w => {
+                                  if (w.id === exp.id) {
+                                    const newBullets = [...w.bullets]
+                                    newBullets[bidx] = e.target.value
+                                    return { ...w, bullets: newBullets }
+                                  }
+                                  return w
+                                })
+                                setWorkExp(updated)
+                              }}
+                              className="rb-bullet-input"
+                            />
+                            <button
+                              onClick={() => {
+                                const updated = workExp.map(w => {
+                                  if (w.id === exp.id) {
+                                    return { ...w, bullets: w.bullets.filter((_, i) => i !== bidx) }
+                                  }
+                                  return w
+                                })
+                                setWorkExp(updated)
+                              }}
+                              style={{ background: 'none', border: 'none', color: 'var(--text-mute)', cursor: 'pointer', fontSize: 16 }}
+                              title="Remove bullet"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          onClick={() => {
+                            const updated = workExp.map(w => {
+                              if (w.id === exp.id) {
+                                return { ...w, bullets: [...w.bullets, ''] }
+                              }
+                              return w
+                            })
+                            setWorkExp(updated)
+                          }}
+                          className="rb-add-bullet"
+                        >
+                          + Add Bullet
+                        </button>
+                      </div>
+                      <button
+                        onClick={() => setWorkExp(workExp.filter(w => w.id !== exp.id))}
+                        style={{ background: 'none', border: 'none', color: 'var(--text-mute)', cursor: 'pointer', fontSize: 12, padding: '8px 0', textAlign: 'left' }}
+                      >
+                        🗑️ Remove Experience
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+              <button
+                onClick={() => {
+                  const newId = Math.max(...workExp.map(w => w.id), 0) + 1
+                  setWorkExp([...workExp, { id: newId, title: '', company: '', period: '', bullets: [''] }])
+                }}
+                className="rb-add-exp"
+              >
+                + Add Experience
+              </button>
+            </div>
+
+            {/* Education Section */}
+            <div className="rb-form-section">
+              <h3 className="rb-form-title">Education</h3>
+              {education.map((edu) => (
+                <div key={edu.id} className="rb-exp-entry">
+                  <div
+                    className="rb-exp-header"
+                    onClick={() => setOpenExp(openExp === edu.id ? null : edu.id)}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{edu.degree || 'Degree'}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-mute)' }}>{edu.school || 'School'}</div>
+                    </div>
+                    <span style={{ color: 'var(--text-mute)' }}>{openExp === edu.id ? '▼' : '▶'}</span>
+                  </div>
+                  {openExp === edu.id && (
+                    <div className="rb-exp-body">
+                      <input
+                        type="text"
+                        placeholder="Degree"
+                        value={edu.degree}
+                        onChange={e => {
+                          const updated = education.map(ed => ed.id === edu.id ? { ...ed, degree: e.target.value } : ed)
+                          setEducation(updated)
+                        }}
+                        className="rb-form-input"
+                      />
+                      <input
+                        type="text"
+                        placeholder="School / University"
+                        value={edu.school}
+                        onChange={e => {
+                          const updated = education.map(ed => ed.id === edu.id ? { ...ed, school: e.target.value } : ed)
+                          setEducation(updated)
+                        }}
+                        className="rb-form-input"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Period (e.g. 2018 - 2022)"
+                        value={edu.period}
+                        onChange={e => {
+                          const updated = education.map(ed => ed.id === edu.id ? { ...ed, period: e.target.value } : ed)
+                          setEducation(updated)
+                        }}
+                        className="rb-form-input"
+                      />
+                      <button
+                        onClick={() => setEducation(education.filter(ed => ed.id !== edu.id))}
+                        style={{ background: 'none', border: 'none', color: 'var(--text-mute)', cursor: 'pointer', fontSize: 12, padding: '8px 0', textAlign: 'left' }}
+                      >
+                        🗑️ Remove Education
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+              <button
+                onClick={() => {
+                  const newId = Math.max(...education.map(e => e.id), 0) + 1
+                  setEducation([...education, { id: newId, degree: '', school: '', period: '' }])
+                }}
+                className="rb-add-exp"
+              >
+                + Add Education
+              </button>
+            </div>
+
+            {/* Skills Section */}
+            <div className="rb-form-section">
+              <h3 className="rb-form-title">Skills</h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                {skills.map((skill, idx) => (
+                  <div key={idx} className="rb-skill-chip">
+                    {skill}
+                    <button
+                      onClick={() => setSkills(skills.filter((_, i) => i !== idx))}
+                      style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', marginLeft: 6 }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input
+                  type="text"
+                  placeholder="Add a skill..."
+                  value={newSkill}
+                  onChange={e => setNewSkill(e.target.value)}
+                  onKeyPress={e => {
+                    if (e.key === 'Enter' && newSkill.trim()) {
+                      setSkills([...skills, newSkill.trim()])
+                      setNewSkill('')
+                    }
+                  }}
+                  className="rb-form-input"
+                  style={{ flex: 1 }}
+                />
+                <button
+                  onClick={() => {
+                    if (newSkill.trim()) {
+                      setSkills([...skills, newSkill.trim()])
+                      setNewSkill('')
+                    }
+                  }}
+                  style={{ padding: '6px 12px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                >
+                  Add
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -1612,40 +1903,76 @@ body { margin: 0; padding: 0; background: #fff; }
 
         {/* Resume Document */}
         <div className="resume-preview">
-          {!resumeRawText ? (
+          {!name && !email && !jobTitle ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-mute)', textAlign: 'center', flexDirection: 'column', gap: 16 }}>
               <div style={{ fontSize: 18, fontWeight: 600 }}>📄 Please upload your resume</div>
               <div style={{ fontSize: 13 }}>Your resume preview will appear here once uploaded</div>
             </div>
-          ) : importFile && importFile.name.endsWith('.pdf') && pdfPages.length > 0 ? (
-            <div style={{ background: '#f3f4f6', padding: '20px', overflow: 'auto', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
-              {pdfPages.map((pageData, idx) => (
-                <div key={idx} style={{ background: 'white', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', borderRadius: '4px', transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}>
-                  <canvas ref={pageData.canvasRef} style={{ display: 'block', maxWidth: '100%' }} />
-                </div>
-              ))}
-            </div>
           ) : (
-            <div className="resume-doc" style={{ fontFamily: resumeFont, transform: `scale(${zoom / 100})`, transformOrigin: 'top center', whiteSpace: 'pre-wrap', wordWrap: 'break-word', padding: '40px', background: 'white', color: '#374151', fontSize: '11px', lineHeight: '1.8', overflowWrap: 'break-word' }}>
-              {resumeRawText.split('\n').map((line, i) => {
-                const isSection = line.match(/^[A-Z\s]+$/) && line.length > 3 && line.length < 50
-                const isBullet = line.trim().startsWith('•') || line.trim().startsWith('-') || line.trim().startsWith('*')
-                return (
-                  <div key={i} style={{
-                    fontWeight: isSection ? 700 : isBullet ? 500 : 400,
-                    fontSize: isSection ? '12px' : '11px',
-                    marginTop: isSection ? '12px' : isBullet ? '4px' : '2px',
-                    marginBottom: isSection ? '8px' : '0px',
-                    paddingLeft: isBullet ? '16px' : '0px',
-                    textIndent: isBullet ? '-8px' : '0px',
-                    color: isSection ? '#1f2937' : '#374151',
-                    borderTop: isSection ? '1px solid #e5e7eb' : 'none',
-                    paddingTop: isSection ? '8px' : '0px'
-                  }}>
-                    {line || <br />}
+            <div className="resume-doc" style={{ fontFamily: resumeFont, transform: `scale(${zoom / 100})`, transformOrigin: 'top center', padding: '40px', background: 'white', color: '#374151', fontSize: '11px', lineHeight: '1.6' }}>
+              {/* Header */}
+              <div style={{ borderBottom: '2px solid #e5e7eb', paddingBottom: '16px', marginBottom: '16px', textAlign: 'center' }}>
+                <div style={{ fontSize: '18px', fontWeight: 700, color: '#1f2937', marginBottom: '2px' }}>{name || 'Your Name'}</div>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: resumeAccent, marginBottom: '6px' }}>{jobTitle || 'Job Title'}</div>
+                <div style={{ fontSize: '10px', color: '#6b7280' }}>
+                  {[email, phone, location, linkedin].filter(Boolean).join(' • ')}
+                </div>
+              </div>
+
+              {/* Summary */}
+              {summary && (
+                <div style={{ marginBottom: '14px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#1f2937', borderBottom: '1px solid #e5e7eb', paddingBottom: '4px', marginBottom: '8px' }}>SUMMARY</div>
+                  <div style={{ fontSize: '11px', color: '#374151', lineHeight: '1.6' }}>{summary}</div>
+                </div>
+              )}
+
+              {/* Work Experience */}
+              {workExp.length > 0 && (
+                <div style={{ marginBottom: '14px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#1f2937', borderBottom: '1px solid #e5e7eb', paddingBottom: '4px', marginBottom: '8px' }}>WORK EXPERIENCE</div>
+                  {workExp.map((exp, idx) => (
+                    <div key={exp.id} style={{ marginBottom: idx < workExp.length - 1 ? '10px' : '0px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+                        <div style={{ fontWeight: 600, color: '#1f2937' }}>{exp.title || 'Job Title'}</div>
+                        <div style={{ fontSize: '10px', color: '#6b7280' }}>{exp.period}</div>
+                      </div>
+                      <div style={{ fontSize: '10px', color: '#6b7280', marginBottom: '4px' }}>{exp.company || 'Company'}</div>
+                      <div style={{ marginLeft: '12px' }}>
+                        {exp.bullets.filter(Boolean).map((bullet, bidx) => (
+                          <div key={bidx} style={{ fontSize: '11px', color: '#374151', marginBottom: '2px' }}>• {bullet}</div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Education */}
+              {education.length > 0 && (
+                <div style={{ marginBottom: '14px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#1f2937', borderBottom: '1px solid #e5e7eb', paddingBottom: '4px', marginBottom: '8px' }}>EDUCATION</div>
+                  {education.map((edu, idx) => (
+                    <div key={edu.id} style={{ marginBottom: idx < education.length - 1 ? '8px' : '0px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+                        <div style={{ fontWeight: 600, color: '#1f2937' }}>{edu.degree || 'Degree'}</div>
+                        <div style={{ fontSize: '10px', color: '#6b7280' }}>{edu.period}</div>
+                      </div>
+                      <div style={{ fontSize: '10px', color: '#6b7280' }}>{edu.school || 'School'}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Skills */}
+              {skills.length > 0 && (
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#1f2937', borderBottom: '1px solid #e5e7eb', paddingBottom: '4px', marginBottom: '8px' }}>SKILLS</div>
+                  <div style={{ fontSize: '11px', color: '#374151' }}>
+                    {skills.join(' • ')}
                   </div>
-                )
-              })}
+                </div>
+              )}
             </div>
           )}
         </div>

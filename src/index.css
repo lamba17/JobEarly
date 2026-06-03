@@ -2155,3 +2155,135 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 }
 .rb-font-opt.active .rb-font-name { color: var(--accent); }
 
+/* Form Editor Styles */
+.rb-form-section {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.rb-form-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 12px;
+  margin-top: 0;
+}
+
+.rb-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.rb-form-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12.5px;
+  background: var(--card);
+  color: var(--text);
+  font-family: inherit;
+  transition: border-color .15s;
+}
+
+.rb-form-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.rb-form-textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  background: var(--card);
+  color: var(--text);
+  font-family: inherit;
+  resize: vertical;
+  min-height: 80px;
+  transition: border-color .15s;
+}
+
+.rb-form-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.rb-exp-entry {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.rb-exp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  cursor: pointer;
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--border);
+  user-select: none;
+  transition: background .15s;
+}
+
+.rb-exp-header:hover {
+  background: var(--bg-tint);
+}
+
+.rb-exp-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rb-bullet-row {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.rb-bullet-input {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  background: var(--card);
+  color: var(--text);
+  font-family: inherit;
+  transition: border-color .15s;
+}
+
+.rb-bullet-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.rb-add-bullet,
+.rb-add-exp {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 4px 0;
+  text-align: left;
+  font-family: inherit;
+  transition: opacity .15s;
+}
+
+.rb-add-bullet:hover,
+.rb-add-exp:hover {
+  opacity: 0.7;
+}
+
