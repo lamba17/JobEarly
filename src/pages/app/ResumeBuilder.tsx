@@ -619,6 +619,7 @@ export default function ResumeBuilder() {
   const [selectedTemplate, setSelectedTemplate] = useState('editorial')
   const [resumeAccent, setResumeAccent] = useState('#2563EB')
   const [selectedFont, setSelectedFont] = useState('georgia')
+  const [pdfPages, setPdfPages] = useState<any[]>([])
 
   const resumeFont = FONT_OPTIONS.find(f => f.id === selectedFont)?.family ?? 'Georgia, serif'
   const templateName = TEMPLATES.find(t => t.id === selectedTemplate)?.name ?? 'Editorial Pro'
@@ -719,6 +720,7 @@ export default function ResumeBuilder() {
     setParsing(true)
     setOptimizationSuggestions([])
     setShowOptimizations(false)
+    setPdfPages([])
     try {
       const text = await extractTextFromFile(file)
       if (!text.trim()) throw new Error('Could not read any text from this file. Try a different format.')
@@ -726,6 +728,24 @@ export default function ResumeBuilder() {
       // Store original file and text
       setOriginalResumeFile(file)
       setResumeRawText(text)
+
+      // If PDF, render pages for preview
+      if (file.name.endsWith('.pdf')) {
+        const buf = await file.arrayBuffer()
+        const doc = await pdfjs.getDocument({ data: new Uint8Array(buf) }).promise
+        const pages = []
+        for (let i = 1; i <= doc.numPages; i++) {
+          const page = await doc.getPage(i)
+          const canvas = document.createElement('canvas')
+          const ctx = canvas.getContext('2d')
+          const viewport = page.getViewport({ scale: 2 })
+          canvas.width = viewport.width
+          canvas.height = viewport.height
+          await page.render({ canvasContext: ctx!, viewport, canvas }).promise
+          pages.push({ canvasRef: { current: canvas } })
+        }
+        setPdfPages(pages)
+      }
 
       // Parse for basic metadata only
       const result = parseResumeText(text)
@@ -1596,6 +1616,14 @@ body { margin: 0; padding: 0; background: #fff; }
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-mute)', textAlign: 'center', flexDirection: 'column', gap: 16 }}>
               <div style={{ fontSize: 18, fontWeight: 600 }}>📄 Please upload your resume</div>
               <div style={{ fontSize: 13 }}>Your resume preview will appear here once uploaded</div>
+            </div>
+          ) : importFile && importFile.name.endsWith('.pdf') && pdfPages.length > 0 ? (
+            <div style={{ background: '#f3f4f6', padding: '20px', overflow: 'auto', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
+              {pdfPages.map((pageData, idx) => (
+                <div key={idx} style={{ background: 'white', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', borderRadius: '4px', transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}>
+                  <canvas ref={pageData.canvasRef} style={{ display: 'block', maxWidth: '100%' }} />
+                </div>
+              ))}
             </div>
           ) : (
             <div className="resume-doc" style={{ fontFamily: resumeFont, transform: `scale(${zoom / 100})`, transformOrigin: 'top center', whiteSpace: 'pre-wrap', wordWrap: 'break-word', padding: '40px', background: 'white', color: '#374151', fontSize: '11px', lineHeight: '1.8', overflowWrap: 'break-word' }}>
