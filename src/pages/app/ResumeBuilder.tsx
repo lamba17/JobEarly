@@ -228,12 +228,14 @@ const IcoUpload = ({ size = 14 }: { size?: number }) => (
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface WorkExp { id: number; title: string; company: string; period: string; bullets: string[] }
-interface EduEntry { id: number; degree: string; school: string; period: string }
+interface EduEntry { id: number; degree: string; school: string; period: string; specialization?: string; activities?: string[] }
 
 interface ParsedResume {
   name: string; email: string; phone: string; location: string; linkedin: string
   jobTitle: string; summary: string; skills: string[]
   workExp: WorkExp[]; education: EduEntry[]
+  communityService?: string[]
+  interests?: string[]
   aiUsed?: boolean
 }
 
@@ -462,16 +464,23 @@ function parseResumeText(raw: string): ParsedResume {
   // ── Education ─────────────────────────────────────────────────────────────
   const DEGREE_RE   = /\b(b\.?tech|b\.?e\b|b\.?sc\b|m\.?tech|m\.?sc\b|mba|phd|ph\.d|bachelor|master|doctor|b\.des|m\.des|bca|mca|b\.com|m\.com|diploma|pgdm|bba|llb|llm|b\.arch|associate|honours|honors|certificate)\b/i
   const SCHOOL_RE   = /\b(university|college|institute|school|academy|polytechnic|iit|iim|nit|bits|nmims|johns\s+hop|harvard|stanford|wharton|columbia|yale|princeton|cornell|lse|insead|carey|business\s+school|technology|management|mukesh)\b/i
-  const ACTIVITY_RE = /\b(president|co-president|delegate|volunteer|club|initiative|competition|council|team\s+leader|merit\s+list|honor\s+roll|clean\s+india|ambulance)\b/i
+  const SPEC_RE     = /(?:with\s+)?specialization\s+(?:in|on)\s+([^;:,]+)/i
+  const ACTIVITY_RE = /\b(president|co-president|delegate|volunteer|club|initiative|competition|council|team\s+leader|merit\s+list|honor\s+roll|clean\s+india|ambulance|csr|scholarship|award)\b/i
   const LOC_LINE_RE = /^(new york|san francisco|los angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|vancouver|montreal|mumbai|bangalore|bengaluru|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|lima|peru)[,\s]/i
 
-  interface RawEdu { degree: string; school: string; period: string }
+  interface RawEdu { degree: string; school: string; period: string; specialization?: string; activities: string[] }
   const edus: RawEdu[] = []
   let curEdu: Partial<RawEdu> | null = null
 
   const flushEdu = () => {
     if (curEdu && (curEdu.degree || curEdu.school)) {
-      edus.push({ degree: curEdu.degree ?? '', school: curEdu.school ?? '', period: curEdu.period ?? '' })
+      edus.push({
+        degree: curEdu.degree ?? '',
+        school: curEdu.school ?? '',
+        period: curEdu.period ?? '',
+        specialization: curEdu.specialization,
+        activities: curEdu.activities ?? [],
+      })
     }
     curEdu = null
   }
@@ -486,22 +495,21 @@ function parseResumeText(raw: string): ParsedResume {
     const hasDegree  = DEGREE_RE.test(line)
     const hasSchool  = SCHOOL_RE.test(line)
     const isActivity = ACTIVITY_RE.test(line) && !hasDegree && !hasSchool
+    const specMatch  = line.match(SPEC_RE)
     const isLocation = LOC_LINE_RE.test(line.trim())
 
-    if (isActivity || isLocation) continue
-
     // Clean: strip year range + trailing city/region fragments
-    // Strip location when preceded by comma or space at the end of line (after school name)
     const lineClean = line
       .replace(periodFull ? periodFull[0] : /\b\d{4}\b/, '')
       .replace(/\s+(?:,-?\s*)?(baltimore|new york|san francisco|los angeles|chicago|seattle|boston|austin|miami|denver|toronto|vancouver|montreal|mumbai|bengaluru|bangalore|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|washington|lima|peru|india|usa|canada|uk|singapore|bc|on|ny|ca|md|il|tx|wa|maryland|california|texas|washington|illinois)\b.*/i, '')
       .replace(/[,·|\t]+$/, '')
       .trim()
 
-    // Degree takes priority over school when both match (e.g. "B.Tech ... NMIMS club ...")
+    // Degree takes priority over school when both match
     if (hasSchool && !hasDegree) {
       flushEdu()
-      curEdu = { school: lineClean || line.replace(/\s*\d{4}.*$/, '').trim(), period }
+      curEdu = { school: lineClean || line.replace(/\s*\d{4}.*$/, '').trim(), activities: [] }
+      if (period) curEdu.period = period
     } else if (hasDegree) {
       const degreeText = lineClean.replace(/:\s*.+$/, '').trim()
       if (curEdu && !curEdu.degree) {
@@ -509,14 +517,42 @@ function parseResumeText(raw: string): ParsedResume {
         if (period && !curEdu.period) curEdu.period = period
       } else {
         flushEdu()
-        curEdu = { degree: degreeText, period }
+        curEdu = { degree: degreeText, activities: [] }
+        if (period) curEdu.period = period
+      }
+    } else if (specMatch && curEdu) {
+      // Capture specialization
+      curEdu.specialization = specMatch[1].trim()
+    } else if (isActivity && curEdu) {
+      // Capture educational activities
+      const activity = lineClean.length > 3 ? lineClean : line.replace(/\s*\d{4}.*$/, '').trim()
+      if (activity.length > 3 && !isLocation) {
+        curEdu.activities = [...(curEdu.activities ?? []), activity]
       }
     } else if (period && curEdu && !curEdu.period) {
       curEdu.period = period
     }
-    // Descriptive/activity lines intentionally skipped
   }
   flushEdu()
+
+  // ── Community Service & Interests (from additional section) ────────────────
+  const communityService: string[] = []
+  const interests: string[] = []
+  const additionalLines = sec('additional')
+
+  for (const line of additionalLines) {
+    if (/community\s+service|volunteer/i.test(line)) {
+      // Extract community service details
+      const match = line.match(/community\s+service[:\s]+([^;•\n]+)/i)
+      if (match) communityService.push(match[1].trim())
+    } else if (/interests?|hobbies?|certifications?/i.test(line) && !/tech|skill|tools/i.test(line)) {
+      // Extract interests (exclude tech skills line)
+      const interestPart = line.replace(/interests?[:\s]+|hobbies?[:\s]+|certifications?[:\s]+/i, '').trim()
+      if (interestPart.length > 2) {
+        interests.push(...interestPart.split(/[;,]/).map(s => s.trim()).filter(s => s.length > 2))
+      }
+    }
+  }
 
   return {
     name,
@@ -529,6 +565,8 @@ function parseResumeText(raw: string): ParsedResume {
     skills: [...new Set(skillSet)].slice(0, 24),
     workExp: workExps.map((e, i) => ({ id: i + 1, ...e })),
     education: edus.map((e, i) => ({ id: i + 1, ...e })),
+    communityService: communityService.length > 0 ? communityService : undefined,
+    interests: interests.length > 0 ? interests : undefined,
   }
 }
 
@@ -637,6 +675,10 @@ export default function ResumeBuilder() {
   const [education, setEducation] = useState<EduEntry[]>([])
   const [openExp, setOpenExp] = useState<number | null>(null)
   const [newSkill, setNewSkill] = useState('')
+  const [communityService, setCommunityService] = useState<string[]>([])
+  const [interests, setInterests] = useState<string[]>([])
+  const [newCommunity, setNewCommunity] = useState('')
+  const [newInterest, setNewInterest] = useState('')
 
   const resumeFont = FONT_OPTIONS.find(f => f.id === selectedFont)?.family ?? 'Georgia, serif'
   const templateName = TEMPLATES.find(t => t.id === selectedTemplate)?.name ?? 'Editorial Pro'
@@ -760,6 +802,8 @@ export default function ResumeBuilder() {
       setSkills(result.skills || [])
       setWorkExp(result.workExp.map((e, i) => ({ ...e, id: i + 1 })) || [])
       setEducation(result.education.map((e, i) => ({ ...e, id: i + 1 })) || [])
+      setCommunityService(result.communityService || [])
+      setInterests(result.interests || [])
       if (result.workExp.length > 0) setOpenExp(1)
 
       // Auto-navigate to Job Target tab after successful import
@@ -1716,6 +1760,49 @@ body { margin: 0; padding: 0; background: #fff; }
                         }}
                         className="rb-form-input"
                       />
+                      <input
+                        type="text"
+                        placeholder="Specialization / Major"
+                        value={edu.specialization || ''}
+                        onChange={e => {
+                          const updated = education.map(ed => ed.id === edu.id ? { ...ed, specialization: e.target.value } : ed)
+                          setEducation(updated)
+                        }}
+                        className="rb-form-input"
+                      />
+                      <div>
+                        <p style={{ fontSize: 11, fontWeight: 600, marginBottom: 4, color: 'var(--text-mute)' }}>Activities & Achievements</p>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
+                          {(edu.activities || []).map((act, actIdx) => (
+                            <div key={actIdx} className="rb-skill-chip" style={{ fontSize: 11 }}>
+                              {act}
+                              <button
+                                onClick={() => {
+                                  const updated = education.map(ed => ed.id === edu.id ? { ...ed, activities: (ed.activities || []).filter((_, i) => i !== actIdx) } : ed)
+                                  setEducation(updated)
+                                }}
+                                style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', marginLeft: 4 }}
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="Add activity..."
+                          onKeyPress={e => {
+                            if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
+                              const val = (e.target as HTMLInputElement).value.trim()
+                              const updated = education.map(ed => ed.id === edu.id ? { ...ed, activities: [...(ed.activities || []), val] } : ed)
+                              setEducation(updated)
+                              ;(e.target as HTMLInputElement).value = ''
+                            }
+                          }}
+                          className="rb-form-input"
+                          style={{ fontSize: 12 }}
+                        />
+                      </div>
                       <button
                         onClick={() => setEducation(education.filter(ed => ed.id !== edu.id))}
                         style={{ background: 'none', border: 'none', color: 'var(--text-mute)', cursor: 'pointer', fontSize: 12, padding: '8px 0', textAlign: 'left' }}
@@ -1779,6 +1866,98 @@ body { margin: 0; padding: 0; background: #fff; }
                 >
                   Add
                 </button>
+              </div>
+
+              {/* Community Service Section */}
+              <div className="rb-form-section">
+                <h3 className="rb-form-title">Community Service & Interests</h3>
+                <div style={{ marginBottom: 12 }}>
+                  <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--text)' }}>Community Service</p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                    {communityService.map((service, i) => (
+                      <div key={i} className="rb-skill-chip">
+                        {service}
+                        <button
+                          onClick={() => setCommunityService(communityService.filter((_, idx) => idx !== i))}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', marginLeft: 4, fontSize: 14 }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input
+                      type="text"
+                      placeholder="Add community service..."
+                      value={newCommunity}
+                      onChange={e => setNewCommunity(e.target.value)}
+                      onKeyPress={e => {
+                        if (e.key === 'Enter' && newCommunity.trim()) {
+                          setCommunityService([...communityService, newCommunity.trim()])
+                          setNewCommunity('')
+                        }
+                      }}
+                      className="rb-form-input"
+                      style={{ flex: 1 }}
+                    />
+                    <button
+                      onClick={() => {
+                        if (newCommunity.trim()) {
+                          setCommunityService([...communityService, newCommunity.trim()])
+                          setNewCommunity('')
+                        }
+                      }}
+                      style={{ padding: '6px 12px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--text)' }}>Interests & Hobbies</p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                    {interests.map((interest, i) => (
+                      <div key={i} className="rb-skill-chip">
+                        {interest}
+                        <button
+                          onClick={() => setInterests(interests.filter((_, idx) => idx !== i))}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', marginLeft: 4, fontSize: 14 }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input
+                      type="text"
+                      placeholder="Add interest..."
+                      value={newInterest}
+                      onChange={e => setNewInterest(e.target.value)}
+                      onKeyPress={e => {
+                        if (e.key === 'Enter' && newInterest.trim()) {
+                          setInterests([...interests, newInterest.trim()])
+                          setNewInterest('')
+                        }
+                      }}
+                      className="rb-form-input"
+                      style={{ flex: 1 }}
+                    />
+                    <button
+                      onClick={() => {
+                        if (newInterest.trim()) {
+                          setInterests([...interests, newInterest.trim()])
+                          setNewInterest('')
+                        }
+                      }}
+                      style={{ padding: '6px 12px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1959,6 +2138,16 @@ body { margin: 0; padding: 0; background: #fff; }
                         <div style={{ fontSize: '10px', color: '#6b7280' }}>{edu.period}</div>
                       </div>
                       <div style={{ fontSize: '10px', color: '#6b7280' }}>{edu.school || 'School'}</div>
+                      {edu.specialization && (
+                        <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '2px', fontStyle: 'italic' }}>Specialization: {edu.specialization}</div>
+                      )}
+                      {(edu.activities || []).length > 0 && (
+                        <div style={{ marginLeft: '12px', marginTop: '4px' }}>
+                          {(edu.activities || []).map((act, aidx) => (
+                            <div key={aidx} style={{ fontSize: '10px', color: '#374151', marginBottom: '2px' }}>• {act}</div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1966,10 +2155,30 @@ body { margin: 0; padding: 0; background: #fff; }
 
               {/* Skills */}
               {skills.length > 0 && (
-                <div>
+                <div style={{ marginBottom: '14px' }}>
                   <div style={{ fontSize: '12px', fontWeight: 700, color: '#1f2937', borderBottom: '1px solid #e5e7eb', paddingBottom: '4px', marginBottom: '8px' }}>SKILLS</div>
                   <div style={{ fontSize: '11px', color: '#374151' }}>
                     {skills.join(' • ')}
+                  </div>
+                </div>
+              )}
+
+              {/* Community Service */}
+              {communityService.length > 0 && (
+                <div style={{ marginBottom: '14px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#1f2937', borderBottom: '1px solid #e5e7eb', paddingBottom: '4px', marginBottom: '8px' }}>COMMUNITY SERVICE</div>
+                  <div style={{ fontSize: '11px', color: '#374151' }}>
+                    {communityService.join(' • ')}
+                  </div>
+                </div>
+              )}
+
+              {/* Interests */}
+              {interests.length > 0 && (
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#1f2937', borderBottom: '1px solid #e5e7eb', paddingBottom: '4px', marginBottom: '8px' }}>INTERESTS & HOBBIES</div>
+                  <div style={{ fontSize: '11px', color: '#374151' }}>
+                    {interests.join(' • ')}
                   </div>
                 </div>
               )}
