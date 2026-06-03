@@ -1555,135 +1555,19 @@ body { margin: 0; padding: 0; background: #fff; }
               </p>
               <div className="ai-insight-btns">
                 <button onClick={() => setActiveTab('jd')}>{analysed ? '↺ Change Job' : '🎯 Add Job Target'}</button>
-                {analysed && <button onClick={() => setSummary(`Experienced ${jobTitle} with a strong track record of delivering scalable, user-centred products. Expert in cross-functional collaboration with engineering, product, and business stakeholders.`)}>Optimise Tone</button>}
               </div>
             </div>
 
             <div>
-              <div className="form-section-head"><IconUser size={14} /> Personal Information</div>
-              <div className="form-grid">
-                <div><div className="f-label">Full Name</div><input className="f-input" value={name} onChange={e => setName(e.target.value)} /></div>
-                <div><div className="f-label">Job Title</div><input className="f-input" value={jobTitle} onChange={e => setJobTitle(e.target.value)} /></div>
-                <div><div className="f-label">Email</div><input className="f-input" value={email} onChange={e => setEmail(e.target.value)} /></div>
-                <div><div className="f-label">Location</div><input className="f-input" value={location} onChange={e => setLocation(e.target.value)} /></div>
-                <div style={{ gridColumn: '1 / -1' }}><div className="f-label">LinkedIn URL</div><input className="f-input" value={linkedin} onChange={e => setLinkedin(e.target.value)} /></div>
-              </div>
-            </div>
-
-            <div>
-              <div className="form-section-head" style={{ justifyContent: 'space-between' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><IconDoc size={14} /> Professional Summary</span>
-                <span className="regen-link" onClick={() => setSummary(`Experienced ${jobTitle} with a proven track record of building impactful, user-centred products at scale. Skilled in cross-functional collaboration, data-driven decision making, and delivering features that move key business metrics.`)}>
-                  Regenerate with AI
-                </span>
-              </div>
-              <textarea className="f-textarea" value={summary} onChange={e => setSummary(e.target.value)} rows={5} />
-            </div>
-
-            <div>
-              <div className="form-section-head"><IconBriefcase size={14} /> Core Skills</div>
-              <div className="rb-skill-chips">
-                {skills.map(sk => (
-                  <div key={sk} className={`rb-skill-chip${matchedKwSet.has(sk.toLowerCase()) ? ' matched' : ''}`}>
-                    {sk}
-                    <button onClick={() => setSkills(prev => prev.filter(s => s !== sk))}><IcoX size={10} /></button>
-                  </div>
-                ))}
-                <div className="rb-skill-add">
-                  <input className="rb-skill-input" placeholder="Add skill…" value={newSkill}
-                    onChange={e => setNewSkill(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') { addSkill(newSkill); e.preventDefault() } }} />
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <div className="form-section-head"><IconBriefcase size={14} /> Work Experience</div>
-              {workExp.map(exp => (
-                <div key={exp.id} className="rb-exp-entry">
-                  <button className="rb-exp-header" onClick={() => setOpenExp(openExp === exp.id ? null : exp.id)}>
-                    <div>
-                      <div className="rb-exp-role">{exp.title}</div>
-                      <div className="rb-exp-co">{exp.company} · {exp.period}</div>
-                    </div>
-                    <span className={`rb-exp-chev${openExp === exp.id ? ' open' : ''}`}><IcoChevDown /></span>
-                  </button>
-                  {openExp === exp.id && (
-                    <div className="rb-exp-body">
-                      <div><div className="f-label">Job Title</div>
-                        <input className="f-input" value={exp.title}
-                          onChange={e => setWorkExp(prev => prev.map(x => x.id === exp.id ? { ...x, title: e.target.value } : x))} />
-                      </div>
-                      <div className="form-grid" style={{ marginTop: 8 }}>
-                        <div><div className="f-label">Company</div>
-                          <input className="f-input" value={exp.company}
-                            onChange={e => setWorkExp(prev => prev.map(x => x.id === exp.id ? { ...x, company: e.target.value } : x))} />
-                        </div>
-                        <div><div className="f-label">Period</div>
-                          <input className="f-input" value={exp.period}
-                            onChange={e => setWorkExp(prev => prev.map(x => x.id === exp.id ? { ...x, period: e.target.value } : x))} />
-                        </div>
-                      </div>
-                      <div style={{ marginTop: 10 }}>
-                        <div className="f-label" style={{ marginBottom: 6 }}>Bullet Points</div>
-                        {exp.bullets.map((b, i) => (
-                          <textarea key={i} className="f-textarea" value={b}
-                            onChange={e => updateBullet(exp.id, i, e.target.value)}
-                            rows={2} style={{ minHeight: 'unset', marginBottom: 6 }} />
-                        ))}
-                        <button className="rb-add-bullet" onClick={() => addBullet(exp.id)}>
-                          <IconPlus size={10} /> Add bullet point
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-              <button className="rb-add-exp" onClick={() => {
-                const n = { id: Date.now(), title: 'New Role', company: 'Company', period: '20XX — 20XX', bullets: [''] }
-                setWorkExp(prev => [...prev, n]); setOpenExp(n.id)
-              }}>
-                <IconPlus size={12} /> Add Experience
-              </button>
-            </div>
-
-            <div>
-              <div className="form-section-head" style={{ justifyContent: 'space-between' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><IconDoc size={14} /> Education</span>
-              </div>
-              {education.map(edu => (
-                <div key={edu.id} className="rb-exp-entry" style={{ marginBottom: 10 }}>
-                  <div style={{ marginBottom: 8 }}>
-                    <div className="f-label">Degree</div>
-                    <input className="f-input" value={edu.degree}
-                      onChange={e => setEducation(prev => prev.map(x => x.id === edu.id ? { ...x, degree: e.target.value } : x))} />
-                  </div>
-                  <div className="form-grid">
-                    <div>
-                      <div className="f-label">School</div>
-                      <input className="f-input" value={edu.school}
-                        onChange={e => setEducation(prev => prev.map(x => x.id === edu.id ? { ...x, school: e.target.value } : x))} />
-                    </div>
-                    <div>
-                      <div className="f-label">Period</div>
-                      <input className="f-input" value={edu.period}
-                        onChange={e => setEducation(prev => prev.map(x => x.id === edu.id ? { ...x, period: e.target.value } : x))} />
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setEducation(prev => prev.filter(x => x.id !== edu.id))}
-                    style={{ marginTop: 6, fontSize: 11.5, color: 'var(--text-mute)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-              <button className="rb-add-exp" onClick={() => {
-                const n = { id: Date.now(), degree: '', school: '', period: '' }
-                setEducation(prev => [...prev, n])
-              }}>
-                <IconPlus size={12} /> Add Education
-              </button>
+              <div className="form-section-head"><IconDoc size={14} /> Resume Text</div>
+              <p style={{ fontSize: 12, color: 'var(--text-mute)', marginBottom: 8 }}>Edit your resume directly. Your original formatting, bullets, and sections are preserved.</p>
+              <textarea
+                className="f-textarea"
+                value={resumeRawText}
+                onChange={e => setResumeRawText(e.target.value)}
+                rows={35}
+                style={{ fontFamily: 'monospace', fontSize: 12, lineHeight: 1.6 }}
+              />
             </div>
           </div>
         )}
@@ -1807,52 +1691,14 @@ body { margin: 0; padding: 0; background: #fff; }
 
         {/* Resume Document */}
         <div className="resume-preview">
-          {!name && !jobTitle && !email && !location && !linkedin && skills.length === 0 && workExp.length === 0 && education.length === 0 ? (
+          {!resumeRawText ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-mute)', textAlign: 'center', flexDirection: 'column', gap: 16 }}>
               <div style={{ fontSize: 18, fontWeight: 600 }}>📄 Please upload your resume</div>
-              <div style={{ fontSize: 13 }}>Your styled resume preview will appear here once uploaded</div>
+              <div style={{ fontSize: 13 }}>Your resume preview will appear here once uploaded</div>
             </div>
           ) : (
-            <div className="resume-doc" style={{ fontFamily: resumeFont, transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}>
-            <div className="resume-doc-head" style={{ background: headerColor }}>
-              <div className="rname">{name}</div>
-              <div className="rtitle">{jobTitle}</div>
-              <div className="rcontact">{email} · {location.toUpperCase()} · {linkedin.toUpperCase()}</div>
-            </div>
-            <div className="resume-doc-body">
-              <div className="resume-col">
-                <div className="resume-sec-title" style={{ color: resumeAccent }}>Core Skills</div>
-                {skills.map(sk => (
-                  <span key={sk}
-                    className={`resume-skill${[...matchedKwSet].some(k => sk.toLowerCase().includes(k)) ? ' matched' : ''}`}
-                    style={[...matchedKwSet].some(k => sk.toLowerCase().includes(k)) ? { background: `${resumeAccent}18`, color: resumeAccent, border: `1px solid ${resumeAccent}40` } : {}}
-                  >{sk}</span>
-                ))}
-                <div className="resume-sec-title" style={{ marginTop: 18, color: resumeAccent }}>Education</div>
-                {education.map(edu => (
-                  <div key={edu.id} className="resume-entry">
-                    <div className="title">{edu.school}</div>
-                    <div className="sub">{edu.degree}</div>
-                    <div className="sub">{edu.period}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="resume-col">
-                <div className="resume-sec-title" style={{ color: resumeAccent }}>Professional Summary</div>
-                <p style={{ fontSize: 11.5, color: '#374151', lineHeight: 1.6, marginBottom: 14 }}>{summary}</p>
-                <div className="resume-sec-title" style={{ color: resumeAccent }}>Work Experience</div>
-                {workExp.map(exp => (
-                  <div key={exp.id} className="resume-entry">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 2 }}>
-                      <div className="title" style={{ flex: 1 }}>{exp.company}</div>
-                      <div className="sub" style={{ whiteSpace: 'nowrap', marginLeft: 8 }}>{exp.period}</div>
-                    </div>
-                    <div className="sub" style={{ fontWeight: 500, marginBottom: 3 }}>{exp.title}</div>
-                    <ul>{exp.bullets.filter(b => b.trim()).map((b, i) => <li key={i}>{b}</li>)}</ul>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <div className="resume-doc" style={{ fontFamily: resumeFont, transform: `scale(${zoom / 100})`, transformOrigin: 'top center', whiteSpace: 'pre-wrap', wordWrap: 'break-word', padding: '40px', background: 'white', color: '#374151', fontSize: '11px', lineHeight: '1.6' }}>
+              {resumeRawText}
             </div>
           )}
         </div>
