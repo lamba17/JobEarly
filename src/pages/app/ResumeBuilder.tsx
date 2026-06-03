@@ -1514,104 +1514,27 @@ body { margin: 0; padding: 0; background: #fff; }
               })}
             </div>
 
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button
-                onClick={() => setShowExportModal(true)}
-                style={{
-                  flex: 1,
-                  padding: '9px 0',
-                  borderRadius: 8,
-                  background: '#e5e7eb',
-                  color: '#1f2937',
-                  border: 'none',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                }}
-              >
-                <IconDownload size={13} /> Export Improvements
-              </button>
-              <button
-                onClick={() => {
-                  // Apply improvements from analysis to resume
-                  if (analysisReport && parsedResume) {
-                    let improved = { ...parsedResume }
-
-                    // Apply direct text replacements from before/after examples
-                    analysisReport.issues.forEach(issue => {
-                      if (issue.example && issue.example.before && issue.example.after) {
-                        const before = issue.example.before
-                        const after = issue.example.after
-
-                        // Replace in work experience bullets
-                        if (improved.workExp) {
-                          improved.workExp = improved.workExp.map(exp => ({
-                            ...exp,
-                            bullets: (exp.bullets || []).map(bullet =>
-                              bullet.includes(before) ? bullet.replace(before, after) : bullet
-                            ),
-                            title: exp.title?.includes(before)
-                              ? exp.title.replace(before, after)
-                              : exp.title
-                          }))
-                        }
-
-                        // Replace in education
-                        if (improved.education) {
-                          improved.education = improved.education.map(edu => ({
-                            ...edu,
-                            school: edu.school?.includes(before)
-                              ? edu.school.replace(before, after)
-                              : edu.school,
-                            degree: edu.degree?.includes(before)
-                              ? edu.degree.replace(before, after)
-                              : edu.degree
-                          }))
-                        }
-
-                        // Replace in summary
-                        if (improved.summary?.includes(before)) {
-                          improved.summary = improved.summary.replace(before, after)
-                        }
-
-                        // Replace in skills
-                        if (improved.skills) {
-                          improved.skills = improved.skills.map(skill =>
-                            skill.includes(before) ? skill.replace(before, after) : skill
-                          )
-                        }
-                      }
-                    })
-
-                    setParsedResume(improved)
-                  }
-                  setActiveTab('editor')
-                }}
-                style={{
-                  flex: 1,
-                  padding: '9px 0',
-                  borderRadius: 8,
-                  background: 'var(--accent)',
-                  color: 'white',
-                  border: 'none',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                }}
-              >
-                <IcoEditPen size={13} /> Start Improving
-              </button>
-            </div>
+            <button
+              onClick={() => setShowExportModal(true)}
+              style={{
+                width: '100%',
+                padding: '9px 0',
+                borderRadius: 8,
+                background: 'var(--accent)',
+                color: 'white',
+                border: 'none',
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+              }}
+            >
+              <IcoEditPen size={13} /> Start Improving
+            </button>
           </div>
         )}
 
@@ -2283,22 +2206,6 @@ body { margin: 0; padding: 0; background: #fff; }
                 justifyContent: 'flex-end',
               }}>
                 <button
-                  onClick={() => setShowExportModal(false)}
-                  style={{
-                    padding: '8px 16px',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    background: '#e5e7eb',
-                    color: '#1f2937',
-                    border: 'none',
-                    borderRadius: 6,
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                  }}
-                >
-                  Close
-                </button>
-                <button
                   onClick={() => {
                     const text = analysisReport.issues
                       .map(issue => `${issue.sectionLabel} > ${issue.category.toUpperCase()}\n${issue.title}\n${issue.issue}\n${issue.example ? `Before: "${issue.example.before}"\nAfter: "${issue.example.after}"` : ''}`)
@@ -2315,8 +2222,8 @@ body { margin: 0; padding: 0; background: #fff; }
                     padding: '8px 16px',
                     fontSize: 13,
                     fontWeight: 600,
-                    background: '#3b82f6',
-                    color: 'white',
+                    background: '#e5e7eb',
+                    color: '#1f2937',
                     border: 'none',
                     borderRadius: 6,
                     cursor: 'pointer',
@@ -2327,6 +2234,28 @@ body { margin: 0; padding: 0; background: #fff; }
                   }}
                 >
                   <IconDownload size={13} /> Download as TXT
+                </button>
+                <button
+                  onClick={() => {
+                    setShowExportModal(false)
+                    setActiveTab('editor')
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    background: 'var(--accent)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  Continue to Editor
                 </button>
               </div>
             </div>
