@@ -55,9 +55,9 @@ async function extractTextFromFile(file: File): Promise<string> {
 import { useAuth } from '../../context/AuthContext'
 import { addResume } from '../../lib/userStore'
 import {
-  IconSparkle, IconUser, IconDoc, IconUndo, IconRedo,
+  IconSparkle, IconDoc, IconUndo, IconRedo,
   IconDownload, IconShare, IconCustomize, IconZoomIn, IconZoomOut,
-  IconBriefcase, IconCheck, IconPlus,
+  IconCheck,
 } from '../../icons'
 
 // ── Local icon helpers ────────────────────────────────────────────────────────
@@ -65,11 +65,6 @@ import {
 const IcoX = ({ size = 11 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
     <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
-  </svg>
-)
-const IcoChevDown = ({ size = 12 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-    <path d="m6 9 6 6 6-6"/>
   </svg>
 )
 const IcoTarget = ({ size = 13 }: { size?: number }) => (
@@ -622,7 +617,6 @@ export default function ResumeBuilder() {
 
   // Customization state
   const [selectedTemplate, setSelectedTemplate] = useState('editorial')
-  const [headerColor, setHeaderColor]   = useState('#0f172a')
   const [resumeAccent, setResumeAccent] = useState('#2563EB')
   const [selectedFont, setSelectedFont] = useState('georgia')
 
@@ -636,30 +630,9 @@ export default function ResumeBuilder() {
   const [tailored, setTailored] = useState(false)
   const [keywords, setKeywords] = useState<{ found: string[]; missing: string[] }>({ found: [], missing: [] })
 
-  // Resume fields (all blank initially, populated only from uploaded resume)
-  const [name,     setName]     = useState('')
-  const [jobTitle, setJobTitle] = useState('')
-  const [email,    setEmail]    = useState('')
-  const [location, setLocation] = useState('')
-  const [linkedin, setLinkedin] = useState('')
-  const [summary,  setSummary]  = useState('')
-  const [skills,   setSkills]   = useState<string[]>([])
-  const [newSkill, setNewSkill] = useState('')
-  const [workExp, setWorkExp]   = useState<WorkExp[]>([])
-  const [openExp, setOpenExp] = useState<number | null>(null)
-  const [education, setEducation] = useState<EduEntry[]>([])
-
-  // Derived
-  const resumeText = useMemo(() => [
-    name, jobTitle, summary, skills.join(' '),
-    ...workExp.flatMap(e => [e.title, e.company, ...e.bullets]),
-    ...education.flatMap(e => [e.degree, e.school]),
-  ].join(' '), [name, jobTitle, summary, skills, workExp, education])
-
-  const atsScore   = useMemo(() => computeScore(keywords.found.length, keywords.found.length + keywords.missing.length, analysed, resumeText), [keywords, analysed, resumeText])
+  const atsScore   = useMemo(() => computeScore(keywords.found.length, keywords.found.length + keywords.missing.length, analysed, resumeRawText), [keywords, analysed, resumeRawText])
   const scoreColor = atsScore >= 85 ? '#10B981' : atsScore >= 65 ? '#F59E0B' : '#EF4444'
   const scorePct   = `${atsScore}%`
-  const matchedKwSet = useMemo(() => new Set(keywords.found.map(k => k.toLowerCase())), [keywords.found])
 
   // Close share popover on outside click
   useEffect(() => {
@@ -689,35 +662,6 @@ export default function ResumeBuilder() {
   }, [parsedResume?.workExp.length, resumeRawText])
 
   // Auto-apply parsed resume data when a resume is uploaded
-  useEffect(() => {
-    if (!parsedResume) return
-    const acceptedSuggestions = optimizationSuggestions.filter(s => s.accepted)
-    let updatedParsedResume = { ...parsedResume }
-
-    // Apply accepted optimization suggestions
-    for (const sugg of acceptedSuggestions) {
-      if (sugg.type === 'summary' && updatedParsedResume.summary === sugg.original) {
-        updatedParsedResume.summary = sugg.suggested
-      } else if (sugg.type === 'bullet') {
-        updatedParsedResume.workExp = updatedParsedResume.workExp.map(exp => ({
-          ...exp,
-          bullets: exp.bullets.map(b => b === sugg.original ? sugg.suggested : b)
-        }))
-      } else if (sugg.type === 'skill') {
-        updatedParsedResume.skills = updatedParsedResume.skills.map(s => s === sugg.original ? sugg.suggested : s)
-      }
-    }
-
-    if (updatedParsedResume.name)     setName(updatedParsedResume.name)
-    if (updatedParsedResume.email)    setEmail(updatedParsedResume.email)
-    if (updatedParsedResume.location) setLocation(updatedParsedResume.location)
-    if (updatedParsedResume.linkedin) setLinkedin(updatedParsedResume.linkedin)
-    if (updatedParsedResume.jobTitle) setJobTitle(updatedParsedResume.jobTitle)
-    if (updatedParsedResume.summary)  setSummary(updatedParsedResume.summary)
-    if (updatedParsedResume.skills.length > 0) setSkills(updatedParsedResume.skills)
-    if (updatedParsedResume.workExp.length > 0) { setWorkExp(updatedParsedResume.workExp); setOpenExp(updatedParsedResume.workExp[0].id) }
-    if (updatedParsedResume.education.length > 0) setEducation(updatedParsedResume.education)
-  }, [parsedResume, optimizationSuggestions])
 
   // Handlers
   const handleAnalyse = async () => {
@@ -729,8 +673,12 @@ export default function ResumeBuilder() {
     setAnalysing(true)
     setAnalysisError('')
     try {
-      const fallback = `${jobTitle} role. Requirements: UX Research, Figma, Design Systems, Prototyping, Stakeholder Management, Data Analysis, A/B Testing, Cross-functional, Roadmap, User Research, Product Strategy, Agile, Metrics.`
-      const jd = jobDesc.trim() || fallback
+      const jd = jobDesc.trim() || ''
+      if (!jd) {
+        setAnalysisError('Please enter a job description')
+        setAnalysing(false)
+        return
+      }
       const kws = extractJDKeywords(jd)
       setKeywords(splitKeywords(kws, resumeRawText))
 
@@ -755,33 +703,14 @@ export default function ResumeBuilder() {
   }
 
   const handleTailor = () => {
-    const topMissing = keywords.missing.slice(0, 3)
-    if (topMissing.length > 0) {
-      const additions = topMissing.map(k => k.charAt(0).toUpperCase() + k.slice(1)).join(', ')
-      setSummary(prev => prev.replace(/\.$/, '') + `. Skilled in ${additions}.`)
-      setKeywords(prev => ({ found: [...prev.found, ...prev.missing.slice(0, 3)], missing: prev.missing.slice(3) }))
-    }
     setTailored(true)
     setActiveTab('editor')
   }
 
   const addMissingKw = (kw: string) => {
-    const skill = kw.charAt(0).toUpperCase() + kw.slice(1)
-    if (!skills.includes(skill)) setSkills(prev => [...prev, skill])
     setKeywords(prev => ({ found: [...prev.found, kw], missing: prev.missing.filter(k => k !== kw) }))
   }
 
-  const addSkill = (sk: string) => {
-    const t = sk.trim()
-    if (t && !skills.includes(t)) setSkills(prev => [...prev, t])
-    setNewSkill('')
-  }
-
-  const updateBullet = (expId: number, idx: number, val: string) =>
-    setWorkExp(prev => prev.map(e => e.id === expId ? { ...e, bullets: e.bullets.map((b, i) => i === idx ? val : b) } : e))
-
-  const addBullet = (expId: number) =>
-    setWorkExp(prev => prev.map(e => e.id === expId ? { ...e, bullets: [...e.bullets, ''] } : e))
 
   const processFile = useCallback(async (file: File) => {
     setImportError('')
@@ -827,33 +756,6 @@ export default function ResumeBuilder() {
   }
 
   const handleApplyParsed = () => {
-    if (!parsedResume) return
-    let updatedParsedResume = { ...parsedResume }
-
-    // Apply accepted optimization suggestions
-    const acceptedSuggestions = optimizationSuggestions.filter(s => s.accepted)
-    for (const sugg of acceptedSuggestions) {
-      if (sugg.type === 'summary' && updatedParsedResume.summary === sugg.original) {
-        updatedParsedResume.summary = sugg.suggested
-      } else if (sugg.type === 'bullet') {
-        updatedParsedResume.workExp = updatedParsedResume.workExp.map(exp => ({
-          ...exp,
-          bullets: exp.bullets.map(b => b === sugg.original ? sugg.suggested : b)
-        }))
-      } else if (sugg.type === 'skill') {
-        updatedParsedResume.skills = updatedParsedResume.skills.map(s => s === sugg.original ? sugg.suggested : s)
-      }
-    }
-
-    if (updatedParsedResume.name)     setName(updatedParsedResume.name)
-    if (updatedParsedResume.email)    setEmail(updatedParsedResume.email)
-    if (updatedParsedResume.location) setLocation(updatedParsedResume.location)
-    if (updatedParsedResume.linkedin) setLinkedin(updatedParsedResume.linkedin)
-    if (updatedParsedResume.jobTitle) setJobTitle(updatedParsedResume.jobTitle)
-    if (updatedParsedResume.summary)  setSummary(updatedParsedResume.summary)
-    if (updatedParsedResume.skills.length > 0) setSkills(updatedParsedResume.skills)
-    if (updatedParsedResume.workExp.length > 0) { setWorkExp(updatedParsedResume.workExp); setOpenExp(updatedParsedResume.workExp[0].id) }
-    if (updatedParsedResume.education.length > 0) setEducation(updatedParsedResume.education)
     setParsedResume(null)
     setImportFile(null)
     setOptimizationSuggestions([])
@@ -862,7 +764,7 @@ export default function ResumeBuilder() {
 
   const handleSave = () => {
     if (!user) return
-    addResume(user.email, `${jobTitle} — ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}.pdf`, atsScore)
+    addResume(user.email, `Resume — ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}.pdf`, atsScore)
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)
   }
@@ -946,7 +848,6 @@ body { margin: 0; padding: 0; background: #fff; }
 
   const selectTemplate = (t: typeof TEMPLATES[0]) => {
     setSelectedTemplate(t.id)
-    setHeaderColor(t.headerBg)
   }
 
   return (
