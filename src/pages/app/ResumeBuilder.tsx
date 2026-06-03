@@ -1598,8 +1598,26 @@ body { margin: 0; padding: 0; background: #fff; }
               <div style={{ fontSize: 13 }}>Your resume preview will appear here once uploaded</div>
             </div>
           ) : (
-            <div className="resume-doc" style={{ fontFamily: resumeFont, transform: `scale(${zoom / 100})`, transformOrigin: 'top center', whiteSpace: 'pre-wrap', wordWrap: 'break-word', padding: '40px', background: 'white', color: '#374151', fontSize: '11px', lineHeight: '1.6' }}>
-              {resumeRawText}
+            <div className="resume-doc" style={{ fontFamily: resumeFont, transform: `scale(${zoom / 100})`, transformOrigin: 'top center', whiteSpace: 'pre-wrap', wordWrap: 'break-word', padding: '40px', background: 'white', color: '#374151', fontSize: '11px', lineHeight: '1.8', overflowWrap: 'break-word' }}>
+              {resumeRawText.split('\n').map((line, i) => {
+                const isSection = line.match(/^[A-Z\s]+$/) && line.length > 3 && line.length < 50
+                const isBullet = line.trim().startsWith('•') || line.trim().startsWith('-') || line.trim().startsWith('*')
+                return (
+                  <div key={i} style={{
+                    fontWeight: isSection ? 700 : isBullet ? 500 : 400,
+                    fontSize: isSection ? '12px' : '11px',
+                    marginTop: isSection ? '12px' : isBullet ? '4px' : '2px',
+                    marginBottom: isSection ? '8px' : '0px',
+                    paddingLeft: isBullet ? '16px' : '0px',
+                    textIndent: isBullet ? '-8px' : '0px',
+                    color: isSection ? '#1f2937' : '#374151',
+                    borderTop: isSection ? '1px solid #e5e7eb' : 'none',
+                    paddingTop: isSection ? '8px' : '0px'
+                  }}>
+                    {line || <br />}
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
