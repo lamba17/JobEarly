@@ -443,9 +443,12 @@ function parseResumeText(raw: string): ParsedResume {
       } else if (looksOrg && !curExp) {
         // Likely a company/org name — skip pure location lines
         if (!WX_LOC_RE.test(line.trim())) {
-          // Strip location (handles both "Company, City" and "Company City" formats)
-          pendingCompany = line.replace(/[\s,–\-]+(new york|san francisco|los angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|vancouver|montreal|mumbai|bangalore|bengaluru|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|lima|peru|india|usa|canada|uk|singapore|bc|on|ny|ca|md|il|tx|wa)\b.*/i, '').trim()
-          if (!pendingCompany) pendingCompany = line
+          // Extract company name with parenthetical descriptions (e.g., "Collectiv LLC (Big Data Consulting)")
+          // Then remove location at the end
+          let companyWithDesc = line
+          // Remove location patterns at the end (e.g., "Baltimore, MD/IL" or "Mumbai, India")
+          companyWithDesc = companyWithDesc.replace(/[\s,–\-]+(new york|san francisco|los angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|vancouver|montreal|mumbai|bangalore|bengaluru|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|lima|peru|india|usa|canada|uk|singapore|bc|on|ny|ca|md|il|tx|wa|md\/il)(?:\b|$|[,\s].*$)/i, '').trim()
+          pendingCompany = companyWithDesc || line
         }
       } else if (curExp && !curExp.company && (curExp.bullets?.length ?? 0) === 0 && !WX_LOC_RE.test(line.trim()) && !hasTitle) {
         // Company name that appears after the title line (before bullets start)
@@ -2088,40 +2091,42 @@ body { margin: 0; padding: 0; background: #fff; }
               <div style={{ fontSize: 13 }}>Your resume preview will appear here once uploaded</div>
             </div>
           ) : (
-            <div className="resume-doc" style={{ fontFamily: resumeFont, transform: `scale(${zoom / 100})`, transformOrigin: 'top center', padding: '40px', background: 'white', color: '#374151', fontSize: '11px', lineHeight: '1.6' }}>
+            <div className="resume-doc" style={{ fontFamily: resumeFont, transform: `scale(${zoom / 100})`, transformOrigin: 'top center', padding: '48px', background: 'white', color: '#2d3748', fontSize: '10.5px', lineHeight: '1.5' }}>
               {/* Header */}
-              <div style={{ borderBottom: '2px solid #e5e7eb', paddingBottom: '16px', marginBottom: '16px', textAlign: 'center' }}>
-                <div style={{ fontSize: '18px', fontWeight: 700, color: '#1f2937', marginBottom: '2px' }}>{name || 'Your Name'}</div>
-                <div style={{ fontSize: '12px', fontWeight: 600, color: resumeAccent, marginBottom: '6px' }}>{jobTitle || 'Job Title'}</div>
-                <div style={{ fontSize: '10px', color: '#6b7280' }}>
+              <div style={{ marginBottom: '20px', textAlign: 'center' }}>
+                <div style={{ fontSize: '20px', fontWeight: 800, color: '#1a202c', letterSpacing: '-0.5px', marginBottom: '3px' }}>{name || 'Your Name'}</div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: resumeAccent || '#2d3748', letterSpacing: '0.5px', marginBottom: '8px' }}>{jobTitle || 'Job Title'}</div>
+                <div style={{ fontSize: '9.5px', color: '#4a5568', letterSpacing: '0.3px' }}>
                   {[email, phone, location, linkedin].filter(Boolean).join(' • ')}
                 </div>
               </div>
 
               {/* Summary */}
               {summary && (
-                <div style={{ marginBottom: '14px' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#1f2937', borderBottom: '1px solid #e5e7eb', paddingBottom: '4px', marginBottom: '8px' }}>SUMMARY</div>
-                  <div style={{ fontSize: '11px', color: '#374151', lineHeight: '1.6' }}>{summary}</div>
+                <div style={{ marginBottom: '18px' }}>
+                  <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#1a202c', borderBottom: '1.5px solid #2d3748', paddingBottom: '5px', marginBottom: '8px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Professional Summary</div>
+                  <div style={{ fontSize: '10.5px', color: '#2d3748', lineHeight: '1.6' }}>{summary}</div>
                 </div>
               )}
 
               {/* Work Experience */}
               {workExp.length > 0 && (
-                <div style={{ marginBottom: '14px' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#1f2937', borderBottom: '1px solid #e5e7eb', paddingBottom: '4px', marginBottom: '8px' }}>WORK EXPERIENCE</div>
+                <div style={{ marginBottom: '18px' }}>
+                  <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#1a202c', borderBottom: '1.5px solid #2d3748', paddingBottom: '5px', marginBottom: '10px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Work Experience</div>
                   {workExp.map((exp, idx) => (
-                    <div key={exp.id} style={{ marginBottom: idx < workExp.length - 1 ? '10px' : '0px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-                        <div style={{ fontWeight: 600, color: '#1f2937' }}>{exp.title || 'Job Title'}</div>
-                        <div style={{ fontSize: '10px', color: '#6b7280' }}>{exp.period}</div>
+                    <div key={exp.id} style={{ marginBottom: idx < workExp.length - 1 ? '12px' : '0px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '1px' }}>
+                        <div style={{ fontWeight: 700, color: '#1a202c', fontSize: '10.8px' }}>{exp.title || 'Job Title'}</div>
+                        <div style={{ fontSize: '9.5px', color: '#4a5568', fontWeight: 500 }}>{exp.period}</div>
                       </div>
-                      <div style={{ fontSize: '10px', color: '#6b7280', marginBottom: '4px' }}>{exp.company || 'Company'}</div>
-                      <div style={{ marginLeft: '12px' }}>
-                        {exp.bullets.filter(Boolean).map((bullet, bidx) => (
-                          <div key={bidx} style={{ fontSize: '11px', color: '#374151', marginBottom: '2px' }}>• {bullet}</div>
-                        ))}
-                      </div>
+                      <div style={{ fontSize: '10px', color: '#4a5568', marginBottom: '5px', fontWeight: 600 }}>{exp.company || 'Company'}</div>
+                      {exp.bullets.filter(Boolean).length > 0 && (
+                        <div style={{ marginLeft: '0px' }}>
+                          {exp.bullets.filter(Boolean).map((bullet, bidx) => (
+                            <div key={bidx} style={{ fontSize: '10.5px', color: '#2d3748', marginBottom: '3px', lineHeight: '1.5' }}>• {bullet}</div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -2129,22 +2134,22 @@ body { margin: 0; padding: 0; background: #fff; }
 
               {/* Education */}
               {education.length > 0 && (
-                <div style={{ marginBottom: '14px' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#1f2937', borderBottom: '1px solid #e5e7eb', paddingBottom: '4px', marginBottom: '8px' }}>EDUCATION</div>
+                <div style={{ marginBottom: '18px' }}>
+                  <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#1a202c', borderBottom: '1.5px solid #2d3748', paddingBottom: '5px', marginBottom: '10px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Education</div>
                   {education.map((edu, idx) => (
-                    <div key={edu.id} style={{ marginBottom: idx < education.length - 1 ? '8px' : '0px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-                        <div style={{ fontWeight: 600, color: '#1f2937' }}>{edu.degree || 'Degree'}</div>
-                        <div style={{ fontSize: '10px', color: '#6b7280' }}>{edu.period}</div>
+                    <div key={edu.id} style={{ marginBottom: idx < education.length - 1 ? '10px' : '0px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '1px' }}>
+                        <div style={{ fontWeight: 700, color: '#1a202c', fontSize: '10.8px' }}>{edu.degree || 'Degree'}</div>
+                        <div style={{ fontSize: '9.5px', color: '#4a5568', fontWeight: 500 }}>{edu.period}</div>
                       </div>
-                      <div style={{ fontSize: '10px', color: '#6b7280' }}>{edu.school || 'School'}</div>
+                      <div style={{ fontSize: '10px', color: '#4a5568', fontWeight: 600 }}>{edu.school || 'School'}</div>
                       {edu.specialization && (
-                        <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '2px', fontStyle: 'italic' }}>Specialization: {edu.specialization}</div>
+                        <div style={{ fontSize: '10px', color: '#2d3748', marginTop: '2px' }}>Specialization: {edu.specialization}</div>
                       )}
                       {(edu.activities || []).length > 0 && (
-                        <div style={{ marginLeft: '12px', marginTop: '4px' }}>
+                        <div style={{ marginTop: '4px' }}>
                           {(edu.activities || []).map((act, aidx) => (
-                            <div key={aidx} style={{ fontSize: '10px', color: '#374151', marginBottom: '2px' }}>• {act}</div>
+                            <div key={aidx} style={{ fontSize: '10px', color: '#2d3748', marginBottom: '2px' }}>• {act}</div>
                           ))}
                         </div>
                       )}
@@ -2155,9 +2160,9 @@ body { margin: 0; padding: 0; background: #fff; }
 
               {/* Skills */}
               {skills.length > 0 && (
-                <div style={{ marginBottom: '14px' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#1f2937', borderBottom: '1px solid #e5e7eb', paddingBottom: '4px', marginBottom: '8px' }}>SKILLS</div>
-                  <div style={{ fontSize: '11px', color: '#374151' }}>
+                <div style={{ marginBottom: '18px' }}>
+                  <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#1a202c', borderBottom: '1.5px solid #2d3748', paddingBottom: '5px', marginBottom: '8px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Skills</div>
+                  <div style={{ fontSize: '10.5px', color: '#2d3748', lineHeight: '1.5' }}>
                     {skills.join(' • ')}
                   </div>
                 </div>
@@ -2165,9 +2170,9 @@ body { margin: 0; padding: 0; background: #fff; }
 
               {/* Community Service */}
               {communityService.length > 0 && (
-                <div style={{ marginBottom: '14px' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#1f2937', borderBottom: '1px solid #e5e7eb', paddingBottom: '4px', marginBottom: '8px' }}>COMMUNITY SERVICE</div>
-                  <div style={{ fontSize: '11px', color: '#374151' }}>
+                <div style={{ marginBottom: '18px' }}>
+                  <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#1a202c', borderBottom: '1.5px solid #2d3748', paddingBottom: '5px', marginBottom: '8px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Community Service</div>
+                  <div style={{ fontSize: '10.5px', color: '#2d3748', lineHeight: '1.5' }}>
                     {communityService.join(' • ')}
                   </div>
                 </div>
@@ -2176,8 +2181,8 @@ body { margin: 0; padding: 0; background: #fff; }
               {/* Interests */}
               {interests.length > 0 && (
                 <div>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#1f2937', borderBottom: '1px solid #e5e7eb', paddingBottom: '4px', marginBottom: '8px' }}>INTERESTS & HOBBIES</div>
-                  <div style={{ fontSize: '11px', color: '#374151' }}>
+                  <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#1a202c', borderBottom: '1.5px solid #2d3748', paddingBottom: '5px', marginBottom: '8px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Interests & Hobbies</div>
+                  <div style={{ fontSize: '10.5px', color: '#2d3748', lineHeight: '1.5' }}>
                     {interests.join(' • ')}
                   </div>
                 </div>
