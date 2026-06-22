@@ -409,8 +409,20 @@ function parseResumeText(raw: string): ParsedResume {
           // Only extract from dash if we have NO pending or previous company
           const dashMatch = rest.match(/^([^–—\-]+?)\s+[–—\-]\s+(.+)$/)
           if (dashMatch) {
-            titlePart = dashMatch[1].trim()
-            companyPart = dashMatch[2].trim() || companyPart
+            const potentialCompany = dashMatch[2].trim()
+            // Check if this is a category/specialization, not a company
+            // Categories typically have industry keywords and are relatively short
+            const categoryWords = ['retail', 'consumer', 'gaming', 'technology', 'finance', 'healthcare', 'services', 'strategy', 'operations', 'marketing', 'engineering']
+            const hasOnlyCategory = categoryWords.some(word => potentialCompany.toLowerCase().includes(word)) && potentialCompany.length < 60 && !potentialCompany.includes('LLC') && !potentialCompany.includes('Inc') && !potentialCompany.includes('Ltd')
+
+            if (!hasOnlyCategory) {
+              titlePart = dashMatch[1].trim()
+              companyPart = potentialCompany || companyPart
+            } else {
+              // This looks like a category, not a company name
+              // Keep the full rest as title instead
+              titlePart = rest
+            }
           }
         }
         curExp = {
@@ -453,23 +465,26 @@ function parseResumeText(raw: string): ParsedResume {
           let companyName = line.trim()
           let location = ''
 
-          // Pattern: "Company Location" or "Company, Location"
-          // Strategy 1: Remove location words and everything after them
-          // Match pattern: "something LOCATION_WORD ..." and extract the "something" part
-          const locPattern = /^(.+?)\s+(vancouver|mumbai|bangalore|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|new\s+york|san\s+francisco|los\s+angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|montreal|lima|peru)([\s,].*)$/i
-          const match = companyName.match(locPattern)
-          if (match && match[1].length > 2) {
-            companyName = match[1].trim()
-            location = (match[2] + (match[3] || '')).trim()
-          } else if (companyName.includes(',')) {
-            // Strategy 2: If no location pattern matched, split by comma
-            const parts = companyName.split(',')
-            companyName = parts[0].trim()
-            // Everything after first comma is location
-            location = parts.slice(1).join(',').trim()
+          // Quick check: if line contains known cities/locations, split intelligently
+          const hasLocation = /\b(vancouver|mumbai|bangalore|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|new\s+york|san\s+francisco|los\s+angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|montreal|lima|peru)\b/i.test(companyName)
+
+          if (hasLocation) {
+            // Pattern: "Company Location" or "Company, Location"
+            // Strategy 1: Remove location words and everything after them
+            const locPattern = /^(.+?)\s+(vancouver|mumbai|bangalore|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|new\s+york|san\s+francisco|los\s+angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|montreal|lima|peru)([\s,].*)$/i
+            const match = companyName.match(locPattern)
+            if (match && match[1].length > 2) {
+              companyName = match[1].trim()
+              location = (match[2] + (match[3] || '')).trim()
+            } else if (companyName.includes(',')) {
+              // Strategy 2: If no location pattern matched, split by comma
+              const parts = companyName.split(',')
+              companyName = parts[0].trim()
+              location = parts.slice(1).join(',').trim()
+            }
           }
 
-          // Use extracted company name, fallback to full line
+          // Always set pending company (even if just the line itself)
           pendingCompany = companyName && companyName.length > 1 ? companyName : line.trim()
           pendingLocation = location
         }
