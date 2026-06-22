@@ -227,7 +227,7 @@ const IcoUpload = ({ size = 14 }: { size?: number }) => (
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-interface WorkExp { id: number; title: string; company: string; period: string; bullets: string[] }
+interface WorkExp { id: number; title: string; company: string; location?: string; period: string; bullets: string[] }
 interface EduEntry { id: number; degree: string; school: string; period: string; specialization?: string; activities?: string[] }
 
 interface ParsedResume {
@@ -359,10 +359,11 @@ function parseResumeText(raw: string): ParsedResume {
   const PERIOD_RE = /(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+)?(\d{4})\s*[-–—]\s*(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+)?(\d{4}|present|current|now|till date)/i
   const ORG_RE    = /\b(llc|inc|ltd|limited|pvt|private|corporation|corp|gmbh|consulting|solutions|technologies|services|group|associates)\b/i
 
-  interface RawExp { title: string; company: string; period: string; bullets: string[] }
+  interface RawExp { title: string; company: string; location?: string; period: string; bullets: string[] }
   const workExps: RawExp[] = []
   let curExp: Partial<RawExp> | null = null
   let pendingCompany = ''      // explicit company line seen before the title+date line
+  let pendingLocation = ''     // location from company line
   let lastFlushedCompany = ''  // company of last flushed entry, for same-company multi-role inheritance
 
   const flushExp = () => {
@@ -371,12 +372,14 @@ function parseResumeText(raw: string): ParsedResume {
       workExps.push({
         title:   curExp.title   ?? '',
         company: curExp.company ?? '',
+        location: curExp.location,
         period:  curExp.period  ?? '',
         bullets: curExp.bullets?.length ? curExp.bullets : [''],
       })
     }
     curExp = null
     pendingCompany = ''
+    pendingLocation = ''
   }
 
   const expLines = sec('experience')
@@ -413,10 +416,12 @@ function parseResumeText(raw: string): ParsedResume {
         curExp = {
           title:   titlePart,
           company: companyPart,
+          location: pendingLocation || undefined,
           period,
           bullets: [],
         }
         pendingCompany = ''
+        pendingLocation = ''
       } else if (!curExp) {
         // Date line with no prior title — store and keep going
         flushExp()
@@ -444,24 +449,31 @@ function parseResumeText(raw: string): ParsedResume {
       } else if (looksOrg && !curExp) {
         // Likely a company/org name — skip pure location lines
         if (!WX_LOC_RE.test(line.trim())) {
-          // Extract company name by removing location suffix
+          // Extract company name and location from line like "CompanyName City, State"
           let companyName = line.trim()
+          let location = ''
 
           // Pattern: "Company Location" or "Company, Location"
-          // Strategy 1: Split by comma if present and take first part
+          // Strategy 1: Split by comma if present and take first part as company
           if (companyName.includes(',')) {
-            companyName = companyName.split(',')[0].trim()
+            const parts = companyName.split(',')
+            companyName = parts[0].trim()
+            // Everything after first comma is location
+            location = parts.slice(1).join(',').trim()
           }
 
           // Strategy 2: Remove location words and everything after them
           // Match pattern: "something LOCATION_WORD ..." and extract the "something" part
-          const locPattern = /^(.+?)\s+(vancouver|mumbai|bangalore|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|new\s+york|san\s+francisco|los\s+angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|montreal|lima|peru)[\s,]*/i
+          const locPattern = /^(.+?)\s+(vancouver|mumbai|bangalore|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|new\s+york|san\s+francisco|los\s+angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|montreal|lima|peru)([\s,].*)$/i
           const match = companyName.match(locPattern)
           if (match && match[1].length > 2) {
             companyName = match[1].trim()
+            location = (match[2] + (match[3] || '')).trim()
           }
 
-          pendingCompany = companyName || line.trim()
+          // Use extracted company name, fallback to full line
+          pendingCompany = companyName && companyName.length > 1 ? companyName : line.trim()
+          pendingLocation = location
         }
       } else if (curExp && !curExp.company && (curExp.bullets?.length ?? 0) === 0 && !WX_LOC_RE.test(line.trim()) && !hasTitle) {
         // Company name that appears after the title line (before bullets start)
@@ -2132,7 +2144,10 @@ body { margin: 0; padding: 0; background: #fff; }
                         <div style={{ fontWeight: 700, color: '#1a202c', fontSize: '10.8px' }}>{exp.title || 'Job Title'}</div>
                         <div style={{ fontSize: '9.5px', color: '#4a5568', fontWeight: 500 }}>{exp.period}</div>
                       </div>
-                      <div style={{ fontSize: '10px', color: '#4a5568', marginBottom: '5px', fontWeight: 600 }}>{exp.company || 'Company'}</div>
+                      <div style={{ fontSize: '10px', color: '#4a5568', marginBottom: '5px', fontWeight: 600 }}>
+                        {exp.company || 'Company'}
+                        {exp.location && <span style={{ fontWeight: 400 }}> • {exp.location}</span>}
+                      </div>
                       {exp.bullets.filter(Boolean).length > 0 && (
                         <div style={{ marginLeft: '0px' }}>
                           {exp.bullets.filter(Boolean).map((bullet, bidx) => (
