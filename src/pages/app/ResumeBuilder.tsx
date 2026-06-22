@@ -287,14 +287,35 @@ function parseResumeText(raw: string): ParsedResume {
   if (LOC_REGIONS.includes(location)) location = ''
 
   // ── Name ─────────────────────────────────────────────────────────────────
-  const name = lines.find(l => {
-    if (l.includes('@') || l.includes('http') || l.includes('|') || l.includes('·') || l.includes('•')) return false
-    if (/^\+?\d/.test(l)) return false
-    if (/linkedin|resume|curriculum|vitae/i.test(l)) return false
-    const words = l.split(/\s+/)
-    return words.length >= 2 && words.length <= 4 &&
-      words.every(w => /^[A-Z][a-zA-Z'-]{1,}$/.test(w))
-  }) ?? lines[0] ?? ''
+  // Find name near contact info (email/phone), not just first matching line
+  let name = ''
+  const emailIndex = lines.findIndex(l => l.includes('@'))
+  const nameSearchStart = Math.max(0, emailIndex - 3)
+  const nameSearchEnd = Math.min(lines.length, emailIndex + 2)
+
+  if (emailIndex >= 0) {
+    // Search near email for the actual name
+    name = lines.slice(nameSearchStart, nameSearchEnd).find(l => {
+      if (l.includes('@') || l.includes('http') || l.includes('|') || l.includes('·') || l.includes('•')) return false
+      if (/^\+?\d/.test(l)) return false
+      if (/linkedin|resume|curriculum|vitae/i.test(l)) return false
+      const words = l.split(/\s+/)
+      return words.length >= 2 && words.length <= 4 &&
+        words.every(w => /^[A-Z][a-zA-Z'-]{1,}$/.test(w))
+    }) ?? ''
+  }
+
+  // Fallback: search in first 10 lines only
+  if (!name) {
+    name = lines.slice(0, 10).find(l => {
+      if (l.includes('@') || l.includes('http') || l.includes('|') || l.includes('·') || l.includes('•')) return false
+      if (/^\+?\d/.test(l)) return false
+      if (/linkedin|resume|curriculum|vitae/i.test(l)) return false
+      const words = l.split(/\s+/)
+      return words.length >= 2 && words.length <= 4 &&
+        words.every(w => /^[A-Z][a-zA-Z'-]{1,}$/.test(w))
+    }) ?? ''
+  }
 
   // ── Section splitter ──────────────────────────────────────────────────────
   const SECTION_RE: Record<string, RegExp> = {
