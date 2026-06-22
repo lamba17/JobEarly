@@ -443,16 +443,26 @@ function parseResumeText(raw: string): ParsedResume {
       } else if (looksOrg && !curExp) {
         // Likely a company/org name — skip pure location lines
         if (!WX_LOC_RE.test(line.trim())) {
-          // Extract company name, removing location suffix at the end
+          // Extract company name by removing location/city/state from end of line
           let companyName = line.trim()
 
-          // Remove location patterns from the end: City, State/Country or City Country
-          // First try: "City, State" pattern
-          companyName = companyName.replace(/\s+(new\s+york|san\s+francisco|los\s+angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|vancouver|montreal|mumbai|bangalore|bengaluru|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|lima|peru)\s*,\s*(usa|canada|uk|india|australia|singapore|bc|on|ny|ca|md|il|tx|wa|nj|ct|ma|ri|vt|nh|me|fl|ga|nc|sc|va|wv|ky|tn|al|ms|la|ar|mo|ia|mi|wi|mn|nd|sd|ne|ks|ok|nm|co|wy|mt|id|wa|or|ca|nv|ut|az|hi|ak|peru).*$/i, '').trim()
+          // Split by common location words and take the first part
+          const locKeywords = ['Vancouver', 'Mumbai', 'Baltimore', 'New York', 'San Francisco', 'Chicago', 'Seattle', 'Boston', 'Austin', 'Denver', 'Toronto', 'Montreal', 'Washington', 'Lima', 'Bangalore', 'Hyderabad', 'Pune', 'Delhi', 'Gurugram', 'Chennai']
+          const stateCountry = ['BC', 'MD', 'IL', 'NY', 'CA', 'TX', 'WA', 'USA', 'Canada', 'India', 'UK', 'Peru']
 
-          // Second try: location that's just a city or state/country with spacing
-          if (companyName === line.trim()) {
-            companyName = companyName.replace(/\s+(new\s+york|san\s+francisco|los\s+angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|vancouver|montreal|mumbai|bangalore|bengaluru|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|lima|peru)\s+(usa|canada|uk|india|australia|singapore|bc|on|ny|ca|md|il|tx|wa|nj|ct|ma|ri|vt|nh|me|fl|ga|nc|sc|va|wv|ky|tn|al|ms|la|ar|mo|ia|mi|wi|mn|nd|sd|ne|ks|ok|nm|co|wy|mt|id|wa|or|ca|nv|ut|az|hi|ak).*$/i, '').trim()
+          for (const loc of locKeywords) {
+            const idx = companyName.toLowerCase().lastIndexOf(loc.toLowerCase())
+            if (idx > 0) {
+              companyName = companyName.substring(0, idx).trim()
+              break
+            }
+          }
+
+          // Also remove state/country codes if they appear at the end
+          for (const state of stateCountry) {
+            if (companyName.toLowerCase().endsWith(state.toLowerCase())) {
+              companyName = companyName.substring(0, companyName.length - state.length).trim()
+            }
           }
 
           pendingCompany = companyName || line.trim()
