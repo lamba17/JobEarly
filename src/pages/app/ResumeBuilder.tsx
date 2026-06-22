@@ -352,16 +352,32 @@ function parseResumeText(raw: string): ParsedResume {
 
   // ── Skills — multi-source extraction, priority order ─────────────────────
   const skillSet: string[] = []
-  const SKILL_CATEGORIES = /^(primary\s+skills|etl\s+tools|cloud\s+technologies|languages?|tools?|project\s+management|portfolio\s+links|certifications?|technical?\s+skills?|core\s+skills?|soft\s+skills?|hard\s+skills?)\s*[:：]\s*/i
+  const SKILL_CATEGORY_HEADER = /^(primary\s+skills?|etl\s+tools?|cloud\s+technologies?|languages?|tools?|project\s+management|portfolio\s+links|certifications?|technical\s+skills?|core\s+skills?|soft\s+skills?|hard\s+skills?|dev(?:elopment)?\s+tools?|methodology|frameworks?)\s*(?:[:：]|$)/i
+  const SKILL_CATEGORY_INLINE = /^(primary\s+skills?|etl\s+tools?|cloud\s+technologies?|languages?|tools?|project\s+management|portfolio\s+links|certifications?|technical\s+skills?|core\s+skills?|soft\s+skills?|hard\s+skills?|dev(?:elopment)?\s+tools?|methodology|frameworks?)\s*[:：]\s*/i
+
   const addSkills = (csv: string) => {
     // Strip category prefix like "PRIMARY SKILLS: " or "ETL TOOLS: "
-    const cleaned = csv.replace(SKILL_CATEGORIES, '')
-    cleaned.split(/[,;|]/).map(s => s.trim()).filter(s => s.length > 1 && s.length < 40 && !/^\d+$/.test(s)).forEach(s => skillSet.push(s))
+    const cleaned = csv.replace(SKILL_CATEGORY_INLINE, '')
+    if (cleaned.length < 2) return // skip if nothing left after stripping category
+    cleaned.split(/[,;|]/).map(s => s.trim()).filter(s => s.length > 1 && s.length < 50 && !/^\d+$/.test(s) && !/^[a-z]\s*$/.test(s)).forEach(s => {
+      if (!skillSet.includes(s)) skillSet.push(s)
+    })
   }
 
   // 1. Explicit skills section (e.g. "SKILLS", "CORE SKILLS")
-  for (const line of sec('skills')) {
-    addSkills(line.replace(/^[•\-*▸◆→>]\s*/, '').replace(/[•▸◆]/g, ','))
+  const skillsLines = sec('skills')
+  for (let i = 0; i < skillsLines.length; i++) {
+    const line = skillsLines[i]
+    const isOnlyHeader = SKILL_CATEGORY_HEADER.test(line)
+
+    if (isOnlyHeader) {
+      // This line is just a category header, skip it
+      continue
+    }
+
+    // Process skill line (may have bullet points or inline category:skills format)
+    const cleanedLine = line.replace(/^[•\-*▸◆→>]\s*/, '').replace(/[•▸◆]/g, ',')
+    addSkills(cleanedLine)
   }
 
   // 2. "Tech Skills:" / "Technical Skills:" / "Tools:" labeled line anywhere in raw text
@@ -377,7 +393,9 @@ function parseResumeText(raw: string): ParsedResume {
   // 4. Last resort: match from SKILL_POOL against document text
   if (skillSet.length === 0) {
     const lower = raw.toLowerCase()
-    SKILL_POOL.filter(s => lower.includes(s)).forEach(s => skillSet.push(s))
+    SKILL_POOL.filter(s => lower.includes(s)).forEach(s => {
+      if (!skillSet.includes(s)) skillSet.push(s)
+    })
   }
 
   // ── Work Experience ───────────────────────────────────────────────────────
@@ -614,27 +632,61 @@ function parseResumeText(raw: string): ParsedResume {
   const certifications: string[] = []
   const additionalLines = sec('additional')
 
-  for (const line of additionalLines) {
+  let inCertificationsSection = false
+  let pendingCert = ''
+
+  for (let i = 0; i < additionalLines.length; i++) {
+    const line = additionalLines[i]
+
+    if (/^certifications?$/i.test(line.trim())) {
+      // Certifications section header
+      inCertificationsSection = true
+      continue
+    } else if (/^(community\s+service|volunteer|interests?|hobbies?|awards?|additional)/i.test(line.trim())) {
+      // Another section header — exit certifications section
+      inCertificationsSection = false
+    }
+
     if (/community\s+service|volunteer/i.test(line)) {
+      inCertificationsSection = false
       // Extract community service details
       const match = line.match(/community\s+service[:\s]+([^;•\n]+)/i)
       if (match) communityService.push(match[1].trim())
-    } else if (/^certification/i.test(line)) {
-      // Extract certifications (section header line — skip)
-      continue
-    } else if (/^(certified?|microsoft|aws|google|azure|tableau|power\s+bi|oracle|ibm|cisco|linux|scrum|comptia|isc|ec-council)/i.test(line) && !(/interests?|hobbies?/i.test(line))) {
-      // Extract certifications (lines starting with certification keywords)
-      const certText = line.replace(/^[•\-*▸◆→>]\s*/, '').trim()
-      if (certText.length > 5 && certText.split(/\s+/).length <= 25) {
-        certifications.push(certText)
+    } else if (inCertificationsSection) {
+      // Inside CERTIFICATIONS section — extract certification lines
+      const certLine = line.replace(/^[•\-*▸◆→>]\s*/, '').trim()
+
+      // Skip section headers and empty lines
+      if (certLine.length < 3 || /^(certifications?|date|org|issuer)$/i.test(certLine)) continue
+
+      // Check if this is a date line like "(Nov 2018 – May 2019)" or "Nov 2018 – May 2019"
+      const isDateLine = /^\(?(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec).{0,30}\)?$/i.test(certLine)
+
+      if (isDateLine) {
+        // Append date to pending certification
+        if (pendingCert) {
+          pendingCert = pendingCert + ' ' + certLine.replace(/^\(|\)$/g, '')
+        }
+      } else {
+        // This is a new certification line
+        if (pendingCert) {
+          certifications.push(pendingCert)
+        }
+        pendingCert = certLine
       }
     } else if (/interests?|hobbies?/i.test(line) && !/tech|skill|tools|certification/i.test(line)) {
+      inCertificationsSection = false
       // Extract interests (exclude tech skills line and certifications)
       const interestPart = line.replace(/interests?[:\s]+|hobbies?[:\s]+/i, '').trim()
       if (interestPart.length > 2) {
         interests.push(...interestPart.split(/[;,]/).map(s => s.trim()).filter(s => s.length > 2))
       }
     }
+  }
+
+  // Flush any pending certification
+  if (pendingCert && pendingCert.length > 3) {
+    certifications.push(pendingCert)
   }
 
   return {
