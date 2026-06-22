@@ -443,12 +443,19 @@ function parseResumeText(raw: string): ParsedResume {
       } else if (looksOrg && !curExp) {
         // Likely a company/org name — skip pure location lines
         if (!WX_LOC_RE.test(line.trim())) {
-          // Extract company name with parenthetical descriptions (e.g., "Collectiv LLC (Big Data Consulting)")
-          // Then remove location at the end
-          let companyWithDesc = line
-          // Remove location patterns at the end (e.g., "Baltimore, MD/IL" or "Mumbai, India")
-          companyWithDesc = companyWithDesc.replace(/[\s,–\-]+(new york|san francisco|los angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|vancouver|montreal|mumbai|bangalore|bengaluru|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|lima|peru|india|usa|canada|uk|singapore|bc|on|ny|ca|md|il|tx|wa|md\/il)(?:\b|$|[,\s].*$)/i, '').trim()
-          pendingCompany = companyWithDesc || line
+          // Extract company name, removing location suffix at the end
+          let companyName = line.trim()
+
+          // Remove location patterns from the end: City, State/Country or City Country
+          // First try: "City, State" pattern
+          companyName = companyName.replace(/\s+(new\s+york|san\s+francisco|los\s+angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|vancouver|montreal|mumbai|bangalore|bengaluru|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|lima|peru)\s*,\s*(usa|canada|uk|india|australia|singapore|bc|on|ny|ca|md|il|tx|wa|nj|ct|ma|ri|vt|nh|me|fl|ga|nc|sc|va|wv|ky|tn|al|ms|la|ar|mo|ia|mi|wi|mn|nd|sd|ne|ks|ok|nm|co|wy|mt|id|wa|or|ca|nv|ut|az|hi|ak|peru).*$/i, '').trim()
+
+          // Second try: location that's just a city or state/country with spacing
+          if (companyName === line.trim()) {
+            companyName = companyName.replace(/\s+(new\s+york|san\s+francisco|los\s+angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|vancouver|montreal|mumbai|bangalore|bengaluru|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|lima|peru)\s+(usa|canada|uk|india|australia|singapore|bc|on|ny|ca|md|il|tx|wa|nj|ct|ma|ri|vt|nh|me|fl|ga|nc|sc|va|wv|ky|tn|al|ms|la|ar|mo|ia|mi|wi|mn|nd|sd|ne|ks|ok|nm|co|wy|mt|id|wa|or|ca|nv|ut|az|hi|ak).*$/i, '').trim()
+          }
+
+          pendingCompany = companyName || line.trim()
         }
       } else if (curExp && !curExp.company && (curExp.bullets?.length ?? 0) === 0 && !WX_LOC_RE.test(line.trim()) && !hasTitle) {
         // Company name that appears after the title line (before bullets start)
