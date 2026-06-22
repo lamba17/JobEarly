@@ -443,25 +443,20 @@ function parseResumeText(raw: string): ParsedResume {
       } else if (looksOrg && !curExp) {
         // Likely a company/org name — skip pure location lines
         if (!WX_LOC_RE.test(line.trim())) {
-          // Extract company name by removing location/city/state from end of line
+          // Extract company name by removing location suffix
           let companyName = line.trim()
 
-          // Split by common location words and take the first part
-          const locKeywords = ['Vancouver', 'Mumbai', 'Baltimore', 'New York', 'San Francisco', 'Chicago', 'Seattle', 'Boston', 'Austin', 'Denver', 'Toronto', 'Montreal', 'Washington', 'Lima', 'Bangalore', 'Hyderabad', 'Pune', 'Delhi', 'Gurugram', 'Chennai']
-          const stateCountry = ['BC', 'MD', 'IL', 'NY', 'CA', 'TX', 'WA', 'USA', 'Canada', 'India', 'UK', 'Peru']
-
-          for (const loc of locKeywords) {
-            const idx = companyName.toLowerCase().lastIndexOf(loc.toLowerCase())
-            if (idx > 0) {
-              companyName = companyName.substring(0, idx).trim()
-              break
-            }
-          }
-
-          // Also remove state/country codes if they appear at the end
-          for (const state of stateCountry) {
-            if (companyName.toLowerCase().endsWith(state.toLowerCase())) {
-              companyName = companyName.substring(0, companyName.length - state.length).trim()
+          // Pattern: "Company Location" or "Company, Location"
+          // Split by comma if present and take first part
+          if (companyName.includes(',')) {
+            companyName = companyName.split(',')[0].trim()
+          } else {
+            // No comma, so try to split by space before a location word
+            // Match pattern: "something LOCATION_WORD ..."
+            const locPattern = /^(.+?)\s+(vancouver|mumbai|bangalore|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|new\s+york|san\s+francisco|los\s+angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|montreal|lima)[\s,].*/i
+            const match = companyName.match(locPattern)
+            if (match) {
+              companyName = match[1].trim()
             }
           }
 
