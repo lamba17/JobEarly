@@ -236,6 +236,7 @@ interface ParsedResume {
   workExp: WorkExp[]; education: EduEntry[]
   communityService?: string[]
   interests?: string[]
+  certifications?: string[]
   aiUsed?: boolean
 }
 
@@ -351,8 +352,12 @@ function parseResumeText(raw: string): ParsedResume {
 
   // ── Skills — multi-source extraction, priority order ─────────────────────
   const skillSet: string[] = []
-  const addSkills = (csv: string) =>
-    csv.split(/[,;|]/).map(s => s.trim()).filter(s => s.length > 1 && s.length < 40 && !/^\d+$/.test(s)).forEach(s => skillSet.push(s))
+  const SKILL_CATEGORIES = /^(primary\s+skills|etl\s+tools|cloud\s+technologies|languages?|tools?|project\s+management|portfolio\s+links|certifications?|technical?\s+skills?|core\s+skills?|soft\s+skills?|hard\s+skills?)\s*[:：]\s*/i
+  const addSkills = (csv: string) => {
+    // Strip category prefix like "PRIMARY SKILLS: " or "ETL TOOLS: "
+    const cleaned = csv.replace(SKILL_CATEGORIES, '')
+    cleaned.split(/[,;|]/).map(s => s.trim()).filter(s => s.length > 1 && s.length < 40 && !/^\d+$/.test(s)).forEach(s => skillSet.push(s))
+  }
 
   // 1. Explicit skills section (e.g. "SKILLS", "CORE SKILLS")
   for (const line of sec('skills')) {
@@ -606,6 +611,7 @@ function parseResumeText(raw: string): ParsedResume {
   // ── Community Service & Interests (from additional section) ────────────────
   const communityService: string[] = []
   const interests: string[] = []
+  const certifications: string[] = []
   const additionalLines = sec('additional')
 
   for (const line of additionalLines) {
@@ -613,9 +619,18 @@ function parseResumeText(raw: string): ParsedResume {
       // Extract community service details
       const match = line.match(/community\s+service[:\s]+([^;•\n]+)/i)
       if (match) communityService.push(match[1].trim())
-    } else if (/interests?|hobbies?|certifications?/i.test(line) && !/tech|skill|tools/i.test(line)) {
-      // Extract interests (exclude tech skills line)
-      const interestPart = line.replace(/interests?[:\s]+|hobbies?[:\s]+|certifications?[:\s]+/i, '').trim()
+    } else if (/^certification/i.test(line)) {
+      // Extract certifications (section header line — skip)
+      continue
+    } else if (/^(certified?|microsoft|aws|google|azure|tableau|power\s+bi|oracle|ibm|cisco|linux|scrum|comptia|isc|ec-council)/i.test(line) && !(/interests?|hobbies?/i.test(line))) {
+      // Extract certifications (lines starting with certification keywords)
+      const certText = line.replace(/^[•\-*▸◆→>]\s*/, '').trim()
+      if (certText.length > 5 && certText.split(/\s+/).length <= 25) {
+        certifications.push(certText)
+      }
+    } else if (/interests?|hobbies?/i.test(line) && !/tech|skill|tools|certification/i.test(line)) {
+      // Extract interests (exclude tech skills line and certifications)
+      const interestPart = line.replace(/interests?[:\s]+|hobbies?[:\s]+/i, '').trim()
       if (interestPart.length > 2) {
         interests.push(...interestPart.split(/[;,]/).map(s => s.trim()).filter(s => s.length > 2))
       }
@@ -635,6 +650,7 @@ function parseResumeText(raw: string): ParsedResume {
     education: edus.map((e, i) => ({ id: i + 1, ...e })),
     communityService: communityService.length > 0 ? communityService : undefined,
     interests: interests.length > 0 ? interests : undefined,
+    certifications: certifications.length > 0 ? certifications : undefined,
   }
 }
 
@@ -745,6 +761,7 @@ export default function ResumeBuilder() {
   const [newSkill, setNewSkill] = useState('')
   const [communityService, setCommunityService] = useState<string[]>([])
   const [interests, setInterests] = useState<string[]>([])
+  const [certifications, setCertifications] = useState<string[]>([])
   const [newCommunity, setNewCommunity] = useState('')
   const [newInterest, setNewInterest] = useState('')
 
@@ -872,6 +889,7 @@ export default function ResumeBuilder() {
       setEducation(result.education.map((e, i) => ({ ...e, id: i + 1 })) || [])
       setCommunityService(result.communityService || [])
       setInterests(result.interests || [])
+      setCertifications(result.certifications || [])
       if (result.workExp.length > 0) setOpenExp(1)
 
       // Auto-navigate to Job Target tab after successful import
@@ -2248,10 +2266,22 @@ body { margin: 0; padding: 0; background: #fff; }
 
               {/* Interests */}
               {interests.length > 0 && (
-                <div>
+                <div style={{ marginBottom: '18px' }}>
                   <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#1a202c', borderBottom: '1.5px solid #2d3748', paddingBottom: '5px', marginBottom: '8px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Interests & Hobbies</div>
                   <div style={{ fontSize: '10.5px', color: '#2d3748', lineHeight: '1.5' }}>
                     {interests.join(' • ')}
+                  </div>
+                </div>
+              )}
+
+              {/* Certifications */}
+              {certifications.length > 0 && (
+                <div>
+                  <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#1a202c', borderBottom: '1.5px solid #2d3748', paddingBottom: '5px', marginBottom: '8px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Certifications</div>
+                  <div style={{ fontSize: '10.5px', color: '#2d3748', lineHeight: '1.5' }}>
+                    {certifications.map((cert, idx) => (
+                      <div key={idx} style={{ marginBottom: '4px' }}>• {cert}</div>
+                    ))}
                   </div>
                 </div>
               )}
