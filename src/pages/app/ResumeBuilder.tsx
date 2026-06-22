@@ -402,20 +402,12 @@ function parseResumeText(raw: string): ParsedResume {
         // Check if title contains " – " (dash separating title and company) — ONLY if no pending company
         let titlePart = rest
         let companyPart = pendingCompany || lastFlushedCompany
-        if (!pendingCompany) {
+        if (!pendingCompany && !lastFlushedCompany) {
+          // Only extract from dash if we have NO pending or previous company
           const dashMatch = rest.match(/^([^–—\-]+?)\s+[–—\-]\s+(.+)$/)
           if (dashMatch) {
-            const potentialCompany = dashMatch[2].trim()
-            // Check if this looks like a category/specialization rather than a company
-            // Categories often have lowercase and contain common industry keywords
-            const categoryKeywords = /retail|consumer|gaming|technology|finance|healthcare|services|engineering|marketing|operations|strategy|enablement/i
-            const looksLikeCategory = categoryKeywords.test(potentialCompany) && potentialCompany.length < 50 && potentialCompany.split(/\s+/).length <= 5
-
-            if (!looksLikeCategory || ORG_RE.test(potentialCompany)) {
-              // If it has company indicators (LLC, Inc, Ltd) or doesn't look like a category, treat as company
-              titlePart = dashMatch[1].trim()
-              companyPart = potentialCompany || companyPart
-            }
+            titlePart = dashMatch[1].trim()
+            companyPart = dashMatch[2].trim() || companyPart
           }
         }
         curExp = {
