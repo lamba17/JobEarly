@@ -405,8 +405,17 @@ function parseResumeText(raw: string): ParsedResume {
         if (!pendingCompany) {
           const dashMatch = rest.match(/^([^–—\-]+?)\s+[–—\-]\s+(.+)$/)
           if (dashMatch) {
-            titlePart = dashMatch[1].trim()
-            companyPart = dashMatch[2].trim() || companyPart
+            const potentialCompany = dashMatch[2].trim()
+            // Check if this looks like a category/specialization rather than a company
+            // Categories often have lowercase and contain common industry keywords
+            const categoryKeywords = /retail|consumer|gaming|technology|finance|healthcare|services|engineering|marketing|operations|strategy|enablement/i
+            const looksLikeCategory = categoryKeywords.test(potentialCompany) && potentialCompany.length < 50 && potentialCompany.split(/\s+/).length <= 5
+
+            if (!looksLikeCategory || ORG_RE.test(potentialCompany)) {
+              // If it has company indicators (LLC, Inc, Ltd) or doesn't look like a category, treat as company
+              titlePart = dashMatch[1].trim()
+              companyPart = potentialCompany || companyPart
+            }
           }
         }
         curExp = {
@@ -447,17 +456,17 @@ function parseResumeText(raw: string): ParsedResume {
           let companyName = line.trim()
 
           // Pattern: "Company Location" or "Company, Location"
-          // Split by comma if present and take first part
+          // Strategy 1: Split by comma if present and take first part
           if (companyName.includes(',')) {
             companyName = companyName.split(',')[0].trim()
-          } else {
-            // No comma, so try to split by space before a location word
-            // Match pattern: "something LOCATION_WORD ..."
-            const locPattern = /^(.+?)\s+(vancouver|mumbai|bangalore|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|new\s+york|san\s+francisco|los\s+angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|montreal|lima)[\s,].*/i
-            const match = companyName.match(locPattern)
-            if (match) {
-              companyName = match[1].trim()
-            }
+          }
+
+          // Strategy 2: Remove location words and everything after them
+          // Match pattern: "something LOCATION_WORD ..." and extract the "something" part
+          const locPattern = /^(.+?)\s+(vancouver|mumbai|bangalore|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|new\s+york|san\s+francisco|los\s+angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|montreal|lima|peru)[\s,]*/i
+          const match = companyName.match(locPattern)
+          if (match && match[1].length > 2) {
+            companyName = match[1].trim()
           }
 
           pendingCompany = companyName || line.trim()
