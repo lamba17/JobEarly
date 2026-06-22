@@ -454,21 +454,19 @@ function parseResumeText(raw: string): ParsedResume {
           let location = ''
 
           // Pattern: "Company Location" or "Company, Location"
-          // Strategy 1: Split by comma if present and take first part as company
-          if (companyName.includes(',')) {
-            const parts = companyName.split(',')
-            companyName = parts[0].trim()
-            // Everything after first comma is location
-            location = parts.slice(1).join(',').trim()
-          }
-
-          // Strategy 2: Remove location words and everything after them
+          // Strategy 1: Remove location words and everything after them
           // Match pattern: "something LOCATION_WORD ..." and extract the "something" part
           const locPattern = /^(.+?)\s+(vancouver|mumbai|bangalore|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|new\s+york|san\s+francisco|los\s+angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|montreal|lima|peru)([\s,].*)$/i
           const match = companyName.match(locPattern)
           if (match && match[1].length > 2) {
             companyName = match[1].trim()
             location = (match[2] + (match[3] || '')).trim()
+          } else if (companyName.includes(',')) {
+            // Strategy 2: If no location pattern matched, split by comma
+            const parts = companyName.split(',')
+            companyName = parts[0].trim()
+            // Everything after first comma is location
+            location = parts.slice(1).join(',').trim()
           }
 
           // Use extracted company name, fallback to full line
