@@ -399,20 +399,61 @@ function parseResumeText(raw: string): ParsedResume {
   }
 
   // ── Work Experience ───────────────────────────────────────────────────────
-  // Handles "Month YYYY – Month YYYY" and "YYYY – YYYY" date ranges
-  const PERIOD_RE = /(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+)?(\d{4})\s*[-–—]\s*(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+)?(\d{4}|present|current|now|till date)/i
-  const ORG_RE    = /\b(llc|inc|ltd|limited|pvt|private|corporation|corp|gmbh|consulting|solutions|technologies|services|group|associates)\b/i
-
+  // Strategy: anchor on the DATE/PERIOD (not on title keywords). The line that
+  // ends with a date range is the "Title + Period" line. The non-bullet line
+  // right before it is the "Company + Location" line. Repeat roles at the same
+  // company reuse the previous company, and may carry only a location line.
   interface RawExp { title: string; company: string; location?: string; period: string; bullets: string[] }
   const workExps: RawExp[] = []
+
+  const MONTH  = '(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?'
+  const SEASON = '(?:summer|spring|fall|autumn|winter)'
+  // A date/period sitting at the END of a line → marks a Title+Period anchor line
+  const PERIOD_END_RE = new RegExp(
+    `((?:${MONTH}\\s*\\d{4}|${SEASON}\\s+\\d{4}|\\d{4})\\s*[-–—]\\s*(?:${MONTH}\\s*\\d{4}|${SEASON}\\s+\\d{4}|present|current|now|till\\s*date|\\d{4})|${SEASON}\\s+\\d{4}|${MONTH}\\s*\\d{4})\\s*$`,
+    'i'
+  )
+  // A period anywhere in a line (some resumes append "(Client – X)" after the date)
+  const PERIOD_ANY_RE = new RegExp(
+    `((?:${MONTH}\\s*\\d{4}|${SEASON}\\s+\\d{4}|\\d{4})\\s*[-–—]\\s*(?:${MONTH}\\s*\\d{4}|${SEASON}\\s+\\d{4}|present|current|now|till\\s*date|\\d{4})|${SEASON}\\s+\\d{4})`,
+    'i'
+  )
+
+  const STATE_CC = '[A-Z]{2}(?:\\/[A-Z]{2})?'
+  const COUNTRY  = 'India|USA|U\\.S\\.A\\.|UK|Canada|Peru|Australia|Singapore|Germany|France|China'
+  const CITY     = 'new york|navi mumbai|new delhi|san francisco|los angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|vancouver|montreal|mumbai|bangalore|bengaluru|hyderabad|pune|delhi|noida|gurugram|gurgaon|chennai|kochi|baltimore|washington|lima'
+  // Whole line is just a location (e.g. "New York, NY") → repeat role, same company
+  const LOCATION_ONLY_RE = new RegExp(`^(?:${CITY})\\s*,?\\s*(?:${STATE_CC}|${COUNTRY})?\\.?\\s*$`, 'i')
+  // Company followed by a trailing location anchored on a KNOWN city (most reliable)
+  const LOCATION_END_CITY = new RegExp(`^(.+?)\\s+((?:${CITY})\\s*,?\\s*(?:${STATE_CC}|${COUNTRY})?\\.?)\\s*$`, 'i')
+  // Generic fallback: "City, ST" with a 1-2 word capitalized city + 2-letter state code
+  const LOCATION_END_GENERIC = new RegExp(`^(.+?)\\s+([A-Z][a-zA-Z.]+(?:\\s+[A-Z][a-zA-Z.]+)?,\\s*${STATE_CC})\\s*$`)
+
+  const isBulletLine = (l: string) =>
+    /^[•\-*◆▸→>·]\s/.test(l) || /^\d+[.)]\s/.test(l) || /^[ivxlcdm]+\)\s/i.test(l) || /^[a-z]\)\s/i.test(l)
+
+  const splitCompanyLocation = (l: string): { company: string; location: string } => {
+    const t = l.trim()
+    // Location in parentheses: "Company (City, ST)"
+    const paren = t.match(/^(.+?)\s*\(([^)]*(?:,\s*[A-Z]{2}|india|usa|u\.s\.a|canada|peru|uk|singapore|australia|germany|france|china)[^)]*)\)\s*$/i)
+    if (paren) return { company: paren[1].trim(), location: paren[2].trim() }
+    // Trailing "<known city>, ST/Country"
+    const cityM = t.match(LOCATION_END_CITY)
+    if (cityM && cityM[1].trim().length > 1) return { company: cityM[1].trim(), location: cityM[2].trim() }
+    // Generic "City, ST"
+    const genM = t.match(LOCATION_END_GENERIC)
+    if (genM && genM[1].trim().length > 1) return { company: genM[1].trim(), location: genM[2].trim() }
+    return { company: t, location: '' }
+  }
+
   let curExp: Partial<RawExp> | null = null
-  let pendingCompany = ''      // explicit company line seen before the title+date line
-  let pendingLocation = ''     // location from company line
-  let lastFlushedCompany = ''  // company of last flushed entry, for same-company multi-role inheritance
+  let pendingCompany = ''
+  let pendingLocation = ''
+  let lastCompany = ''
+  let lastLocation = ''
 
   const flushExp = () => {
-    if (curExp?.title || curExp?.company) {
-      if (curExp.company) lastFlushedCompany = curExp.company
+    if (curExp && (curExp.title || curExp.company)) {
       workExps.push({
         title:   curExp.title   ?? '',
         company: curExp.company ?? '',
@@ -422,151 +463,73 @@ function parseResumeText(raw: string): ParsedResume {
       })
     }
     curExp = null
-    pendingCompany = ''
-    pendingLocation = ''
   }
 
   const expLines = sec('experience')
   for (let i = 0; i < expLines.length; i++) {
-    const line = expLines[i]
-    const isBullet  = /^[•\-*◆▸→>]\s/.test(line) || /^\d+\.\s/.test(line)
-    const periodMatch = line.match(PERIOD_RE)
-    const hasTitle  = TITLE_RE.test(line)
-    const looksOrg  = ORG_RE.test(line) || (!hasTitle && !periodMatch && !isBullet && line.length < 60)
+    const line = expLines[i].trim()
+    if (!line || line.includes('@')) continue
 
-    if (isBullet) {
-      if (curExp) curExp.bullets = [...(curExp.bullets ?? []), line.replace(/^[•\-*◆▸→>1-9.]\s*/, '').trim()]
-    } else if (periodMatch) {
-      // Extract the matched date range text
-      const dateText = line.match(/(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4}|\d{4})\s*[-–—]\s*(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4}|\d{4}|present|current|now|till date)/i)?.[0] ?? `${periodMatch[1]} — ${periodMatch[2]}`
-      const period = dateText
-      // Strip date from line to get the title/company text
-      const rest = line.replace(dateText, '').replace(/[,·\t]+$/,'').trim()
+    // 1. Bullet line → attach to current entry
+    if (isBulletLine(line)) {
+      if (curExp) curExp.bullets = [...(curExp.bullets ?? []), line.replace(/^[•\-*◆▸→>·]\s*|^\d+[.)]\s*|^[ivxlcdm]+\)\s*|^[a-z]\)\s*/i, '').trim()]
+      continue
+    }
 
-      if (hasTitle && rest.length > 0) {
-        // Pattern: "Title  Jun 2023 – March 2025" or "Title – Company Jun 2023 – March 2025"
-        flushExp()
-        // Check if title contains " – " (dash separating title and company) — ONLY if no pending company
-        let titlePart = rest
-        let companyPart = pendingCompany || lastFlushedCompany
-        let locationPart = pendingLocation
+    // 2. Anchor line: ends with a date (Title + Period), or is period-only / period + client note
+    const endM = line.match(PERIOD_END_RE)
+    const anyM = endM ? null : line.match(PERIOD_ANY_RE)
+    const periodM = endM || (anyM && anyM.index === 0 ? anyM : null)
 
-        if (!pendingCompany && !lastFlushedCompany) {
-          // Only extract from dash if we have NO pending or previous company
-          const dashMatch = rest.match(/^([^–—\-]+?)\s+[–—\-]\s+(.+)$/)
-          if (dashMatch) {
-            const potentialCompany = dashMatch[2].trim()
-            // Check if this is a category/specialization, not a company
-            // Categories typically have industry keywords and are relatively short
-            const categoryWords = ['retail', 'consumer', 'gaming', 'technology', 'finance', 'healthcare', 'services', 'strategy', 'operations', 'marketing', 'engineering']
-            const hasOnlyCategory = categoryWords.some(word => potentialCompany.toLowerCase().includes(word)) && potentialCompany.length < 60 && !potentialCompany.includes('LLC') && !potentialCompany.includes('Inc') && !potentialCompany.includes('Ltd')
+    if (periodM) {
+      const period = periodM[1].trim()
+      let title = line.slice(0, periodM.index).replace(/[,·\-–—\s]+$/, '').trim()
 
-            if (!hasOnlyCategory) {
-              titlePart = dashMatch[1].trim()
-              companyPart = potentialCompany || companyPart
-            } else {
-              // This looks like a category, not a company name
-              // Keep the full rest as title instead
-              titlePart = rest
-            }
-          }
-        }
+      // Resolve company + location for this entry
+      let company = pendingCompany || lastCompany
+      let location = pendingLocation || (pendingCompany ? '' : lastLocation)
 
-        curExp = {
-          title:   titlePart,
-          company: companyPart,
-          location: locationPart || undefined,
-          period,
-          bullets: [],
-        }
-        pendingCompany = ''
-        pendingLocation = ''
-      } else if (!curExp) {
-        // Date line with no prior title — store and keep going
-        flushExp()
-        curExp = { company: pendingCompany || rest || lastFlushedCompany, period, bullets: [] }
-        pendingCompany = ''
-      } else {
-        // Additional role at same company, or period for existing entry
-        if (!curExp.period) {
-          curExp.period = period
-          if (rest && !curExp.title && rest.length > 1) curExp.title = rest
-        } else {
-          // Second role at same company
-          flushExp()
-          curExp = { title: rest || '', company: pendingCompany || lastFlushedCompany, period, bullets: [] }
-          pendingCompany = ''
-        }
+      // Akash-style: period-only line → the header line held "Company - Title"
+      if (!title && pendingCompany) {
+        const dm = pendingCompany.match(/^(.+?)\s+[–—-]\s+(.+)$/)
+        if (dm) { company = dm[1].trim(); title = dm[2].trim() }
+        else    { title = '' }
       }
-    } else if (!isBullet && line.length > 2 && line.length < 100 && !line.includes('@')) {
-      const WX_LOC_RE = /^(new york|san francisco|los angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|vancouver|montreal|mumbai|bangalore|bengaluru|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|lima|peru)[,\s]/i
-      if (hasTitle) {
-        // Title line without a date (date may follow on next line)
-        flushExp()
-        curExp = { title: line, company: pendingCompany || lastFlushedCompany, bullets: [] }
-        pendingCompany = ''
-      } else if (looksOrg && !curExp) {
-        // Likely a company/org name — skip pure location lines
-        if (!WX_LOC_RE.test(line.trim())) {
-          // Extract company name and location from line like "CompanyName City, State"
-          let companyName = line.trim()
-          let location = ''
 
-          // LOCATION KEYWORDS - updated to include all from resume
-          const LOCATION_KEYWORDS = 'vancouver|mumbai|bangalore|bengaluru|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|maryland|new york|ny|san francisco|ca|los angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|vancouver|montreal|lima|peru|md|il|bc|india'
+      flushExp()
+      curExp = { title, company, location: location || undefined, period, bullets: [] }
+      if (company)  lastCompany  = company
+      if (location) lastLocation = location
+      pendingCompany = ''
+      pendingLocation = ''
+      continue
+    }
 
-          // Strategy 1: Check for location in parentheses first (e.g., "Company (City, State)")
-          const parenMatch = companyName.match(/^(.+?)\s*\(([^)]+)\)\s*$/)
-          if (parenMatch) {
-            companyName = parenMatch[1].trim()
-            location = parenMatch[2].trim()
-          } else {
-            // Strategy 2: Check if line contains known cities/locations
-            const hasLocationRegex = new RegExp(`\\b(${LOCATION_KEYWORDS})\\b`, 'i')
-            const hasLocation = hasLocationRegex.test(companyName)
+    // 3. Non-bullet, non-anchor line → company/location header OR wrapped bullet continuation
+    const inBulletZone = !!curExp && (curExp.bullets?.length ?? 0) > 0
 
-            if (hasLocation) {
-              // Try multiple space separation first (Company   Location, State)
-              const multiSpacePattern = new RegExp(`^(.+?)\\s{2,}(${LOCATION_KEYWORDS})(\\s*[,\\-].*)$`, 'i')
-              let match = companyName.match(multiSpacePattern)
+    if (LOCATION_ONLY_RE.test(line)) {
+      // Pure location → next role is at the SAME company, new location
+      pendingLocation = line
+      pendingCompany = ''
+      continue
+    }
 
-              if (match && match[1].trim().length > 2) {
-                companyName = match[1].trim()
-                location = (match[2] + (match[3] || '')).trim()
-              } else {
-                // Try single space separation (Company Location, State)
-                const singleSpacePattern = new RegExp(`^(.+?)\\s+(${LOCATION_KEYWORDS})(\\s*[,\\-]?.*)$`, 'i')
-                match = companyName.match(singleSpacePattern)
+    const sp = splitCompanyLocation(line)
+    const looksLikeHeader = sp.location !== '' && sp.company.split(/\s+/).length <= 8 && /^[A-Z(]/.test(sp.company)
 
-                if (match && match[1].trim().length > 2) {
-                  companyName = match[1].trim()
-                  location = (match[2] + (match[3] || '')).trim()
-                }
-              }
-            } else if (companyName.includes(',')) {
-              // Strategy 3: Split by comma if location not found
-              const parts = companyName.split(',')
-              companyName = parts[0].trim()
-              location = parts.slice(1).join(',').trim()
-            }
-          }
-
-          // Set pending company and location
-          if (companyName && companyName.length > 1) {
-            pendingCompany = companyName
-            pendingLocation = location
-          }
-        }
-      } else if (curExp && !curExp.company && (curExp.bullets?.length ?? 0) === 0 && !WX_LOC_RE.test(line.trim()) && !hasTitle) {
-        // Company name that appears after the title line (before bullets start)
-        curExp.company = line
-      } else if (curExp && (curExp.bullets?.length ?? 0) > 0 && !hasTitle) {
-        // Wrapped bullet continuation — append to last bullet
-        const bullets = curExp.bullets ?? []
-        if (bullets.length > 0) {
-          curExp.bullets = [...bullets.slice(0, -1), bullets[bullets.length - 1] + ' ' + line]
-        }
-      }
+    if (!inBulletZone) {
+      // Before any bullets → this is the company/location header for the upcoming entry
+      pendingCompany = sp.company
+      pendingLocation = sp.location
+    } else if (looksLikeHeader) {
+      // Inside bullet zone but this is clearly a new company header
+      pendingCompany = sp.company
+      pendingLocation = sp.location
+    } else if (curExp) {
+      // Wrapped bullet continuation → append to the last bullet
+      const b = curExp.bullets ?? []
+      if (b.length) curExp.bullets = [...b.slice(0, -1), (b[b.length - 1] + ' ' + line).trim()]
     }
   }
   flushExp()
