@@ -449,6 +449,8 @@ function parseResumeText(raw: string): ParsedResume {
         // Check if title contains " – " (dash separating title and company) — ONLY if no pending company
         let titlePart = rest
         let companyPart = pendingCompany || lastFlushedCompany
+        let locationPart = pendingLocation
+
         if (!pendingCompany && !lastFlushedCompany) {
           // Only extract from dash if we have NO pending or previous company
           const dashMatch = rest.match(/^([^–—\-]+?)\s+[–—\-]\s+(.+)$/)
@@ -469,10 +471,11 @@ function parseResumeText(raw: string): ParsedResume {
             }
           }
         }
+
         curExp = {
           title:   titlePart,
           company: companyPart,
-          location: pendingLocation || undefined,
+          location: locationPart || undefined,
           period,
           bullets: [],
         }
@@ -519,17 +522,26 @@ function parseResumeText(raw: string): ParsedResume {
             const hasLocation = /\b(vancouver|mumbai|bangalore|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|new\s+york|san\s+francisco|los\s+angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|montreal|lima|peru)\b/i.test(companyName)
 
             if (hasLocation) {
-              // Strategy 2a: Remove location words and everything after them
-              const locPattern = /^(.+?)\s+(vancouver|mumbai|bangalore|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|new\s+york|san\s+francisco|los\s+angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|montreal|lima|peru)([\s,].*)$/i
-              const match = companyName.match(locPattern)
-              if (match && match[1].length > 2) {
-                companyName = match[1].trim()
-                location = (match[2] + (match[3] || '')).trim()
-              } else if (companyName.includes(',')) {
-                // Strategy 2b: If no location pattern matched, split by comma
-                const parts = companyName.split(',')
-                companyName = parts[0].trim()
-                location = parts.slice(1).join(',').trim()
+              // Strategy 2a: Remove location words and everything after them (handles: "Company Location, State" or "Company   Location, State")
+              const locPattern = /^(.+?)\s{2,}(vancouver|mumbai|bangalore|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|new\s+york|san\s+francisco|los\s+angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|montreal|lima|peru)([\s,].*)$/i
+              const spacedMatch = companyName.match(locPattern)
+              if (spacedMatch && spacedMatch[1].trim().length > 2) {
+                companyName = spacedMatch[1].trim()
+                location = (spacedMatch[2] + (spacedMatch[3] || '')).trim()
+              } else {
+                // Strategy 2b: Single space separation (e.g., "Company Vancouver, BC")
+                const singleSpacePattern = /^(.+?)\s+(vancouver|mumbai|bangalore|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|new\s+york|san\s+francisco|los\s+angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|montreal|lima|peru)([\s,].*)$/i
+                const match = companyName.match(singleSpacePattern)
+                if (match && match[1].trim().length > 2 && /^[a-z0-9\s&.()]+$/i.test(match[1])) {
+                  // Only extract if company part looks like a company name (no punctuation except & . ( ))
+                  companyName = match[1].trim()
+                  location = (match[2] + (match[3] || '')).trim()
+                } else if (companyName.includes(',')) {
+                  // Strategy 2c: Split by comma if no location pattern matched
+                  const parts = companyName.split(',')
+                  companyName = parts[0].trim()
+                  location = parts.slice(1).join(',').trim()
+                }
               }
             }
           }
