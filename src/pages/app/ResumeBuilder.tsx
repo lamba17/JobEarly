@@ -332,7 +332,12 @@ function parseResumeText(raw: string): ParsedResume {
     let matched = false
     for (const [key, re] of Object.entries(SECTION_RE)) {
       if (re.test(line) && line.length < 70) {
-        cur = key; sections[key] = sections[key] ?? []; matched = true; break
+        // RESET section content when header seen again — handles two-column PDFs
+        // where a template column pollutes the same section (e.g. "TECHNICAL SKILLS" twice)
+        cur = key
+        sections[key] = []
+        matched = true
+        break
       }
     }
     if (!matched) (sections[cur] ??= []).push(line)
@@ -558,7 +563,24 @@ function parseResumeText(raw: string): ParsedResume {
     curEdu = null
   }
 
-  for (const line of sec('education')) {
+  // Pre-merge split lines: "B.Tech in Electronics and" + "Telecommunication" → one line
+  const rawEduLines = sec('education')
+  const mergedEduLines: string[] = []
+  for (let i = 0; i < rawEduLines.length; i++) {
+    const l = rawEduLines[i]
+    const next = rawEduLines[i + 1] ?? ''
+    if (
+      /\b(and|&|in|of|for|with)\s*$/i.test(l) &&
+      next && !/^\d{4}/.test(next) && !SCHOOL_RE.test(next) && !DEGREE_RE.test(next)
+    ) {
+      mergedEduLines.push(l + ' ' + next)
+      i++
+    } else {
+      mergedEduLines.push(l)
+    }
+  }
+
+  for (const line of mergedEduLines) {
     const periodFull = line.match(/(\d{4})\s*[-–—]\s*(\d{4}|present|current|now)/i)
     const singleYear = line.match(/\b(\d{4})\b/)
     const period = periodFull
@@ -614,61 +636,36 @@ function parseResumeText(raw: string): ParsedResume {
   const certifications: string[] = []
   const additionalLines = sec('additional')
 
-  let inCertificationsSection = false
-  let pendingCert = ''
+  // Collect raw cert lines to merge and split properly
+  const certRawLines: string[] = []
+  let inCertSec = false
 
-  for (let i = 0; i < additionalLines.length; i++) {
-    const line = additionalLines[i]
+  for (const line of additionalLines) {
+    const t = line.trim()
+    if (/^certifications?$/i.test(t)) { inCertSec = true; continue }
+    if (/^(community\s+service|volunteer|interests?|hobbies?|awards?)/i.test(t)) inCertSec = false
 
-    if (/^certifications?$/i.test(line.trim())) {
-      // Certifications section header
-      inCertificationsSection = true
-      continue
-    } else if (/^(community\s+service|volunteer|interests?|hobbies?|awards?|additional)/i.test(line.trim())) {
-      // Another section header — exit certifications section
-      inCertificationsSection = false
-    }
-
-    if (/community\s+service|volunteer/i.test(line)) {
-      inCertificationsSection = false
-      // Extract community service details
-      const match = line.match(/community\s+service[:\s]+([^;•\n]+)/i)
+    if (/community\s+service|volunteer/i.test(t)) {
+      const match = t.match(/community\s+service[:\s]+([^;•\n]+)/i)
       if (match) communityService.push(match[1].trim())
-    } else if (inCertificationsSection) {
-      // Inside CERTIFICATIONS section — extract certification lines
-      const certLine = line.replace(/^[•\-*▸◆→>]\s*/, '').trim()
-
-      // Skip section headers and empty lines
-      if (certLine.length < 3 || /^(certifications?|date|org|issuer)$/i.test(certLine)) continue
-
-      // Check if this is a date line like "(Nov 2018 – May 2019)" or "Nov 2018 – May 2019"
-      const isDateLine = /^\(?(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec).{0,30}\)?$/i.test(certLine)
-
-      if (isDateLine) {
-        // Append date to pending certification
-        if (pendingCert) {
-          pendingCert = pendingCert + ' ' + certLine.replace(/^\(|\)$/g, '')
-        }
-      } else {
-        // This is a new certification line
-        if (pendingCert) {
-          certifications.push(pendingCert)
-        }
-        pendingCert = certLine
-      }
-    } else if (/interests?|hobbies?/i.test(line) && !/tech|skill|tools|certification/i.test(line)) {
-      inCertificationsSection = false
-      // Extract interests (exclude tech skills line and certifications)
-      const interestPart = line.replace(/interests?[:\s]+|hobbies?[:\s]+/i, '').trim()
+    } else if (inCertSec && t.length > 2) {
+      certRawLines.push(t.replace(/^[•\-*▸◆→>]\s*/, ''))
+    } else if (/interests?|hobbies?/i.test(t) && !/tech|skill|tools|certification/i.test(t)) {
+      const interestPart = t.replace(/interests?[:\s]+|hobbies?[:\s]+/i, '').trim()
       if (interestPart.length > 2) {
         interests.push(...interestPart.split(/[;,]/).map(s => s.trim()).filter(s => s.length > 2))
       }
     }
   }
 
-  // Flush any pending certification
-  if (pendingCert && pendingCert.length > 3) {
-    certifications.push(pendingCert)
+  if (certRawLines.length > 0) {
+    // Join all cert lines, then split on comma followed by an uppercase letter (new cert starts)
+    const fullCertText = certRawLines.join(' ').replace(/\s+/g, ' ')
+    const parts = fullCertText.split(/,\s*(?=[A-Z(])/)
+    for (const part of parts) {
+      const cleaned = part.trim().replace(/,\s*$/, '')
+      if (cleaned.length > 5) certifications.push(cleaned)
+    }
   }
 
   return {
