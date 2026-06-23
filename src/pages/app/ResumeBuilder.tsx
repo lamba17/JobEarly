@@ -2230,7 +2230,7 @@ body { margin: 0; padding: 0; background: #fff; }
                   {email && (location || linkedin) && <span style={{ color: '#a0aec0' }}>•</span>}
                   {location && <span>{location}</span>}
                   {location && linkedin && <span style={{ color: '#a0aec0' }}>•</span>}
-                  {linkedin && <a href={linkedin.startsWith('http') ? linkedin : `https://${linkedin}`} style={{ color: '#2b6cb0', textDecoration: 'underline' }}>{linkedin}</a>}
+                  {linkedin && <a href={linkedin.startsWith('http') ? linkedin : `https://${linkedin}`} style={{ color: '#2b6cb0', textDecoration: 'underline' }}>LinkedIn</a>}
                 </div>
               </div>
 
