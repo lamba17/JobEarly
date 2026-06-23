@@ -1740,8 +1740,8 @@ body { margin: 0; padding: 0; background: #fff; }
                     onClick={() => setOpenExp(openExp === exp.id ? null : exp.id)}
                   >
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600, fontSize: 13 }}>{exp.title || 'Job Title'}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-mute)' }}>{exp.company || 'Company'}</div>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{exp.company || 'Company'}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-mute)' }}>{exp.location || exp.period || 'Location • Period'}</div>
                     </div>
                     <span style={{ color: 'var(--text-mute)' }}>{openExp === exp.id ? '▼' : '▶'}</span>
                   </div>
@@ -1749,17 +1749,7 @@ body { margin: 0; padding: 0; background: #fff; }
                     <div className="rb-exp-body">
                       <input
                         type="text"
-                        placeholder="Job Title"
-                        value={exp.title}
-                        onChange={e => {
-                          const updated = workExp.map(w => w.id === exp.id ? { ...w, title: e.target.value } : w)
-                          setWorkExp(updated)
-                        }}
-                        className="rb-form-input"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Company"
+                        placeholder="Company Name"
                         value={exp.company}
                         onChange={e => {
                           const updated = workExp.map(w => w.id === exp.id ? { ...w, company: e.target.value } : w)
@@ -1773,6 +1763,26 @@ body { margin: 0; padding: 0; background: #fff; }
                         value={exp.period}
                         onChange={e => {
                           const updated = workExp.map(w => w.id === exp.id ? { ...w, period: e.target.value } : w)
+                          setWorkExp(updated)
+                        }}
+                        className="rb-form-input"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Location (e.g. New York, NY)"
+                        value={exp.location || ''}
+                        onChange={e => {
+                          const updated = workExp.map(w => w.id === exp.id ? { ...w, location: e.target.value } : w)
+                          setWorkExp(updated)
+                        }}
+                        className="rb-form-input"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Job Title"
+                        value={exp.title}
+                        onChange={e => {
+                          const updated = workExp.map(w => w.id === exp.id ? { ...w, title: e.target.value } : w)
                           setWorkExp(updated)
                         }}
                         className="rb-form-input"
@@ -2250,13 +2260,17 @@ body { margin: 0; padding: 0; background: #fff; }
                   <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#1a202c', borderBottom: '1.5px solid #2d3748', paddingBottom: '5px', marginBottom: '10px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Work Experience</div>
                   {workExp.map((exp, idx) => (
                     <div key={exp.id} style={{ marginBottom: idx < workExp.length - 1 ? '12px' : '0px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '1px' }}>
-                        <div style={{ fontWeight: 700, color: '#1a202c', fontSize: '10.8px' }}>{exp.title || 'Job Title'}</div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '2px' }}>
+                        <div style={{ fontWeight: 700, color: '#1a202c', fontSize: '10.8px' }}>{exp.company || 'Company'}</div>
                         <div style={{ fontSize: '9.5px', color: '#4a5568', fontWeight: 500 }}>{exp.period}</div>
                       </div>
-                      <div style={{ fontSize: '10px', color: '#4a5568', marginBottom: '5px', fontWeight: 600 }}>
-                        {exp.company || 'Company'}
-                        {exp.location && <span style={{ fontWeight: 400 }}> • {exp.location}</span>}
+                      {exp.location && (
+                        <div style={{ fontSize: '9.5px', color: '#4a5568', marginBottom: '3px', fontWeight: 500 }}>
+                          {exp.location}
+                        </div>
+                      )}
+                      <div style={{ fontSize: '10.5px', color: '#1a202c', marginBottom: '5px', fontWeight: 600 }}>
+                        {exp.title || 'Job Title'}
                       </div>
                       {exp.bullets.filter(Boolean).length > 0 && (
                         <div style={{ marginLeft: '0px' }}>
