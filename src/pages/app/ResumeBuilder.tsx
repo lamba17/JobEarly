@@ -512,6 +512,9 @@ function parseResumeText(raw: string): ParsedResume {
           let companyName = line.trim()
           let location = ''
 
+          // LOCATION KEYWORDS - updated to include all from resume
+          const LOCATION_KEYWORDS = 'vancouver|mumbai|bangalore|bengaluru|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|maryland|new york|ny|san francisco|ca|los angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|vancouver|montreal|lima|peru|md|il|bc|india'
+
           // Strategy 1: Check for location in parentheses first (e.g., "Company (City, State)")
           const parenMatch = companyName.match(/^(.+?)\s*\(([^)]+)\)\s*$/)
           if (parenMatch) {
@@ -519,36 +522,40 @@ function parseResumeText(raw: string): ParsedResume {
             location = parenMatch[2].trim()
           } else {
             // Strategy 2: Check if line contains known cities/locations
-            const hasLocation = /\b(vancouver|mumbai|bangalore|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|new\s+york|san\s+francisco|los\s+angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|montreal|lima|peru)\b/i.test(companyName)
+            const hasLocationRegex = new RegExp(`\\b(${LOCATION_KEYWORDS})\\b`, 'i')
+            const hasLocation = hasLocationRegex.test(companyName)
 
             if (hasLocation) {
-              // Strategy 2a: Remove location words and everything after them (handles: "Company Location, State" or "Company   Location, State")
-              const locPattern = /^(.+?)\s{2,}(vancouver|mumbai|bangalore|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|new\s+york|san\s+francisco|los\s+angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|montreal|lima|peru)([\s,].*)$/i
-              const spacedMatch = companyName.match(locPattern)
-              if (spacedMatch && spacedMatch[1].trim().length > 2) {
-                companyName = spacedMatch[1].trim()
-                location = (spacedMatch[2] + (spacedMatch[3] || '')).trim()
+              // Try multiple space separation first (Company   Location, State)
+              const multiSpacePattern = new RegExp(`^(.+?)\\s{2,}(${LOCATION_KEYWORDS})(\\s*[,\\-].*)$`, 'i')
+              let match = companyName.match(multiSpacePattern)
+
+              if (match && match[1].trim().length > 2) {
+                companyName = match[1].trim()
+                location = (match[2] + (match[3] || '')).trim()
               } else {
-                // Strategy 2b: Single space separation (e.g., "Company Vancouver, BC")
-                const singleSpacePattern = /^(.+?)\s+(vancouver|mumbai|bangalore|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|new\s+york|san\s+francisco|los\s+angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|montreal|lima|peru)([\s,].*)$/i
-                const match = companyName.match(singleSpacePattern)
-                if (match && match[1].trim().length > 2 && /^[a-z0-9\s&.()]+$/i.test(match[1])) {
-                  // Only extract if company part looks like a company name (no punctuation except & . ( ))
+                // Try single space separation (Company Location, State)
+                const singleSpacePattern = new RegExp(`^(.+?)\\s+(${LOCATION_KEYWORDS})(\\s*[,\\-]?.*)$`, 'i')
+                match = companyName.match(singleSpacePattern)
+
+                if (match && match[1].trim().length > 2) {
                   companyName = match[1].trim()
                   location = (match[2] + (match[3] || '')).trim()
-                } else if (companyName.includes(',')) {
-                  // Strategy 2c: Split by comma if no location pattern matched
-                  const parts = companyName.split(',')
-                  companyName = parts[0].trim()
-                  location = parts.slice(1).join(',').trim()
                 }
               }
+            } else if (companyName.includes(',')) {
+              // Strategy 3: Split by comma if location not found
+              const parts = companyName.split(',')
+              companyName = parts[0].trim()
+              location = parts.slice(1).join(',').trim()
             }
           }
 
-          // Always set pending company (even if just the line itself)
-          pendingCompany = companyName && companyName.length > 1 ? companyName : line.trim()
-          pendingLocation = location
+          // Set pending company and location
+          if (companyName && companyName.length > 1) {
+            pendingCompany = companyName
+            pendingLocation = location
+          }
         }
       } else if (curExp && !curExp.company && (curExp.bullets?.length ?? 0) === 0 && !WX_LOC_RE.test(line.trim()) && !hasTitle) {
         // Company name that appears after the title line (before bullets start)
