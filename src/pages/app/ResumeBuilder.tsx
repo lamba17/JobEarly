@@ -2222,9 +2222,15 @@ body { margin: 0; padding: 0; background: #fff; }
               {/* Header */}
               <div style={{ marginBottom: '20px', textAlign: 'center' }}>
                 <div style={{ fontSize: '20px', fontWeight: 800, color: '#1a202c', letterSpacing: '-0.5px', marginBottom: '3px' }}>{name || 'Your Name'}</div>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: resumeAccent || '#2d3748', letterSpacing: '0.5px', marginBottom: '8px' }}>{jobTitle || 'Job Title'}</div>
-                <div style={{ fontSize: '9.5px', color: '#4a5568', letterSpacing: '0.3px' }}>
-                  {[email, phone, location, linkedin].filter(Boolean).join(' • ')}
+                {jobTitle && <div style={{ fontSize: '13px', fontWeight: 700, color: resumeAccent || '#2d3748', letterSpacing: '0.5px', marginBottom: '8px' }}>{jobTitle}</div>}
+                <div style={{ fontSize: '9.5px', color: '#4a5568', letterSpacing: '0.3px', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '0 4px' }}>
+                  {phone && <span>{phone}</span>}
+                  {phone && (email || location || linkedin) && <span style={{ color: '#a0aec0' }}>•</span>}
+                  {email && <a href={`mailto:${email}`} style={{ color: '#2b6cb0', textDecoration: 'underline' }}>{email}</a>}
+                  {email && (location || linkedin) && <span style={{ color: '#a0aec0' }}>•</span>}
+                  {location && <span>{location}</span>}
+                  {location && linkedin && <span style={{ color: '#a0aec0' }}>•</span>}
+                  {linkedin && <a href={linkedin.startsWith('http') ? linkedin : `https://${linkedin}`} style={{ color: '#2b6cb0', textDecoration: 'underline' }}>{linkedin}</a>}
                 </div>
               </div>
 
