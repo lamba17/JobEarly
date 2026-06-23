@@ -320,11 +320,12 @@ function parseResumeText(raw: string): ParsedResume {
 
   // ── Section splitter ──────────────────────────────────────────────────────
   const SECTION_RE: Record<string, RegExp> = {
-    summary:    /^(summary|profile|about me|objective|professional summary|career objective|personal statement)/i,
-    skills:     /^(skills|core skills|technical skills|competencies|key skills|areas of expertise|tools & technologies)/i,
-    experience: /^(experience|work experience|employment|professional experience|career history|work history)/i,
-    education:  /^(education|academic|qualification|educational background)/i,
-    additional: /^(additional information|additional|interests|certifications?|awards|volunteer|community service)/i,
+    summary:        /^(summary|profile|about me|objective|professional summary|career objective|personal statement)/i,
+    skills:         /^(skills|core skills|technical skills|competencies|key skills|areas of expertise|tools & technologies)/i,
+    experience:     /^(experience|work experience|employment|professional experience|career history|work history)/i,
+    education:      /^(education|academic|qualification|educational background)/i,
+    certifications: /^certifications?$/i,
+    additional:     /^(additional information|additional|interests|awards|volunteer|community service)/i,
   }
   const sections: Record<string, string[]> = { preamble: [] }
   let cur = 'preamble'
@@ -636,20 +637,11 @@ function parseResumeText(raw: string): ParsedResume {
   const certifications: string[] = []
   const additionalLines = sec('additional')
 
-  // Collect raw cert lines to merge and split properly
-  const certRawLines: string[] = []
-  let inCertSec = false
-
   for (const line of additionalLines) {
     const t = line.trim()
-    if (/^certifications?$/i.test(t)) { inCertSec = true; continue }
-    if (/^(community\s+service|volunteer|interests?|hobbies?|awards?)/i.test(t)) inCertSec = false
-
     if (/community\s+service|volunteer/i.test(t)) {
       const match = t.match(/community\s+service[:\s]+([^;•\n]+)/i)
       if (match) communityService.push(match[1].trim())
-    } else if (inCertSec && t.length > 2) {
-      certRawLines.push(t.replace(/^[•\-*▸◆→>]\s*/, ''))
     } else if (/interests?|hobbies?/i.test(t) && !/tech|skill|tools|certification/i.test(t)) {
       const interestPart = t.replace(/interests?[:\s]+|hobbies?[:\s]+/i, '').trim()
       if (interestPart.length > 2) {
@@ -658,9 +650,10 @@ function parseResumeText(raw: string): ParsedResume {
     }
   }
 
-  if (certRawLines.length > 0) {
-    // Join all cert lines, then split on comma followed by an uppercase letter (new cert starts)
-    const fullCertText = certRawLines.join(' ').replace(/\s+/g, ' ')
+  // Certifications: dedicated section — join all lines, split on comma before uppercase
+  const certLines = sec('certifications').map(l => l.replace(/^[•\-*▸◆→>]\s*/, '').trim()).filter(l => l.length > 2)
+  if (certLines.length > 0) {
+    const fullCertText = certLines.join(' ').replace(/\s+/g, ' ')
     const parts = fullCertText.split(/,\s*(?=[A-Z(])/)
     for (const part of parts) {
       const cleaned = part.trim().replace(/,\s*$/, '')
