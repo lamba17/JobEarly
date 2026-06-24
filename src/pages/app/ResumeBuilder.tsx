@@ -393,10 +393,16 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
   const SKILL_CAT_RE = /^(primary\s+skills?|etl\s+tools?|cloud\s+technologies?|languages?|tools?|project\s+management|portfolio\s+links?|certifications?|technical\s+skills?|core\s+skills?|soft\s+skills?|hard\s+skills?|dev(?:elopment)?\s+tools?|methodology|frameworks?)\s*(?:[:：]|$)/i
   const SKILL_CAT_INLINE = /^(primary\s+skills?|etl\s+tools?|cloud\s+technologies?|languages?|tools?|project\s+management|portfolio\s+links?|certifications?|technical\s+skills?|core\s+skills?|soft\s+skills?|hard\s+skills?|dev(?:elopment)?\s+tools?|methodology|frameworks?)\s*[:：]\s*/i
 
+  const linkAnchors = new Set(Object.keys(linkMap).map(k => k.toLowerCase()))
+  const isLinkAnchor = (s: string) => {
+    const lower = s.toLowerCase()
+    return linkAnchors.has(lower) || /\b(portfolio|resume|website|github\.com|linkedin\.com|http)/i.test(lower)
+  }
+
   const parseSkillItems = (csv: string): string[] =>
     csv.replace(SKILL_CAT_INLINE, '')
       .split(/[,;|]/).map(s => s.trim())
-      .filter(s => s.length > 1 && s.length < 60 && !/^\d+$/.test(s))
+      .filter(s => s.length > 1 && s.length < 60 && !/^\d+$/.test(s) && !isLinkAnchor(s))
 
   const addSkills = (csv: string) => {
     parseSkillItems(csv).forEach(s => { if (!skillSet.includes(s)) skillSet.push(s) })
@@ -762,6 +768,7 @@ interface ResumeIssue {
   whyImportant: string
   howToImprove: string
   example?: { before: string; after: string }
+  globalIdx?: number
 }
 
 interface ResumeAnalysisReport {
@@ -1571,10 +1578,11 @@ body { margin: 0; padding: 0; background: #fff; }
                       }
                       const colors = categoryColors[issue.category]
 
+                      const localIdx = sectionIssues.indexOf(issue)
                       return (
                         <div key={idx} style={{
                           padding: '12px 14px',
-                          borderBottom: idx < sectionIssues.length - 1 ? '1px solid var(--border)' : 'none',
+                          borderBottom: localIdx < sectionIssues.length - 1 ? '1px solid var(--border)' : 'none',
                         }}>
                           <div style={{
                             display: 'flex',
@@ -2558,19 +2566,23 @@ body { margin: 0; padding: 0; background: #fff; }
                 overflow: 'auto',
                 padding: '20px',
               }}>
-                {/* Group by section */}
-                {['personalInfo', 'impact', 'brevity', 'style'].map(section => {
+                {/* Group by section — dynamically collect all sections from the API response */}
+                {[...new Set(analysisReport.issues.map(i => i.section))].map(section => {
                   const sectionIssues = analysisReport.issues
                     .map((i, globalIdx) => ({ ...i, globalIdx }))
                     .filter(issue => issue.section === section)
                   if (sectionIssues.length === 0) return null
 
-                  const sectionLabel = {
+                  const sectionLabel = sectionIssues[0]?.sectionLabel || ({
                     personalInfo: 'Personal Information',
                     impact: 'Impact & Accomplishments',
                     brevity: 'Clarity & Brevity',
                     style: 'Grammar & Professional Tone',
-                  }[section] || section
+                    experience: 'Work Experience',
+                    skills: 'Skills',
+                    education: 'Education',
+                    format: 'Resume Structure',
+                  } as Record<string, string>)[section] || section
 
                   return (
                     <div key={section} style={{ marginBottom: 24 }}>

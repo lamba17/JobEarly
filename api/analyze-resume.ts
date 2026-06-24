@@ -85,9 +85,9 @@ Return ONLY valid JSON with no markdown, no code blocks, no explanation. Keep "b
   "summary": "1-2 sentence overall assessment",
   "issues": [
     {
-      "category": "urgent",
-      "section": "impact",
-      "sectionLabel": "Impact & Achievements",
+      "category": "urgent | critical | optional",
+      "section": "impact | brevity | style | personalInfo | experience | skills | education | format",
+      "sectionLabel": "Human-readable section name",
       "title": "Specific improvement title",
       "issue": "What is wrong",
       "whyImportant": "Why this matters",
