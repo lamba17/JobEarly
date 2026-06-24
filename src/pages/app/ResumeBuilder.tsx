@@ -230,9 +230,12 @@ const IcoUpload = ({ size = 14 }: { size?: number }) => (
 interface WorkExp { id: number; title: string; company: string; location?: string; period: string; bullets: string[] }
 interface EduEntry { id: number; degree: string; school: string; period: string; specialization?: string; activities?: string[] }
 
+interface SkillCategory { category: string; skills: string[] }
+
 interface ParsedResume {
   name: string; email: string; phone: string; location: string; linkedin: string
   jobTitle: string; summary: string; skills: string[]
+  skillCategories?: SkillCategory[]
   workExp: WorkExp[]; education: EduEntry[]
   communityService?: string[]
   interests?: string[]
@@ -356,44 +359,69 @@ function parseResumeText(raw: string): ParsedResume {
   // ── Summary ───────────────────────────────────────────────────────────────
   const summary = sec('summary').filter(l => l.length > 30).join(' ')
 
-  // ── Skills — multi-source extraction, priority order ─────────────────────
+  // ── Skills — build both flat list and categorized groups ────────────────
   const skillSet: string[] = []
-  const SKILL_CATEGORY_HEADER = /^(primary\s+skills?|etl\s+tools?|cloud\s+technologies?|languages?|tools?|project\s+management|portfolio\s+links|certifications?|technical\s+skills?|core\s+skills?|soft\s+skills?|hard\s+skills?|dev(?:elopment)?\s+tools?|methodology|frameworks?)\s*(?:[:：]|$)/i
-  const SKILL_CATEGORY_INLINE = /^(primary\s+skills?|etl\s+tools?|cloud\s+technologies?|languages?|tools?|project\s+management|portfolio\s+links|certifications?|technical\s+skills?|core\s+skills?|soft\s+skills?|hard\s+skills?|dev(?:elopment)?\s+tools?|methodology|frameworks?)\s*[:：]\s*/i
+  const skillGroups: SkillCategory[] = []
+
+  const SKILL_CAT_RE = /^(primary\s+skills?|etl\s+tools?|cloud\s+technologies?|languages?|tools?|project\s+management|portfolio\s+links?|certifications?|technical\s+skills?|core\s+skills?|soft\s+skills?|hard\s+skills?|dev(?:elopment)?\s+tools?|methodology|frameworks?)\s*(?:[:：]|$)/i
+  const SKILL_CAT_INLINE = /^(primary\s+skills?|etl\s+tools?|cloud\s+technologies?|languages?|tools?|project\s+management|portfolio\s+links?|certifications?|technical\s+skills?|core\s+skills?|soft\s+skills?|hard\s+skills?|dev(?:elopment)?\s+tools?|methodology|frameworks?)\s*[:：]\s*/i
+
+  const parseSkillItems = (csv: string): string[] =>
+    csv.replace(SKILL_CAT_INLINE, '')
+      .split(/[,;|]/).map(s => s.trim())
+      .filter(s => s.length > 1 && s.length < 60 && !/^\d+$/.test(s))
 
   const addSkills = (csv: string) => {
-    // Strip category prefix like "PRIMARY SKILLS: " or "ETL TOOLS: "
-    const cleaned = csv.replace(SKILL_CATEGORY_INLINE, '')
-    if (cleaned.length < 2) return // skip if nothing left after stripping category
-    cleaned.split(/[,;|]/).map(s => s.trim()).filter(s => s.length > 1 && s.length < 50 && !/^\d+$/.test(s) && !/^[a-z]\s*$/.test(s)).forEach(s => {
-      if (!skillSet.includes(s)) skillSet.push(s)
-    })
+    parseSkillItems(csv).forEach(s => { if (!skillSet.includes(s)) skillSet.push(s) })
   }
 
-  // 1. Explicit skills section (e.g. "SKILLS", "CORE SKILLS")
+  // 1. Skills section — detect category headers and group
   const skillsLines = sec('skills')
+  let currentCat = ''
   for (let i = 0; i < skillsLines.length; i++) {
-    const line = skillsLines[i]
-    const isOnlyHeader = SKILL_CATEGORY_HEADER.test(line)
+    const line = skillsLines[i].trim()
+    if (!line) continue
 
-    if (isOnlyHeader) {
-      // This line is just a category header, skip it
+    const catMatch = line.match(SKILL_CAT_RE)
+    // A pure category header: matches the regex AND has no comma-separated content after it
+    const isPureHeader = catMatch && !line.includes(',') && line.replace(catMatch[0], '').trim().length === 0
+
+    if (isPureHeader) {
+      currentCat = line.replace(/[:：]\s*$/, '').trim()
       continue
     }
 
-    // Process skill line (may have bullet points or inline category:skills format)
-    const cleanedLine = line.replace(/^[•\-*▸◆→>]\s*/, '').replace(/[•▸◆]/g, ',')
-    addSkills(cleanedLine)
+    // Inline "CATEGORY: skill1, skill2" format
+    const inlineMatch = line.match(SKILL_CAT_INLINE)
+    if (inlineMatch) {
+      const cat = inlineMatch[1].trim()
+      const items = parseSkillItems(line)
+      if (items.length) skillGroups.push({ category: cat, skills: items })
+      items.forEach(s => { if (!skillSet.includes(s)) skillSet.push(s) })
+      currentCat = ''
+      continue
+    }
+
+    // Plain skill line (possibly under a category header)
+    const items = parseSkillItems(line.replace(/^[•\-*▸◆→>]\s*/, '').replace(/[•▸◆]/g, ','))
+    if (items.length) {
+      if (currentCat) {
+        const existing = skillGroups.find(g => g.category.toLowerCase() === currentCat.toLowerCase())
+        if (existing) existing.skills.push(...items)
+        else skillGroups.push({ category: currentCat, skills: items })
+      }
+      items.forEach(s => { if (!skillSet.includes(s)) skillSet.push(s) })
+    }
   }
 
-  // 2. "Tech Skills:" / "Technical Skills:" / "Tools:" labeled line anywhere in raw text
-  const techLineMatch = raw.match(/(?:tech(?:nical)?\s+skills?|tools?\s*(?:&\s*technologies?)?)\s*[:：]\s*([^\n]{3,})/i)
-  if (techLineMatch) addSkills(techLineMatch[1])
-
-  // 3. Similar labeled lines inside the additional section
-  for (const line of sec('additional')) {
-    const m = line.match(/^(?:tech(?:nical)?\s+skills?|tools?|technologies)\s*[:：]\s*(.+)/i)
-    if (m) addSkills(m[1])
+  // 2. "Tech Skills:" labeled line anywhere in raw text (fallback)
+  if (skillSet.length === 0) {
+    const techLineMatch = raw.match(/(?:tech(?:nical)?\s+skills?|tools?\s*(?:&\s*technologies?)?)\s*[:：]\s*([^\n]{3,})/i)
+    if (techLineMatch) addSkills(techLineMatch[1])
+    for (const line of sec('additional')) {
+      const m = line.match(/^(?:tech(?:nical)?\s+skills?|tools?|technologies)\s*[:：]\s*(.+)/i)
+      if (m) addSkills(m[1])
+    }
   }
 
   // 4. Last resort: match from SKILL_POOL against document text
@@ -669,7 +697,8 @@ function parseResumeText(raw: string): ParsedResume {
     linkedin,
     jobTitle,
     summary,
-    skills: [...new Set(skillSet)].slice(0, 24),
+    skills: [...new Set(skillSet)].slice(0, 40),
+    skillCategories: skillGroups.length > 0 ? skillGroups : undefined,
     workExp: workExps.map((e, i) => ({ id: i + 1, ...e })),
     education: edus.map((e, i) => ({ id: i + 1, ...e })),
     communityService: communityService.length > 0 ? communityService : undefined,
@@ -779,6 +808,7 @@ export default function ResumeBuilder() {
   const [jobTitle, setJobTitle] = useState('')
   const [summary, setSummary] = useState('')
   const [skills, setSkills] = useState<string[]>([])
+  const [skillCategories, setSkillCategories] = useState<SkillCategory[]>([])
   const [workExp, setWorkExp] = useState<WorkExp[]>([])
   const [education, setEducation] = useState<EduEntry[]>([])
   const [openExp, setOpenExp] = useState<number | null>(null)
@@ -909,6 +939,7 @@ export default function ResumeBuilder() {
       setJobTitle(result.jobTitle || '')
       setSummary(result.summary || '')
       setSkills(result.skills || [])
+      setSkillCategories(result.skillCategories || [])
       setWorkExp(result.workExp.map((e, i) => ({ ...e, id: i + 1 })) || [])
       setEducation(result.education.map((e, i) => ({ ...e, id: i + 1 })) || [])
       setCommunityService(result.communityService || [])
@@ -2291,10 +2322,23 @@ body { margin: 0; padding: 0; background: #fff; }
               {/* Skills */}
               {skills.length > 0 && (
                 <div style={{ marginBottom: '18px' }}>
-                  <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#1a202c', borderBottom: '1.5px solid #2d3748', paddingBottom: '5px', marginBottom: '8px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Skills</div>
-                  <div style={{ fontSize: '10.5px', color: '#2d3748', lineHeight: '1.5' }}>
-                    {skills.join(' • ')}
-                  </div>
+                  <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#1a202c', borderBottom: '1.5px solid #2d3748', paddingBottom: '5px', marginBottom: '8px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Technical Skills</div>
+                  {skillCategories.length > 0 ? (
+                    // Categorized skills (e.g. PRIMARY SKILLS, ETL TOOLS, etc.)
+                    <div style={{ fontSize: '10.5px', color: '#2d3748', lineHeight: '1.8' }}>
+                      {skillCategories.map((cat, ci) => (
+                        <div key={ci} style={{ marginBottom: '3px' }}>
+                          <span style={{ fontWeight: 700, color: '#1a202c' }}>{cat.category}</span>
+                          <span style={{ color: '#4a5568' }}>: {cat.skills.join(', ')}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    // Flat skills (no category headers detected)
+                    <div style={{ fontSize: '10.5px', color: '#2d3748', lineHeight: '1.5' }}>
+                      {skills.join(' • ')}
+                    </div>
+                  )}
                 </div>
               )}
 
