@@ -1533,7 +1533,9 @@ body { margin: 0; padding: 0; background: #fff; }
             {/* Issues by section */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {['impact', 'brevity', 'style', 'personalInfo'].map(section => {
-                const sectionIssues = analysisReport.issues.filter(i => i.section === section)
+                const sectionIssues = analysisReport.issues
+                  .map((i, globalIdx) => ({ ...i, globalIdx }))
+                  .filter(i => i.section === section)
                 if (sectionIssues.length === 0) return null
 
                 const sectionLabels: Record<string, string> = {
@@ -1560,7 +1562,8 @@ body { margin: 0; padding: 0; background: #fff; }
                       {sectionLabels[section]}
                     </div>
 
-                    {sectionIssues.map((issue, idx) => {
+                    {sectionIssues.map((issue) => {
+                      const idx = issue.globalIdx  // use global index to avoid cross-section collisions
                       const categoryColors: Record<string, { bg: string; border: string; text: string }> = {
                         urgent: { bg: '#FEF2F2', border: '#FCA5A5', text: '#DC2626' },
                         critical: { bg: '#FEF3C7', border: '#FCD34D', text: '#D97706' },
@@ -2557,7 +2560,9 @@ body { margin: 0; padding: 0; background: #fff; }
               }}>
                 {/* Group by section */}
                 {['personalInfo', 'impact', 'brevity', 'style'].map(section => {
-                  const sectionIssues = analysisReport.issues.filter(issue => issue.section === section)
+                  const sectionIssues = analysisReport.issues
+                    .map((i, globalIdx) => ({ ...i, globalIdx }))
+                    .filter(issue => issue.section === section)
                   if (sectionIssues.length === 0) return null
 
                   const sectionLabel = {
@@ -2588,8 +2593,9 @@ body { margin: 0; padding: 0; background: #fff; }
                         {sectionLabel}
                       </h3>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                        {sectionIssues.map((issue, idx) => (
-                          <div key={idx} style={{
+                        {sectionIssues.map((issue) => {
+                          const idx = issue.globalIdx  // global index avoids cross-section collisions
+                          return (<div key={idx} style={{
                             border: '1px solid #e5e7eb',
                             borderRadius: 8,
                             padding: 12,
@@ -2703,47 +2709,45 @@ body { margin: 0; padding: 0; background: #fff; }
                                     <button
                                       onClick={() => {
                                         if (analysisReport && issue.example) {
-                                          const before = issue.example.before
-                                          const after = issue.example.after
+                                          // Strip bullet markers and trim — AI often includes "• " prefix
+                                          const rawBefore = issue.example.before.replace(/^[•\-*]\s*/, '').trim()
+                                          const after = issue.example.after.replace(/^[•\-*]\s*/, '').trim()
+
+                                          // Use first 60 chars as match key (AI may truncate or paraphrase)
+                                          const matchKey = rawBefore.slice(0, 60).toLowerCase()
+
+                                          const matchText = (text: string) => {
+                                            const t = text.toLowerCase()
+                                            // Exact match or starts-with match
+                                            return t.includes(rawBefore.toLowerCase()) || t.includes(matchKey)
+                                          }
+
+                                          const replaceText = (text: string) => {
+                                            // Try exact replace first
+                                            if (text.includes(rawBefore)) return text.replace(rawBefore, after)
+                                            // Fall back to replacing the whole bullet with the after text
+                                            if (matchText(text)) return after
+                                            return text
+                                          }
 
                                           // Update workExp form state (what the template renders)
                                           setWorkExp(prev => prev.map(exp => ({
                                             ...exp,
                                             bullets: (exp.bullets || []).map(bullet =>
-                                              bullet.includes(before) ? bullet.replace(before, after) : bullet
+                                              matchText(bullet) ? replaceText(bullet) : bullet
                                             ),
-                                            title: exp.title?.includes(before)
-                                              ? exp.title.replace(before, after)
+                                            title: exp.title && matchText(exp.title)
+                                              ? replaceText(exp.title)
                                               : exp.title,
                                           })))
 
                                           // Update summary form state
-                                          setSummary(prev =>
-                                            prev.includes(before) ? prev.replace(before, after) : prev
-                                          )
+                                          setSummary(prev => matchText(prev) ? replaceText(prev) : prev)
 
                                           // Update skills form state
                                           setSkills(prev =>
-                                            prev.map(skill =>
-                                              skill.includes(before) ? skill.replace(before, after) : skill
-                                            )
+                                            prev.map(skill => matchText(skill) ? replaceText(skill) : skill)
                                           )
-
-                                          // Also update parsedResume for consistency
-                                          if (parsedResume) {
-                                            setParsedResume({
-                                              ...parsedResume,
-                                              workExp: (parsedResume.workExp || []).map(exp => ({
-                                                ...exp,
-                                                bullets: (exp.bullets || []).map(b =>
-                                                  b.includes(before) ? b.replace(before, after) : b
-                                                ),
-                                              })),
-                                              summary: parsedResume.summary?.includes(before)
-                                                ? parsedResume.summary.replace(before, after)
-                                                : parsedResume.summary,
-                                            })
-                                          }
 
                                           setAppliedImprovements(prev => new Set([...prev, idx]))
                                         }
@@ -2769,7 +2773,8 @@ body { margin: 0; padding: 0; background: #fff; }
                               </div>
                             )}
                           </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     </div>
                   )
