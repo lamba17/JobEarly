@@ -2702,44 +2702,49 @@ body { margin: 0; padding: 0; background: #fff; }
                                     </button>
                                     <button
                                       onClick={() => {
-                                        if (analysisReport && parsedResume && issue.example) {
+                                        if (analysisReport && issue.example) {
                                           const before = issue.example.before
                                           const after = issue.example.after
-                                          let improved = { ...parsedResume }
 
-                                          // Apply this specific replacement
-                                          if (improved.workExp) {
-                                            improved.workExp = improved.workExp.map(exp => ({
-                                              ...exp,
-                                              bullets: (exp.bullets || []).map(bullet =>
-                                                bullet.includes(before) ? bullet.replace(before, after) : bullet
-                                              ),
-                                              title: exp.title?.includes(before)
-                                                ? exp.title.replace(before, after)
-                                                : exp.title
-                                            }))
-                                          }
-                                          if (improved.education) {
-                                            improved.education = improved.education.map(edu => ({
-                                              ...edu,
-                                              school: edu.school?.includes(before)
-                                                ? edu.school.replace(before, after)
-                                                : edu.school,
-                                              degree: edu.degree?.includes(before)
-                                                ? edu.degree.replace(before, after)
-                                                : edu.degree
-                                            }))
-                                          }
-                                          if (improved.summary?.includes(before)) {
-                                            improved.summary = improved.summary.replace(before, after)
-                                          }
-                                          if (improved.skills) {
-                                            improved.skills = improved.skills.map(skill =>
+                                          // Update workExp form state (what the template renders)
+                                          setWorkExp(prev => prev.map(exp => ({
+                                            ...exp,
+                                            bullets: (exp.bullets || []).map(bullet =>
+                                              bullet.includes(before) ? bullet.replace(before, after) : bullet
+                                            ),
+                                            title: exp.title?.includes(before)
+                                              ? exp.title.replace(before, after)
+                                              : exp.title,
+                                          })))
+
+                                          // Update summary form state
+                                          setSummary(prev =>
+                                            prev.includes(before) ? prev.replace(before, after) : prev
+                                          )
+
+                                          // Update skills form state
+                                          setSkills(prev =>
+                                            prev.map(skill =>
                                               skill.includes(before) ? skill.replace(before, after) : skill
                                             )
+                                          )
+
+                                          // Also update parsedResume for consistency
+                                          if (parsedResume) {
+                                            setParsedResume({
+                                              ...parsedResume,
+                                              workExp: (parsedResume.workExp || []).map(exp => ({
+                                                ...exp,
+                                                bullets: (exp.bullets || []).map(b =>
+                                                  b.includes(before) ? b.replace(before, after) : b
+                                                ),
+                                              })),
+                                              summary: parsedResume.summary?.includes(before)
+                                                ? parsedResume.summary.replace(before, after)
+                                                : parsedResume.summary,
+                                            })
                                           }
 
-                                          setParsedResume(improved)
                                           setAppliedImprovements(prev => new Set([...prev, idx]))
                                         }
                                       }}
