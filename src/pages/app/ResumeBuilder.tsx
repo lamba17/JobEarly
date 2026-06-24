@@ -5,49 +5,75 @@ import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
 pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
 
-async function extractTextFromFile(file: File): Promise<string> {
+interface ExtractResult { text: string; linkMap: Record<string, string> }
+
+async function extractTextFromFile(file: File): Promise<ExtractResult> {
   const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
 
   if (ext === 'pdf') {
     const buf = await file.arrayBuffer()
     const doc = await pdfjs.getDocument({ data: new Uint8Array(buf) }).promise
     let text = ''
-    let linkedinAnnotation = ''
+    const linkMap: Record<string, string> = {}
+
     for (let i = 1; i <= doc.numPages; i++) {
       const page = await doc.getPage(i)
       const content = await page.getTextContent()
-      // Preserve line breaks by tracking Y position
+
+      // Build list of text items with positions for link matching
+      const textItems: Array<{ str: string; x: number; y: number; w: number; h: number }> = []
       let lastY: number | null = null
       for (const item of content.items as any[]) {
         if (lastY !== null && Math.abs(item.transform[5] - lastY) > 3) text += '\n'
         text += item.str
         lastY = item.transform[5]
+        if (item.str.trim()) {
+          textItems.push({
+            str:  item.str,
+            x:    item.transform[4],
+            y:    item.transform[5],
+            w:    item.width  ?? 0,
+            h:    item.height ?? 10,
+          })
+        }
       }
       text += '\n'
-      // Extract hyperlink annotations to find LinkedIn URL (not visible as text in PDF)
-      if (!linkedinAnnotation) {
-        const annotations = await page.getAnnotations()
-        for (const ann of annotations as any[]) {
-          if (ann.url && /linkedin\.com\/in\//i.test(ann.url)) {
-            linkedinAnnotation = ann.url
-            break
-          }
+
+      // Extract all hyperlink annotations and map to display text
+      const annotations = await page.getAnnotations()
+      for (const ann of annotations as any[]) {
+        const url: string = ann.url || ann.unsafeUrl || ''
+        if (!url) continue
+        const [ax1, ay1, ax2, ay2] = ann.rect as number[]
+
+        // Collect all text items whose centre falls inside the annotation rect
+        const matched = textItems.filter(t => {
+          const cx = t.x + t.w / 2
+          const cy = t.y + t.h / 2
+          return cx >= ax1 - 4 && cx <= ax2 + 4 && cy >= ay1 - 4 && cy <= ay2 + 4
+        })
+        const displayText = matched.map(t => t.str).join('').trim()
+
+        if (displayText) {
+          linkMap[displayText] = url
+        }
+        // Always capture LinkedIn via its URL pattern too (in case text matching misses it)
+        if (/linkedin\.com\/in\//i.test(url) && !text.includes('linkedin.com/in/')) {
+          text = url + '\n' + text
         }
       }
     }
-    // Prepend LinkedIn URL so the text parser can pick it up
-    if (linkedinAnnotation) text = linkedinAnnotation + '\n' + text
-    return text
+    return { text, linkMap }
   }
 
   if (ext === 'docx' || ext === 'doc') {
     const buf = await file.arrayBuffer()
     const result = await mammoth.extractRawText({ arrayBuffer: buf })
-    return result.value
+    return { text: result.value, linkMap: {} }
   }
 
   if (ext === 'txt') {
-    return file.text()
+    return { text: await file.text(), linkMap: {} }
   }
 
   throw new Error(`Unsupported file type: .${ext}. Please upload a PDF, DOCX, or TXT file.`)
@@ -240,11 +266,12 @@ interface ParsedResume {
   communityService?: string[]
   interests?: string[]
   certifications?: string[]
+  linkMap?: Record<string, string>
   aiUsed?: boolean
 }
 
 // ── Resume Text Parser ────────────────────────────────────────────────────────
-function parseResumeText(raw: string): ParsedResume {
+function parseResumeText(raw: string, linkMap: Record<string, string> = {}): ParsedResume {
   const lines = raw.split('\n').map(l => l.trim()).filter(Boolean)
 
   // ── Email ─────────────────────────────────────────────────────────────────
@@ -704,6 +731,7 @@ function parseResumeText(raw: string): ParsedResume {
     communityService: communityService.length > 0 ? communityService : undefined,
     interests: interests.length > 0 ? interests : undefined,
     certifications: certifications.length > 0 ? certifications : undefined,
+    linkMap: Object.keys(linkMap).length > 0 ? linkMap : undefined,
   }
 }
 
@@ -809,6 +837,7 @@ export default function ResumeBuilder() {
   const [summary, setSummary] = useState('')
   const [skills, setSkills] = useState<string[]>([])
   const [skillCategories, setSkillCategories] = useState<SkillCategory[]>([])
+  const [linkMap, setLinkMap] = useState<Record<string, string>>({})
   const [workExp, setWorkExp] = useState<WorkExp[]>([])
   const [education, setEducation] = useState<EduEntry[]>([])
   const [openExp, setOpenExp] = useState<number | null>(null)
@@ -919,7 +948,9 @@ export default function ResumeBuilder() {
     setOptimizationSuggestions([])
     setShowOptimizations(false)
     try {
-      const text = await extractTextFromFile(file)
+      const extracted = await extractTextFromFile(file)
+      const text = extracted.text
+      const linkMap = extracted.linkMap
       if (!text.trim()) throw new Error('Could not read any text from this file. Try a different format.')
 
       // Store original file and text
@@ -927,7 +958,7 @@ export default function ResumeBuilder() {
       setResumeRawText(text)
 
       // Parse for basic metadata only
-      const result = parseResumeText(text)
+      const result = parseResumeText(text, linkMap)
       setParsedResume(result)
 
       // Populate form fields from parsed resume
@@ -940,6 +971,7 @@ export default function ResumeBuilder() {
       setSummary(result.summary || '')
       setSkills(result.skills || [])
       setSkillCategories(result.skillCategories || [])
+      setLinkMap(result.linkMap || {})
       setWorkExp(result.workExp.map((e, i) => ({ ...e, id: i + 1 })) || [])
       setEducation(result.education.map((e, i) => ({ ...e, id: i + 1 })) || [])
       setCommunityService(result.communityService || [])
@@ -2324,17 +2356,20 @@ body { margin: 0; padding: 0; background: #fff; }
                 <div style={{ marginBottom: '18px' }}>
                   <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#1a202c', borderBottom: '1.5px solid #2d3748', paddingBottom: '5px', marginBottom: '8px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Technical Skills</div>
                   {skillCategories.length > 0 ? (
-                    // Categorized skills (e.g. PRIMARY SKILLS, ETL TOOLS, etc.)
                     <div style={{ fontSize: '10.5px', color: '#2d3748', lineHeight: '1.8' }}>
                       {skillCategories.map((cat, ci) => (
                         <div key={ci} style={{ marginBottom: '3px' }}>
                           <span style={{ fontWeight: 700, color: '#1a202c' }}>{cat.category}</span>
-                          <span style={{ color: '#4a5568' }}>: {cat.skills.join(', ')}</span>
+                          <span style={{ color: '#4a5568' }}>: {cat.skills.map((skill, si) => {
+                            const url = linkMap[skill]
+                            return url
+                              ? <a key={si} href={url} style={{ color: '#2b6cb0', textDecoration: 'underline' }}>{skill}</a>
+                              : <span key={si}>{skill}</span>
+                          }).reduce<React.ReactNode[]>((acc, el, i) => i === 0 ? [el] : [...acc, ', ', el], [])}</span>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    // Flat skills (no category headers detected)
                     <div style={{ fontSize: '10.5px', color: '#2d3748', lineHeight: '1.5' }}>
                       {skills.join(' • ')}
                     </div>
@@ -2367,9 +2402,18 @@ body { margin: 0; padding: 0; background: #fff; }
                 <div>
                   <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#1a202c', borderBottom: '1.5px solid #2d3748', paddingBottom: '5px', marginBottom: '8px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Certifications</div>
                   <div style={{ fontSize: '10.5px', color: '#2d3748', lineHeight: '1.5' }}>
-                    {certifications.map((cert, idx) => (
-                      <div key={idx} style={{ marginBottom: '4px' }}>• {cert}</div>
-                    ))}
+                    {certifications.map((cert, idx) => {
+                      // Find URL by checking if any linkMap key is contained in the cert text
+                      const url = linkMap[cert] ?? Object.entries(linkMap).find(([k]) => cert.includes(k))?.[1]
+                      return (
+                        <div key={idx} style={{ marginBottom: '4px' }}>
+                          {'• '}
+                          {url
+                            ? <a href={url} style={{ color: '#2b6cb0', textDecoration: 'underline' }}>{cert}</a>
+                            : cert}
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               )}
