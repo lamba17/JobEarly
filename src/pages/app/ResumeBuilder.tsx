@@ -1539,7 +1539,7 @@ body { margin: 0; padding: 0; background: #fff; }
 
             {/* Issues by section */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {['impact', 'brevity', 'style', 'personalInfo'].map(section => {
+              {[...new Set(analysisReport.issues.map(i => i.section))].map(section => {
                 const sectionIssues = analysisReport.issues
                   .map((i, globalIdx) => ({ ...i, globalIdx }))
                   .filter(i => i.section === section)
@@ -1550,7 +1550,13 @@ body { margin: 0; padding: 0; background: #fff; }
                   brevity: 'Brevity & Effectiveness',
                   style: 'Style & Sections',
                   personalInfo: 'Personal Info',
+                  experience: 'Work Experience',
+                  skills: 'Skills',
+                  education: 'Education',
+                  format: 'Resume Structure',
                 }
+
+                const sectionTitle = sectionIssues[0]?.sectionLabel || sectionLabels[section] || section
 
                 return (
                   <div key={section} style={{
@@ -1566,7 +1572,7 @@ body { margin: 0; padding: 0; background: #fff; }
                       fontSize: 13,
                       color: 'var(--text)',
                     }}>
-                      {sectionLabels[section]}
+                      {sectionTitle}
                     </div>
 
                     {sectionIssues.map((issue) => {
