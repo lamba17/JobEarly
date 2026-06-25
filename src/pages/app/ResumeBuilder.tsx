@@ -1111,7 +1111,7 @@ body { margin: 0; padding: 0; background: #fff; }
     <div className="builder-layout">
 
       {/* ── Left Panel ──────────────────────────────────────────── */}
-      <div className="builder-left" style={{ width: 390, overflow: 'hidden', padding: 0, gap: 0 }}>
+      <div className="builder-left" style={{ width: 390, overflow: 'hidden', padding: 0, gap: 0, display: showExportModal ? 'none' : undefined }}>
 
         {/* Tab switcher */}
         <div className="rb-tabs">
@@ -2514,169 +2514,205 @@ body { margin: 0; padding: 0; background: #fff; }
           </>
         )}
 
-        {/* ─── IMPROVEMENTS SIDE PANEL (overlays left panel) ─── */}
-        {showExportModal && analysisReport && (
+      </div>
+
+      {/* ─── IMPROVEMENTS SIDE PANEL (replaces left panel) ─── */}
+      {showExportModal && analysisReport && (
+        <div style={{
+          width: 390,
+          flexShrink: 0,
+          fontFamily: 'inherit',
+          display: 'flex',
+          flexDirection: 'column',
+          background: 'white',
+          borderRight: '1px solid #e5e7eb',
+          height: '100%',
+          overflow: 'hidden',
+          order: -1,
+        }}>
           <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            bottom: 0,
-            width: 390,
-            zIndex: 100,
-            fontFamily: 'inherit',
+            width: '100%',
+            height: '100%',
             display: 'flex',
             flexDirection: 'column',
           }}>
+            {/* Header */}
             <div style={{
-              background: 'white',
-              width: '100%',
-              height: '100%',
+              padding: '20px',
+              borderBottom: '1px solid #e5e7eb',
               display: 'flex',
-              flexDirection: 'column',
-              boxShadow: '4px 0 16px rgba(0, 0, 0, 0.08)',
-              borderRight: '1px solid #e5e7eb',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexShrink: 0,
             }}>
-              {/* Header */}
-              <div style={{
-                padding: '20px',
-                borderBottom: '1px solid #e5e7eb',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}>
-                <div>
-                  <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#1f2937' }}>All Improvements</h2>
-                  <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#6b7280' }}>
-                    Applied: {appliedImprovements.size} / {analysisReport?.issues.length || 0}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowExportModal(false)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    fontSize: 24,
-                    cursor: 'pointer',
-                    color: '#6b7280',
-                    padding: 0,
-                  }}
-                >
-                  <IcoX size={18} />
-                </button>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#1f2937' }}>All Improvements</h2>
+                <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#6b7280' }}>
+                  Applied: {appliedImprovements.size} / {analysisReport?.issues.length || 0}
+                </p>
               </div>
+              <button
+                onClick={() => setShowExportModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: 24,
+                  cursor: 'pointer',
+                  color: '#6b7280',
+                  padding: 0,
+                }}
+              >
+                <IcoX size={18} />
+              </button>
+            </div>
 
-              {/* Content */}
-              <div style={{
-                flex: 1,
-                overflow: 'auto',
-                padding: '20px',
-              }}>
-                {/* Group by section — dynamically collect all sections from the API response */}
-                {[...new Set(analysisReport.issues.map(i => i.section))].map(section => {
-                  const sectionIssues = analysisReport.issues
-                    .map((i, globalIdx) => ({ ...i, globalIdx }))
-                    .filter(issue => issue.section === section)
-                  if (sectionIssues.length === 0) return null
+            {/* Content */}
+            <div style={{
+              flex: 1,
+              overflow: 'auto',
+              padding: '20px',
+            }}>
+              {/* Group by section — dynamically collect all sections from the API response */}
+              {[...new Set(analysisReport.issues.map(i => i.section))].map(section => {
+                const sectionIssues = analysisReport.issues
+                  .map((i, globalIdx) => ({ ...i, globalIdx }))
+                  .filter(issue => issue.section === section)
+                if (sectionIssues.length === 0) return null
 
-                  const sectionLabel = sectionIssues[0]?.sectionLabel || ({
-                    personalInfo: 'Personal Information',
-                    impact: 'Impact & Accomplishments',
-                    brevity: 'Clarity & Brevity',
-                    style: 'Grammar & Professional Tone',
-                    experience: 'Work Experience',
-                    skills: 'Skills',
-                    education: 'Education',
-                    format: 'Resume Structure',
-                  } as Record<string, string>)[section] || section
+                const sectionLabel = sectionIssues[0]?.sectionLabel || ({
+                  personalInfo: 'Personal Information',
+                  impact: 'Impact & Accomplishments',
+                  brevity: 'Clarity & Brevity',
+                  style: 'Grammar & Professional Tone',
+                  experience: 'Work Experience',
+                  skills: 'Skills',
+                  education: 'Education',
+                  format: 'Resume Structure',
+                } as Record<string, string>)[section] || section
 
-                  return (
-                    <div key={section} style={{ marginBottom: 24 }}>
-                      <h3 style={{
-                        fontSize: 14,
-                        fontWeight: 700,
-                        color: '#1f2937',
-                        marginBottom: 12,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                      }}>
-                        <span style={{
-                          display: 'inline-block',
-                          width: 4,
-                          height: 4,
-                          borderRadius: '50%',
-                          background: '#3b82f6',
-                        }}></span>
-                        {sectionLabel}
-                      </h3>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                        {sectionIssues.map((issue) => {
-                          const idx = issue.globalIdx  // global index avoids cross-section collisions
-                          return (<div key={idx} style={{
-                            border: '1px solid #e5e7eb',
-                            borderRadius: 8,
-                            padding: 12,
-                            background: '#f9fafb',
+                return (
+                  <div key={section} style={{ marginBottom: 24 }}>
+                    <h3 style={{
+                      fontSize: 14,
+                      fontWeight: 700,
+                      color: '#1f2937',
+                      marginBottom: 12,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                    }}>
+                      <span style={{
+                        display: 'inline-block',
+                        width: 4,
+                        height: 4,
+                        borderRadius: '50%',
+                        background: '#3b82f6',
+                      }}></span>
+                      {sectionLabel}
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      {sectionIssues.map((issue) => {
+                        const idx = issue.globalIdx
+                        return (<div key={idx} style={{
+                          border: '1px solid #e5e7eb',
+                          borderRadius: 8,
+                          padding: 12,
+                          background: '#f9fafb',
+                        }}>
+                          <div style={{
+                            fontSize: 12,
+                            fontWeight: 600,
+                            color: '#6b7280',
+                            marginBottom: 6,
+                            display: 'flex',
+                            gap: 8,
+                            alignItems: 'center',
                           }}>
+                            <span style={{
+                              display: 'inline-block',
+                              width: 6,
+                              height: 6,
+                              borderRadius: '50%',
+                              background: issue.category === 'urgent' ? '#ef4444' : issue.category === 'critical' ? '#f97316' : '#84cc16',
+                            }}></span>
+                            {issue.category.toUpperCase()} — {issue.title}
+                          </div>
+                          <p style={{
+                            fontSize: 12,
+                            color: '#6b7280',
+                            margin: '6px 0',
+                            lineHeight: 1.4,
+                          }}>
+                            {issue.issue}
+                          </p>
+                          {issue.example && issue.example.before && issue.example.after && (
                             <div style={{
-                              fontSize: 12,
-                              fontWeight: 600,
-                              color: '#6b7280',
-                              marginBottom: 6,
+                              marginTop: 10,
                               display: 'flex',
+                              flexDirection: 'column',
                               gap: 8,
-                              alignItems: 'center',
                             }}>
-                              <span style={{
-                                display: 'inline-block',
-                                width: 6,
-                                height: 6,
-                                borderRadius: '50%',
-                                background: issue.category === 'urgent' ? '#ef4444' : issue.category === 'critical' ? '#f97316' : '#84cc16',
-                              }}></span>
-                              {issue.category.toUpperCase()} — {issue.title}
-                            </div>
-                            <p style={{
-                              fontSize: 12,
-                              color: '#6b7280',
-                              margin: '6px 0',
-                              lineHeight: 1.4,
-                            }}>
-                              {issue.issue}
-                            </p>
-                            {issue.example && issue.example.before && issue.example.after && (
                               <div style={{
-                                marginTop: 10,
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: 8,
+                                background: '#fef2f2',
+                                border: '1px solid #fca5a5',
+                                borderRadius: 6,
+                                padding: '8px 10px',
+                                fontSize: 11,
                               }}>
+                                <div style={{ fontWeight: 600, color: '#dc2626', marginBottom: 4 }}>Before:</div>
                                 <div style={{
-                                  background: '#fef2f2',
-                                  border: '1px solid #fca5a5',
-                                  borderRadius: 6,
-                                  padding: '8px 10px',
-                                  fontSize: 11,
+                                  color: '#7f1d1d',
+                                  fontFamily: 'monospace',
+                                  fontSize: 10,
+                                  wordBreak: 'break-word',
                                 }}>
-                                  <div style={{ fontWeight: 600, color: '#dc2626', marginBottom: 4 }}>Before:</div>
-                                  <div style={{
-                                    color: '#7f1d1d',
-                                    fontFamily: 'monospace',
+                                  {issue.example.before}
+                                </div>
+                                <button
+                                  onClick={() => {
+                                    if (issue.example) navigator.clipboard.writeText(issue.example.before)
+                                  }}
+                                  style={{
+                                    marginTop: 6,
+                                    padding: '4px 8px',
                                     fontSize: 10,
-                                    wordBreak: 'break-word',
-                                  }}>
-                                    {issue.example.before}
-                                  </div>
+                                    background: '#dc2626',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: 4,
+                                    cursor: 'pointer',
+                                    fontWeight: 500,
+                                  }}
+                                >
+                                  Copy
+                                </button>
+                              </div>
+                              <div style={{
+                                background: '#f0fdf4',
+                                border: '1px solid #86efac',
+                                borderRadius: 6,
+                                padding: '8px 10px',
+                                fontSize: 11,
+                              }}>
+                                <div style={{ fontWeight: 600, color: '#16a34a', marginBottom: 4 }}>After:</div>
+                                <div style={{
+                                  color: '#15803d',
+                                  fontFamily: 'monospace',
+                                  fontSize: 10,
+                                  wordBreak: 'break-word',
+                                }}>
+                                  {issue.example.after}
+                                </div>
+                                <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
                                   <button
                                     onClick={() => {
-                                      if (issue.example) navigator.clipboard.writeText(issue.example.before)
-                                      alert('Copied to clipboard!')
+                                      if (issue.example) navigator.clipboard.writeText(issue.example.after)
                                     }}
                                     style={{
-                                      marginTop: 6,
+                                      flex: 1,
                                       padding: '4px 8px',
                                       fontSize: 10,
-                                      background: '#dc2626',
+                                      background: '#16a34a',
                                       color: 'white',
                                       border: 'none',
                                       borderRadius: 4,
@@ -2686,189 +2722,146 @@ body { margin: 0; padding: 0; background: #fff; }
                                   >
                                     Copy
                                   </button>
-                                </div>
-                                <div style={{
-                                  background: '#f0fdf4',
-                                  border: '1px solid #86efac',
-                                  borderRadius: 6,
-                                  padding: '8px 10px',
-                                  fontSize: 11,
-                                }}>
-                                  <div style={{ fontWeight: 600, color: '#16a34a', marginBottom: 4 }}>After:</div>
-                                  <div style={{
-                                    color: '#15803d',
-                                    fontFamily: 'monospace',
-                                    fontSize: 10,
-                                    wordBreak: 'break-word',
-                                  }}>
-                                    {issue.example.after}
-                                  </div>
-                                  <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-                                    <button
-                                      onClick={() => {
-                                        if (issue.example) navigator.clipboard.writeText(issue.example.after)
-                                        alert('Copied to clipboard!')
-                                      }}
-                                      style={{
-                                        flex: 1,
-                                        padding: '4px 8px',
-                                        fontSize: 10,
-                                        background: '#16a34a',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: 4,
-                                        cursor: 'pointer',
-                                        fontWeight: 500,
-                                      }}
-                                    >
-                                      Copy
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        if (analysisReport && issue.example) {
-                                          const rawBefore = issue.example.before.replace(/^[•\-*]\s*/, '').trim()
-                                          const after = issue.example.after.replace(/^[•\-*]\s*/, '').trim()
+                                  <button
+                                    onClick={() => {
+                                      if (analysisReport && issue.example) {
+                                        const rawBefore = issue.example.before.replace(/^[•\-*]\s*/, '').trim()
+                                        const after = issue.example.after.replace(/^[•\-*]\s*/, '').trim()
 
-                                          const toWords = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 2)
-                                          const beforeWords = toWords(rawBefore)
+                                        const toWords = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 2)
+                                        const beforeWords = toWords(rawBefore)
 
-                                          const matchText = (text: string) => {
-                                            if (!text) return false
-                                            const t = text.toLowerCase()
-                                            if (t.includes(rawBefore.toLowerCase())) return true
-                                            if (t.includes(rawBefore.slice(0, 60).toLowerCase())) return true
-                                            // Fuzzy: if 50%+ of significant words from "before" appear in the text
-                                            if (beforeWords.length >= 3) {
-                                              const hits = beforeWords.filter(w => t.includes(w)).length
-                                              return hits / beforeWords.length >= 0.5
-                                            }
-                                            return false
+                                        const matchText = (text: string) => {
+                                          if (!text) return false
+                                          const t = text.toLowerCase()
+                                          if (t.includes(rawBefore.toLowerCase())) return true
+                                          if (t.includes(rawBefore.slice(0, 60).toLowerCase())) return true
+                                          if (beforeWords.length >= 3) {
+                                            const hits = beforeWords.filter(w => t.includes(w)).length
+                                            return hits / beforeWords.length >= 0.5
                                           }
-
-                                          // Update workExp bullets and titles
-                                          setWorkExp(prev => prev.map(exp => {
-                                            const newBullets = (exp.bullets || []).map(bullet =>
-                                              matchText(bullet) ? after : bullet
-                                            )
-                                            const newTitle = exp.title && matchText(exp.title) ? after : exp.title
-                                            return { ...exp, bullets: newBullets, title: newTitle }
-                                          }))
-
-                                          // Update summary
-                                          setSummary(prev => matchText(prev) ? after : prev)
-
-                                          // Update skills
-                                          setSkills(prev =>
-                                            prev.map(skill => matchText(skill) ? after : skill)
-                                          )
-
-                                          // Update education
-                                          setEducation(prev => prev.map(edu => {
-                                            const newActivities = (edu.activities || []).map(b =>
-                                              matchText(b) ? after : b
-                                            )
-                                            const newDegree = matchText(edu.degree) ? after : edu.degree
-                                            return { ...edu, activities: newActivities, degree: newDegree }
-                                          }))
-
-                                          // Always mark as applied so user gets feedback
-                                          setAppliedImprovements(prev => new Set([...prev, idx]))
+                                          return false
                                         }
-                                      }}
-                                      disabled={appliedImprovements.has(idx)}
-                                      style={{
-                                        flex: 1,
-                                        padding: '4px 8px',
-                                        fontSize: 10,
-                                        background: appliedImprovements.has(idx) ? '#9ca3af' : '#059669',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: 4,
-                                        cursor: appliedImprovements.has(idx) ? 'not-allowed' : 'pointer',
-                                        fontWeight: 500,
-                                        opacity: appliedImprovements.has(idx) ? 0.7 : 1,
-                                      }}
-                                    >
-                                      {appliedImprovements.has(idx) ? '✓ Applied' : 'Apply'}
-                                    </button>
-                                  </div>
+
+                                        setWorkExp(prev => prev.map(exp => {
+                                          const newBullets = (exp.bullets || []).map(bullet =>
+                                            matchText(bullet) ? after : bullet
+                                          )
+                                          const newTitle = exp.title && matchText(exp.title) ? after : exp.title
+                                          return { ...exp, bullets: newBullets, title: newTitle }
+                                        }))
+
+                                        setSummary(prev => matchText(prev) ? after : prev)
+
+                                        setSkills(prev =>
+                                          prev.map(skill => matchText(skill) ? after : skill)
+                                        )
+
+                                        setEducation(prev => prev.map(edu => {
+                                          const newActivities = (edu.activities || []).map(b =>
+                                            matchText(b) ? after : b
+                                          )
+                                          const newDegree = matchText(edu.degree) ? after : edu.degree
+                                          return { ...edu, activities: newActivities, degree: newDegree }
+                                        }))
+
+                                        setAppliedImprovements(prev => new Set([...prev, idx]))
+                                      }
+                                    }}
+                                    disabled={appliedImprovements.has(idx)}
+                                    style={{
+                                      flex: 1,
+                                      padding: '4px 8px',
+                                      fontSize: 10,
+                                      background: appliedImprovements.has(idx) ? '#9ca3af' : '#059669',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: 4,
+                                      cursor: appliedImprovements.has(idx) ? 'not-allowed' : 'pointer',
+                                      fontWeight: 500,
+                                      opacity: appliedImprovements.has(idx) ? 0.7 : 1,
+                                    }}
+                                  >
+                                    {appliedImprovements.has(idx) ? '✓ Applied' : 'Apply'}
+                                  </button>
                                 </div>
                               </div>
-                            )}
-                          </div>
-                          )
-                        })}
-                      </div>
+                            </div>
+                          )}
+                        </div>
+                        )
+                      })}
                     </div>
-                  )
-                })}
-              </div>
+                  </div>
+                )
+              })}
+            </div>
 
-              {/* Footer */}
-              <div style={{
-                padding: '16px 20px',
-                borderTop: '1px solid #e5e7eb',
-                display: 'flex',
-                gap: 10,
-                justifyContent: 'flex-end',
-              }}>
-                <button
-                  onClick={() => {
-                    const text = analysisReport.issues
-                      .map(issue => `${issue.sectionLabel} > ${issue.category.toUpperCase()}\n${issue.title}\n${issue.issue}\n${issue.example ? `Before: "${issue.example.before}"\nAfter: "${issue.example.after}"` : ''}`)
-                      .join('\n\n---\n\n')
-                    const blob = new Blob([text], { type: 'text/plain' })
-                    const url = URL.createObjectURL(blob)
-                    const a = document.createElement('a')
-                    a.href = url
-                    a.download = 'resume-improvements.txt'
-                    a.click()
-                    URL.revokeObjectURL(url)
-                  }}
-                  style={{
-                    padding: '8px 16px',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    background: '#e5e7eb',
-                    color: '#1f2937',
-                    border: 'none',
-                    borderRadius: 6,
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                  }}
-                >
-                  <IconDownload size={13} /> Download as TXT
-                </button>
-                <button
-                  onClick={() => {
-                    setShowExportModal(false)
-                    setActiveTab('editor')
-                  }}
-                  style={{
-                    padding: '8px 16px',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    background: 'var(--accent)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: 6,
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                  }}
-                >
-                  Continue to Editor
-                </button>
-              </div>
+            {/* Footer */}
+            <div style={{
+              padding: '16px 20px',
+              borderTop: '1px solid #e5e7eb',
+              display: 'flex',
+              gap: 10,
+              justifyContent: 'flex-end',
+              flexShrink: 0,
+            }}>
+              <button
+                onClick={() => {
+                  const text = analysisReport.issues
+                    .map(issue => `${issue.sectionLabel} > ${issue.category.toUpperCase()}\n${issue.title}\n${issue.issue}\n${issue.example ? `Before: "${issue.example.before}"\nAfter: "${issue.example.after}"` : ''}`)
+                    .join('\n\n---\n\n')
+                  const blob = new Blob([text], { type: 'text/plain' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = 'resume-improvements.txt'
+                  a.click()
+                  URL.revokeObjectURL(url)
+                }}
+                style={{
+                  padding: '8px 16px',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  background: '#e5e7eb',
+                  color: '#1f2937',
+                  border: 'none',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <IconDownload size={13} /> Download as TXT
+              </button>
+              <button
+                onClick={() => {
+                  setShowExportModal(false)
+                  setActiveTab('editor')
+                }}
+                style={{
+                  padding: '8px 16px',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  background: 'var(--accent)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                Continue to Editor
+              </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

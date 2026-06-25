@@ -1028,7 +1028,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 /* ═══════════════════════════════════════════════
    RESUME BUILDER
 ═══════════════════════════════════════════════ */
-.builder-layout { display: flex; height: calc(100vh - 56px); overflow: hidden; margin: -24px -28px; position: relative; }
+.builder-layout { display: flex; height: calc(100vh - 56px); overflow: hidden; margin: -24px -28px; }
 
 /* Tab switcher */
 .rb-tabs {
