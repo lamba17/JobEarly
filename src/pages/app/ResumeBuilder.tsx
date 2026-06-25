@@ -822,6 +822,10 @@ export default function ResumeBuilder() {
   const [analysisError, setAnalysisError] = useState('')
   const [showExportModal, setShowExportModal] = useState(false)
   const [appliedImprovements, setAppliedImprovements] = useState<Set<number>>(new Set())
+  const [preApplySnapshots, setPreApplySnapshots] = useState<Record<number, {
+    workExp: WorkExp[]; skills: string[]; skillCategories: SkillCategory[]
+    summary: string; education: EduEntry[]; certifications: string[]
+  }>>({})
   const fileInputRef                      = useRef<HTMLInputElement>(null)
   const [showCustomize, setShowCustomize] = useState(false)
   const [showShare, setShowShare]       = useState(false)
@@ -2725,8 +2729,26 @@ body { margin: 0; padding: 0; background: #fff; }
                                   <button
                                     onClick={() => {
                                       if (analysisReport && issue.example) {
-                                        const rawBefore = issue.example.before.replace(/^[•\-*]\s*/, '').trim()
-                                        const after = issue.example.after.replace(/^[•\-*]\s*/, '').trim()
+                                        // Save snapshot before applying
+                                        setPreApplySnapshots(prev => ({ ...prev, [idx]: {
+                                          workExp: JSON.parse(JSON.stringify(workExp)),
+                                          skills: [...skills],
+                                          skillCategories: JSON.parse(JSON.stringify(skillCategories)),
+                                          summary,
+                                          education: JSON.parse(JSON.stringify(education)),
+                                          certifications: [...certifications],
+                                        }}))
+
+                                        const rawBefore = issue.example.before
+                                          .replace(/^["']|["']$/g, '')
+                                          .replace(/^[•\-*]\s*/, '')
+                                          .replace(/^[A-Z\s&]+:\s*/i, '')
+                                          .trim()
+                                        const after = issue.example.after
+                                          .replace(/^["']|["']$/g, '')
+                                          .replace(/^[•\-*]\s*/, '')
+                                          .replace(/^[A-Z\s&]+:\s*/i, '')
+                                          .trim()
 
                                         const toWords = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 2)
                                         const beforeWords = toWords(rawBefore)
@@ -2734,11 +2756,13 @@ body { margin: 0; padding: 0; background: #fff; }
                                         const matchText = (text: string) => {
                                           if (!text) return false
                                           const t = text.toLowerCase()
-                                          if (t.includes(rawBefore.toLowerCase())) return true
-                                          if (t.includes(rawBefore.slice(0, 60).toLowerCase())) return true
-                                          if (beforeWords.length >= 3) {
+                                          const b = rawBefore.toLowerCase()
+                                          if (t.includes(b) || b.includes(t)) return true
+                                          if (b.length > 10 && t.includes(b.slice(0, 40))) return true
+                                          if (beforeWords.length >= 2) {
                                             const hits = beforeWords.filter(w => t.includes(w)).length
-                                            return hits / beforeWords.length >= 0.5
+                                            const threshold = beforeWords.length <= 4 ? 0.4 : 0.5
+                                            return hits / beforeWords.length >= threshold
                                           }
                                           return false
                                         }
@@ -2753,8 +2777,16 @@ body { margin: 0; padding: 0; background: #fff; }
 
                                         setSummary(prev => matchText(prev) ? after : prev)
 
+                                        const afterSkill = after.replace(/^[A-Z\s&]+:\s*/i, '').trim()
                                         setSkills(prev =>
-                                          prev.map(skill => matchText(skill) ? after : skill)
+                                          prev.map(skill => matchText(skill) ? afterSkill : skill)
+                                        )
+
+                                        setSkillCategories(prev =>
+                                          prev.map(cat => ({
+                                            ...cat,
+                                            skills: cat.skills.map(s => matchText(s) ? afterSkill : s),
+                                          }))
                                         )
 
                                         setEducation(prev => prev.map(edu => {
@@ -2764,6 +2796,10 @@ body { margin: 0; padding: 0; background: #fff; }
                                           const newDegree = matchText(edu.degree) ? after : edu.degree
                                           return { ...edu, activities: newActivities, degree: newDegree }
                                         }))
+
+                                        setCertifications(prev =>
+                                          prev.map(cert => matchText(cert) ? after : cert)
+                                        )
 
                                         setAppliedImprovements(prev => new Set([...prev, idx]))
                                       }
@@ -2784,6 +2820,42 @@ body { margin: 0; padding: 0; background: #fff; }
                                   >
                                     {appliedImprovements.has(idx) ? '✓ Applied' : 'Apply'}
                                   </button>
+                                  {appliedImprovements.has(idx) && preApplySnapshots[idx] && (
+                                    <button
+                                      onClick={() => {
+                                        const snap = preApplySnapshots[idx]
+                                        setWorkExp(snap.workExp)
+                                        setSkills(snap.skills)
+                                        setSkillCategories(snap.skillCategories)
+                                        setSummary(snap.summary)
+                                        setEducation(snap.education)
+                                        setCertifications(snap.certifications)
+                                        setAppliedImprovements(prev => {
+                                          const next = new Set(prev)
+                                          next.delete(idx)
+                                          return next
+                                        })
+                                        setPreApplySnapshots(prev => {
+                                          const next = { ...prev }
+                                          delete next[idx]
+                                          return next
+                                        })
+                                      }}
+                                      style={{
+                                        flex: 1,
+                                        padding: '4px 8px',
+                                        fontSize: 10,
+                                        background: '#dc2626',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: 4,
+                                        cursor: 'pointer',
+                                        fontWeight: 500,
+                                      }}
+                                    >
+                                      Revert
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             </div>

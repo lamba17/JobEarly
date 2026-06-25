@@ -70,13 +70,13 @@ export default async function handler(
   try {
     const client = new Anthropic({ apiKey })
 
-    const prompt = `Analyze resume vs job description. Find 5-8 specific improvements.
+    const prompt = `Analyze resume vs job description. Find 5-8 specific improvements covering ALL work experience entries, not just the first one.
 
-Resume (first 2000 chars):
-${resumeText.slice(0, 2000)}
+Resume:
+${resumeText.slice(0, 6000)}
 
-Job Description (first 1000 chars):
-${jobDescription.slice(0, 1000)}
+Job Description:
+${jobDescription.slice(0, 2000)}
 
 Return ONLY valid JSON with no markdown, no code blocks, no explanation. Keep "before" and "after" values SHORT (under 100 chars each) and escape any quotes inside them:
 {
