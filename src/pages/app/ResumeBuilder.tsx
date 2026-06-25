@@ -1108,10 +1108,7 @@ body { margin: 0; padding: 0; background: #fff; }
   }
 
   return (
-    <div className="builder-layout" style={{
-      marginLeft: showExportModal ? 420 : 0,
-      transition: 'margin-left 0.3s ease',
-    }}>
+    <div className="builder-layout">
 
       {/* ── Left Panel ──────────────────────────────────────────── */}
       <div className="builder-left" style={{ width: 390, overflow: 'hidden', padding: 0, gap: 0 }}>
@@ -2517,15 +2514,15 @@ body { margin: 0; padding: 0; background: #fff; }
           </>
         )}
 
-        {/* ─── IMPROVEMENTS SIDE PANEL ─── */}
+        {/* ─── IMPROVEMENTS SIDE PANEL (overlays left panel) ─── */}
         {showExportModal && analysisReport && (
           <div style={{
-            position: 'fixed',
+            position: 'absolute',
             top: 0,
             left: 0,
             bottom: 0,
-            width: '420px',
-            zIndex: 1000,
+            width: 390,
+            zIndex: 100,
             fontFamily: 'inherit',
             display: 'flex',
             flexDirection: 'column',
@@ -2536,7 +2533,7 @@ body { margin: 0; padding: 0; background: #fff; }
               height: '100%',
               display: 'flex',
               flexDirection: 'column',
-              boxShadow: '4px 0 24px rgba(0, 0, 0, 0.12)',
+              boxShadow: '4px 0 16px rgba(0, 0, 0, 0.08)',
               borderRight: '1px solid #e5e7eb',
             }}>
               {/* Header */}
