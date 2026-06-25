@@ -2721,46 +2721,52 @@ body { margin: 0; padding: 0; background: #fff; }
                                     <button
                                       onClick={() => {
                                         if (analysisReport && issue.example) {
-                                          // Strip bullet markers and trim — AI often includes "• " prefix
                                           const rawBefore = issue.example.before.replace(/^[•\-*]\s*/, '').trim()
                                           const after = issue.example.after.replace(/^[•\-*]\s*/, '').trim()
 
-                                          // Use first 60 chars as match key (AI may truncate or paraphrase)
-                                          const matchKey = rawBefore.slice(0, 60).toLowerCase()
+                                          const toWords = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 2)
+                                          const beforeWords = toWords(rawBefore)
 
                                           const matchText = (text: string) => {
+                                            if (!text) return false
                                             const t = text.toLowerCase()
-                                            // Exact match or starts-with match
-                                            return t.includes(rawBefore.toLowerCase()) || t.includes(matchKey)
+                                            if (t.includes(rawBefore.toLowerCase())) return true
+                                            if (t.includes(rawBefore.slice(0, 60).toLowerCase())) return true
+                                            // Fuzzy: if 50%+ of significant words from "before" appear in the text
+                                            if (beforeWords.length >= 3) {
+                                              const hits = beforeWords.filter(w => t.includes(w)).length
+                                              return hits / beforeWords.length >= 0.5
+                                            }
+                                            return false
                                           }
 
-                                          const replaceText = (text: string) => {
-                                            // Try exact replace first
-                                            if (text.includes(rawBefore)) return text.replace(rawBefore, after)
-                                            // Fall back to replacing the whole bullet with the after text
-                                            if (matchText(text)) return after
-                                            return text
-                                          }
+                                          // Update workExp bullets and titles
+                                          setWorkExp(prev => prev.map(exp => {
+                                            const newBullets = (exp.bullets || []).map(bullet =>
+                                              matchText(bullet) ? after : bullet
+                                            )
+                                            const newTitle = exp.title && matchText(exp.title) ? after : exp.title
+                                            return { ...exp, bullets: newBullets, title: newTitle }
+                                          }))
 
-                                          // Update workExp form state (what the template renders)
-                                          setWorkExp(prev => prev.map(exp => ({
-                                            ...exp,
-                                            bullets: (exp.bullets || []).map(bullet =>
-                                              matchText(bullet) ? replaceText(bullet) : bullet
-                                            ),
-                                            title: exp.title && matchText(exp.title)
-                                              ? replaceText(exp.title)
-                                              : exp.title,
-                                          })))
+                                          // Update summary
+                                          setSummary(prev => matchText(prev) ? after : prev)
 
-                                          // Update summary form state
-                                          setSummary(prev => matchText(prev) ? replaceText(prev) : prev)
-
-                                          // Update skills form state
+                                          // Update skills
                                           setSkills(prev =>
-                                            prev.map(skill => matchText(skill) ? replaceText(skill) : skill)
+                                            prev.map(skill => matchText(skill) ? after : skill)
                                           )
 
+                                          // Update education
+                                          setEducation(prev => prev.map(edu => {
+                                            const newActivities = (edu.activities || []).map(b =>
+                                              matchText(b) ? after : b
+                                            )
+                                            const newDegree = matchText(edu.degree) ? after : edu.degree
+                                            return { ...edu, activities: newActivities, degree: newDegree }
+                                          }))
+
+                                          // Always mark as applied so user gets feedback
                                           setAppliedImprovements(prev => new Set([...prev, idx]))
                                         }
                                       }}
