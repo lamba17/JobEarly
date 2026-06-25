@@ -1108,7 +1108,10 @@ body { margin: 0; padding: 0; background: #fff; }
   }
 
   return (
-    <div className="builder-layout">
+    <div className="builder-layout" style={{
+      marginLeft: showExportModal ? 420 : 0,
+      transition: 'margin-left 0.3s ease',
+    }}>
 
       {/* ── Left Panel ──────────────────────────────────────────── */}
       <div className="builder-left" style={{ width: 390, overflow: 'hidden', padding: 0, gap: 0 }}>
@@ -2514,28 +2517,27 @@ body { margin: 0; padding: 0; background: #fff; }
           </>
         )}
 
-        {/* ─── EXPORT IMPROVEMENTS MODAL ─── */}
+        {/* ─── IMPROVEMENTS SIDE PANEL ─── */}
         {showExportModal && analysisReport && (
           <div style={{
             position: 'fixed',
-            inset: 0,
-            background: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            top: 0,
+            left: 0,
+            bottom: 0,
+            width: '420px',
             zIndex: 1000,
-            padding: '20px',
             fontFamily: 'inherit',
+            display: 'flex',
+            flexDirection: 'column',
           }}>
             <div style={{
               background: 'white',
-              borderRadius: 12,
-              maxWidth: '800px',
               width: '100%',
-              maxHeight: '80vh',
+              height: '100%',
               display: 'flex',
               flexDirection: 'column',
-              boxShadow: '0 20px 25px rgba(0, 0, 0, 0.15)',
+              boxShadow: '4px 0 24px rgba(0, 0, 0, 0.12)',
+              borderRight: '1px solid #e5e7eb',
             }}>
               {/* Header */}
               <div style={{
