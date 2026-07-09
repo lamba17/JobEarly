@@ -2077,13 +2077,23 @@ body { margin: 0; padding: 0; background: #fff; }
                 <h3 className="rb-form-title">Community Service & Interests</h3>
                 <div style={{ marginBottom: 12 }}>
                   <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--text)' }}>Community Service</p>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
                     {communityService.map((service, i) => (
-                      <div key={i} className="rb-skill-chip">
-                        {service}
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <input
+                          type="text"
+                          value={service}
+                          onChange={e => {
+                            const updated = [...communityService]
+                            updated[i] = e.target.value
+                            setCommunityService(updated)
+                          }}
+                          className="rb-form-input"
+                          style={{ flex: 1 }}
+                        />
                         <button
                           onClick={() => setCommunityService(communityService.filter((_, idx) => idx !== i))}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', marginLeft: 4, fontSize: 14 }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#9ca3af', flexShrink: 0 }}
                         >
                           ×
                         </button>
@@ -2121,13 +2131,23 @@ body { margin: 0; padding: 0; background: #fff; }
 
                 <div>
                   <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--text)' }}>Interests & Hobbies</p>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
                     {interests.map((interest, i) => (
-                      <div key={i} className="rb-skill-chip">
-                        {interest}
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <input
+                          type="text"
+                          value={interest}
+                          onChange={e => {
+                            const updated = [...interests]
+                            updated[i] = e.target.value
+                            setInterests(updated)
+                          }}
+                          className="rb-form-input"
+                          style={{ flex: 1 }}
+                        />
                         <button
                           onClick={() => setInterests(interests.filter((_, idx) => idx !== i))}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', marginLeft: 4, fontSize: 14 }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#9ca3af', flexShrink: 0 }}
                         >
                           ×
                         </button>
