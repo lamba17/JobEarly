@@ -225,6 +225,7 @@ export default function JobMatch() {
   const [roleSearch,   setRoleSearch]   = useState('')
   const [companySearch,setCompanySearch] = useState('')
   const [dateFilter,   setDateFilter]   = useState('Any Time')
+  const [portalFilter, setPortalFilter] = useState<'all' | 'linkedin' | 'indeed' | 'naukri'>('all')
   const [detailJob,    setDetailJob]    = useState<Job | null>(null)
   const [applyJob,     setApplyJob]     = useState<Job | null>(null)
 
@@ -238,6 +239,7 @@ export default function JobMatch() {
     setRoleSearch('')
     setCompanySearch('')
     setDateFilter('Any Time')
+    setPortalFilter('all')
   }
 
   const relevantJobs = [...allJobs].sort((a, b) => {
@@ -258,6 +260,7 @@ export default function JobMatch() {
     if (dateFilter === 'Last Month'    && j.postedDaysAgo > 30) return false
     if (roleSearch    && !j.role.toLowerCase().includes(roleSearch.toLowerCase()))       return false
     if (companySearch && !j.company.toLowerCase().includes(companySearch.toLowerCase())) return false
+    if (portalFilter !== 'all' && !j.portals.includes(portalFilter)) return false
     return true
   })
 
@@ -351,6 +354,52 @@ export default function JobMatch() {
         </div>
       </div>
 
+      {/* Portal filter */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-mute)', letterSpacing: '0.06em', textTransform: 'uppercase', flexShrink: 0 }}>Portal:</span>
+        <button
+          onClick={() => setPortalFilter('all')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 5, padding: '5px 13px',
+            borderRadius: 8, border: `1.5px solid ${portalFilter === 'all' ? 'var(--border-strong)' : 'var(--border)'}`,
+            background: portalFilter === 'all' ? 'var(--bg-soft)' : 'transparent',
+            color: portalFilter === 'all' ? 'var(--text)' : 'var(--text-mute)',
+            fontWeight: portalFilter === 'all' ? 700 : 500, fontSize: 12.5,
+            cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+          }}
+        >
+          All Portals
+        </button>
+        {(['linkedin', 'indeed', 'naukri'] as const).map(p => {
+          const m = PORTAL_META[p]
+          const active = portalFilter === p
+          return (
+            <button
+              key={p}
+              onClick={() => setPortalFilter(active ? 'all' : p)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '5px 13px',
+                borderRadius: 8, border: `1.5px solid ${active ? m.color : 'var(--border)'}`,
+                background: active ? `${m.color}15` : 'transparent',
+                color: active ? m.color : 'var(--text-mute)',
+                fontWeight: active ? 700 : 500, fontSize: 12.5,
+                cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+              }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', width: 16, height: 16, flexShrink: 0, overflow: 'hidden', transform: 'scale(0.8)', transformOrigin: 'center' }}>
+                {m.icon}
+              </span>
+              {m.name}
+            </button>
+          )
+        })}
+        {portalFilter !== 'all' && (
+          <span style={{ fontSize: 11.5, color: 'var(--text-mute)', marginLeft: 4 }}>
+            — Quick Apply will go directly to <b style={{ color: PORTAL_META[portalFilter].color }}>{PORTAL_META[portalFilter].name}</b>
+          </span>
+        )}
+      </div>
+
       {/* Notices */}
       <div style={{ background: 'var(--blue-50)', border: '1px solid var(--blue-200)', borderRadius: 8, padding: '9px 14px', marginBottom: 10, fontSize: 13, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 8 }}>
         {countryMeta.flag} Showing jobs in <b>{countryMeta.label}</b>. Salaries in <b>{countryMeta.currency}</b>. Switch country above to explore other markets.
@@ -405,7 +454,19 @@ export default function JobMatch() {
                 </div>
                 <div className="jc-actions">
                   <button className="btn-jc-secondary" onClick={() => setDetailJob(job)}>Details</button>
-                  <button className="btn-jc-primary" onClick={() => setApplyJob(job)}>Quick Apply</button>
+                  <button
+                    className="btn-jc-primary"
+                    onClick={() => {
+                      if (portalFilter !== 'all') {
+                        openPortal(portalFilter, job)
+                      } else {
+                        setApplyJob(job)
+                      }
+                    }}
+                    style={portalFilter !== 'all' ? { background: PORTAL_META[portalFilter].color } : undefined}
+                  >
+                    Quick Apply{portalFilter !== 'all' ? ` · ${PORTAL_META[portalFilter].name}` : ''}
+                  </button>
                 </div>
               </div>
             </div>
