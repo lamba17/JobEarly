@@ -138,16 +138,32 @@ function formatPosted(days: number): string {
 }
 
 function getPortalUrl(key: string, job: Job, country: string) {
-  const combined = encodeURIComponent(`${job.role} ${job.company}`)
-  const citySlug = toSlug(job.loc.split(',')[0].trim())
-  const cityEnc  = encodeURIComponent(job.loc.split(',')[0].trim())
-  if (key === 'linkedin') return `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(`${job.role} ${job.company}`)}&location=${encodeURIComponent(job.loc)}&f_TPR=r2592000`
-  if (key === 'indeed') {
-    if (country === 'IN') return `https://in.indeed.com/jobs?q=${combined}&l=${cityEnc}`
-    if (country === 'CA') return `https://ca.indeed.com/jobs?q=${combined}&l=${encodeURIComponent(job.loc)}`
-    return `https://www.indeed.com/jobs?q=${combined}&l=${encodeURIComponent(job.loc)}`
+  const roleEnc    = encodeURIComponent(job.role)
+  const combined   = encodeURIComponent(`${job.role} ${job.company}`)
+  const citySlug   = toSlug(job.loc.split(',')[0].trim())
+  const cityEnc    = encodeURIComponent(job.loc.split(',')[0].trim())
+  const companyEnc = encodeURIComponent(job.company)
+  const roleSlug   = toSlug(job.role)
+
+  if (key === 'linkedin') {
+    // LinkedIn: keyword = "role at company", location, last 30 days
+    return `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(`${job.role} at ${job.company}`)}&location=${encodeURIComponent(job.loc)}&f_TPR=r2592000`
   }
-  if (key === 'naukri')   return `https://www.naukri.com/${toSlug(job.role)}-${toSlug(job.company)}-jobs-in-${citySlug}`
+  if (key === 'indeed') {
+    // Indeed: search "role company", location, sorted by relevance
+    const base = country === 'IN' ? 'https://in.indeed.com'
+               : country === 'CA' ? 'https://ca.indeed.com'
+               : 'https://www.indeed.com'
+    const loc = job.loc.toLowerCase().includes('remote') ? '' : `&l=${cityEnc}`
+    return `${base}/jobs?q=${combined}${loc}&sort=relevance`
+  }
+  if (key === 'naukri') {
+    // Naukri: use standard role+city SEO URL; pass company as keyword refinement (qp)
+    if (job.loc.toLowerCase().includes('remote')) {
+      return `https://www.naukri.com/${roleSlug}-work-from-home-jobs?qp=${roleEnc}&company=${companyEnc}`
+    }
+    return `https://www.naukri.com/${roleSlug}-jobs-in-${citySlug}?qp=${roleEnc}&company=${companyEnc}`
+  }
   return '#'
 }
 
