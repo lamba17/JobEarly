@@ -836,7 +836,7 @@ export default function ResumeBuilder() {
   // Customization state
   const [selectedTemplate, setSelectedTemplate] = useState('editorial')
   const [resumeAccent, setResumeAccent] = useState('#2563EB')
-  const [selectedFont, setSelectedFont] = useState('georgia')
+  const [selectedFont, setSelectedFont] = useState('times')
 
   // Form state - resume fields
   const [name, setName] = useState('')
@@ -2294,16 +2294,16 @@ body { margin: 0; padding: 0; background: #fff; }
           ) : (
             <div className="resume-doc" style={{ fontFamily: resumeFont, transform: `scale(${zoom / 100})`, transformOrigin: 'top center', padding: '48px', background: 'white', color: '#2d3748', fontSize: '10.5px', lineHeight: '1.5' }}>
               {/* Header */}
-              <div style={{ marginBottom: '20px', textAlign: 'center' }}>
-                <div style={{ fontSize: '20px', fontWeight: 800, color: '#1a202c', letterSpacing: '-0.5px', marginBottom: '3px' }}>{name || 'Your Name'}</div>
-                {jobTitle && <div style={{ fontSize: '13px', fontWeight: 700, color: resumeAccent || '#2d3748', letterSpacing: '0.5px', marginBottom: '8px' }}>{jobTitle}</div>}
-                <div style={{ fontSize: '9.5px', color: '#4a5568', letterSpacing: '0.3px', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '0 4px' }}>
+              <div style={{ marginBottom: '16px', textAlign: 'center' }}>
+                <div style={{ fontSize: '22px', fontWeight: 400, color: '#1a202c', letterSpacing: '0px', marginBottom: '4px' }}>{name || 'Your Name'}</div>
+                {jobTitle && <div style={{ fontSize: '11px', fontWeight: 400, color: '#2d3748', letterSpacing: '0.3px', marginBottom: '5px' }}>{jobTitle}</div>}
+                <div style={{ fontSize: '9.5px', color: '#2d3748', letterSpacing: '0.3px', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '0 6px' }}>
                   {phone && <span>{phone}</span>}
-                  {phone && (email || location || linkedin) && <span style={{ color: '#a0aec0' }}>•</span>}
+                  {phone && (email || location || linkedin) && <span style={{ color: '#718096' }}>|</span>}
                   {email && <a href={`mailto:${email}`} style={{ color: '#2b6cb0', textDecoration: 'underline' }}>{email}</a>}
-                  {email && (location || linkedin) && <span style={{ color: '#a0aec0' }}>•</span>}
+                  {email && (location || linkedin) && <span style={{ color: '#718096' }}>|</span>}
                   {location && <span>{location}</span>}
-                  {location && linkedin && <span style={{ color: '#a0aec0' }}>•</span>}
+                  {location && linkedin && <span style={{ color: '#718096' }}>|</span>}
                   {linkedin && <a href={linkedin.startsWith('http') ? linkedin : `https://${linkedin}`} style={{ color: '#2b6cb0', textDecoration: 'underline' }}>LinkedIn</a>}
                 </div>
               </div>
@@ -2322,17 +2322,19 @@ body { margin: 0; padding: 0; background: #fff; }
                   <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#1a202c', borderBottom: '1.5px solid #2d3748', paddingBottom: '5px', marginBottom: '10px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Work Experience</div>
                   {workExp.map((exp, idx) => (
                     <div key={exp.id} style={{ marginBottom: idx < workExp.length - 1 ? '12px' : '0px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '2px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '1px' }}>
                         <div style={{ fontWeight: 700, color: '#1a202c', fontSize: '10.8px' }}>{exp.company || 'Company'}</div>
-                        <div style={{ fontSize: '9.5px', color: '#4a5568', fontWeight: 500 }}>{exp.period}</div>
+                        <div style={{ fontSize: '9.5px', color: '#1a202c', fontWeight: 700 }}>{exp.period}</div>
                       </div>
-                      {exp.location && (
-                        <div style={{ fontSize: '9.5px', color: '#4a5568', marginBottom: '3px', fontWeight: 500 }}>
-                          {exp.location}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '5px' }}>
+                        <div style={{ fontSize: '10.5px', color: '#1a202c', fontStyle: 'italic', fontWeight: 400 }}>
+                          {exp.title || 'Job Title'}
                         </div>
-                      )}
-                      <div style={{ fontSize: '10.5px', color: '#1a202c', marginBottom: '5px', fontWeight: 600 }}>
-                        {exp.title || 'Job Title'}
+                        {exp.location && (
+                          <div style={{ fontSize: '9.5px', color: '#1a202c', fontStyle: 'italic', fontWeight: 400 }}>
+                            {exp.location}
+                          </div>
+                        )}
                       </div>
                       {exp.bullets.filter(Boolean).length > 0 && (
                         <div style={{ marginLeft: '0px' }}>
