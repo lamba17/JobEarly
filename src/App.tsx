@@ -8,7 +8,7 @@ import SignUp from './pages/SignUp'
 import AppLayout from './pages/app/Layout'
 import Dashboard from './pages/app/Dashboard'
 import ResumeBuilder from './pages/app/ResumeBuilder'
-import JobMatch from './pages/app/JobMatch'
+import JobTracker from './pages/app/JobTracker'
 import Performance from './pages/app/Performance'
 import Outreach from './pages/app/Outreach'
 
@@ -48,7 +48,7 @@ export default function App() {
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="resume-builder" element={<ResumeBuilder />} />
-            <Route path="job-match" element={<JobMatch />} />
+            <Route path="job-match" element={<JobTracker />} />
             <Route path="performance" element={<Performance />} />
             <Route path="outreach" element={<Outreach />} />
           </Route>
