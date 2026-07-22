@@ -1,46 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../../context/AuthContext'
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-type Status = 'wishlist' | 'applied' | 'phone_screen' | 'interview' | 'final_round' | 'offer' | 'rejected' | 'withdrawn'
-type Portal = 'linkedin' | 'indeed' | 'naukri' | 'company' | 'referral' | 'other'
-
-interface JobApplication {
-  id: string
-  company: string
-  role: string
-  location: string
-  portal: Portal
-  dateApplied: string
-  status: Status
-  salary: string
-  notes: string
-  followUpDate: string
-  createdAt: number
-}
-
-// ── Metadata ──────────────────────────────────────────────────────────────────
-const STATUS_META: Record<Status, { label: string; color: string; bg: string; border: string }> = {
-  wishlist:     { label: 'Wishlist',     color: '#6B7280', bg: '#F3F4F6', border: '#D1D5DB' },
-  applied:      { label: 'Applied',      color: '#3B82F6', bg: '#EFF6FF', border: '#BFDBFE' },
-  phone_screen: { label: 'Phone Screen', color: '#8B5CF6', bg: '#F5F3FF', border: '#DDD6FE' },
-  interview:    { label: 'Interview',    color: '#F59E0B', bg: '#FFFBEB', border: '#FDE68A' },
-  final_round:  { label: 'Final Round',  color: '#F97316', bg: '#FFF7ED', border: '#FED7AA' },
-  offer:        { label: 'Offer',        color: '#10B981', bg: '#ECFDF5', border: '#A7F3D0' },
-  rejected:     { label: 'Rejected',     color: '#EF4444', bg: '#FEF2F2', border: '#FECACA' },
-  withdrawn:    { label: 'Withdrawn',    color: '#9CA3AF', bg: '#F9FAFB', border: '#E5E7EB' },
-}
-
-const PORTAL_META: Record<Portal, { label: string; color: string }> = {
-  linkedin: { label: 'LinkedIn',        color: '#0A66C2' },
-  indeed:   { label: 'Indeed',          color: '#003A9B' },
-  naukri:   { label: 'Naukri',          color: '#FF7555' },
-  company:  { label: 'Company Website', color: '#10B981' },
-  referral: { label: 'Referral',        color: '#8B5CF6' },
-  other:    { label: 'Other',           color: '#6B7280' },
-}
-
-const ALL_STATUSES = Object.keys(STATUS_META) as Status[]
+import { type Status, type Portal, type JobApplication, STATUS_META, PORTAL_META, ALL_STATUSES, jobTrackerKey } from '../../lib/jobTracker'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
@@ -81,7 +41,7 @@ const EMPTY_FORM: Omit<JobApplication, 'id' | 'createdAt'> = {
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function JobTracker() {
   const { user } = useAuth()
-  const storageKey = `je-tracker-${user?.email ?? 'guest'}`
+  const storageKey = jobTrackerKey(user?.email)
 
   const [jobs, setJobs] = useState<JobApplication[]>(() => {
     try { return JSON.parse(localStorage.getItem(storageKey) ?? '[]') } catch { return [] }
