@@ -142,74 +142,97 @@ function Hero() {
     <section className="hero">
       <div className="hero-grid" />
       <div className="container">
-        <div className="hero-inner">
-          <div className="eyebrow">
-            <span className="pill">NEW</span>
-            AI-powered ATS scoring is here
-            <span className="arrow">→</span>
+        <div className="hero-split">
+          <div className="hero-inner">
+            <div className="eyebrow">
+              <span className="pill">NEW</span>
+              AI-powered ATS scoring is here
+              <span className="arrow">→</span>
+            </div>
+            <h1>
+              Get hired{' '}
+              <span className="serif-italic accent">before</span>
+              <br />everyone else.
+            </h1>
+            <p className="lede">
+              JobEarly tailors resumes, beats ATS filters, writes cover letters, and sends recruiter
+              outreach — so you apply faster, smarter, and earlier than the competition.
+            </p>
+            <div className="hero-ctas">
+              <Link to="/signup" className="btn btn-primary btn-lg">
+                Start free — no card needed <IconArrowRight size={16} />
+              </Link>
+              <a href="#how" className="btn btn-ghost btn-lg">Watch 90-sec demo</a>
+            </div>
+            <div className="hero-trust">
+              <img src="/assets/avatar-strip.png" alt="" className="hero-avatars-img" />
+              <span>
+                <span className="stars">★★★★★</span>
+                &nbsp; Trusted by 10,000+ candidates from Google, Stripe, Airbnb
+              </span>
+            </div>
+            <div className="trust-badges">
+              {[
+                { icon: <IconUsers size={16} />,    bg: 'var(--blue-50)',  color: 'var(--accent)', tt: '10,000+',              ss: 'job seekers' },
+                { icon: <IconShield size={16} />,   bg: 'var(--pink-50)',  color: '#DB2777',        tt: 'Trusted by',           ss: 'Students & Professionals' },
+                { icon: <IconRocket size={15} stroke={2.4} />, bg: 'var(--ink-900)', color: '#fff', tt: 'Faster Applications', ss: '10 jobs in 10 minutes' },
+                { icon: <IconChart size={16} />,    bg: 'var(--green-50)', color: '#16A34A',        tt: 'Higher Reply Rate',    ss: 'Get noticed by recruiters' },
+              ].map((b, i) => (
+                <div key={i} className="trust-badge">
+                  <div className="ico" style={{ background: b.bg, color: b.color }}>{b.icon}</div>
+                  <div><div className="tt">{b.tt}</div><div className="ss">{b.ss}</div></div>
+                </div>
+              ))}
+            </div>
           </div>
-          <h1>
-            Get hired{' '}
-            <span className="serif-italic accent">before</span>
-            <br />everyone else.
-          </h1>
-          <p className="lede">
-            JobEarly tailors resumes, beats ATS filters, writes cover letters, and sends recruiter
-            outreach — so you apply faster, smarter, and earlier than the competition.
-          </p>
-          <div className="hero-ctas">
-            <Link to="/signup" className="btn btn-primary btn-lg">
-              Start free — no card needed <IconArrowRight size={16} />
-            </Link>
-            <a href="#how" className="btn btn-ghost btn-lg">Watch 90-sec demo</a>
-          </div>
-          <div className="hero-trust">
-            <img src="/assets/avatar-strip.png" alt="" className="hero-avatars-img" />
-            <span>
-              <span className="stars">★★★★★</span>
-              &nbsp; Trusted by 10,000+ candidates from Google, Stripe, Airbnb
-            </span>
-          </div>
-          <div className="trust-badges">
-            {[
-              { icon: <IconUsers size={16} />,    bg: 'var(--blue-50)',  color: 'var(--accent)', tt: '10,000+',              ss: 'job seekers' },
-              { icon: <IconShield size={16} />,   bg: 'var(--pink-50)',  color: '#DB2777',        tt: 'Trusted by',           ss: 'Students & Professionals' },
-              { icon: <IconRocket size={15} stroke={2.4} />, bg: 'var(--ink-900)', color: '#fff', tt: 'Faster Applications', ss: '10 jobs in 10 minutes' },
-              { icon: <IconChart size={16} />,    bg: 'var(--green-50)', color: '#16A34A',        tt: 'Higher Reply Rate',    ss: 'Get noticed by recruiters' },
-            ].map((b, i) => (
-              <div key={i} className="trust-badge">
-                <div className="ico" style={{ background: b.bg, color: b.color }}>{b.icon}</div>
-                <div><div className="tt">{b.tt}</div><div className="ss">{b.ss}</div></div>
+          <div className="hero-photo-wrap">
+            <div className="hero-photo-blob" />
+            <div className="hero-photo-dot d1" />
+            <div className="hero-photo-dot d2" />
+            <img src="/assets/hero-student.png" alt="Student using JobEarly to land a job faster" className="hero-photo-img" />
+            <div className="hero-floating f1">
+              <div style={tile}><IconSparkle size={14} /></div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 12.5 }}>Resume tailored</div>
+                <div style={{ fontSize: 11, color: 'var(--text-mute)' }}>For Stripe · 98% match</div>
               </div>
-            ))}
+            </div>
+            <div className="hero-floating f2">
+              <div style={{ width: 28, height: 28, borderRadius: 999, background: '#DCFCE7', color: '#16A34A', display: 'grid', placeItems: 'center' }}>
+                <IconCheck size={12} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 12.5 }}>Recruiter replied</div>
+                <div style={{ fontSize: 11, color: 'var(--text-mute)' }}>Sara at Linear · 4m ago</div>
+              </div>
+            </div>
+            <div className="hero-floating f3">
+              <div style={{ width: 28, height: 28, borderRadius: 999, background: '#FEF3C7', color: '#D97706', display: 'grid', placeItems: 'center', fontSize: 14 }}>
+                🎉
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 12.5 }}>Offer received!</div>
+                <div style={{ fontSize: 11, color: 'var(--text-mute)' }}>Priya · Product Designer</div>
+              </div>
+            </div>
           </div>
         </div>
+      </div>
+    </section>
+  )
+}
+
+/* ── Product Preview ────────────────────────── */
+function ProductPreview() {
+  return (
+    <section className="section" style={{ paddingBottom: 24 }}>
+      <div className="container">
+        <div className="section-head">
+          <div className="section-eyebrow"><IconSparkle size={12} /> Product</div>
+          <h2>Your career, <span className="ital">organized</span>.</h2>
+          <p className="sub">One dashboard for every resume, match, and outreach — so nothing falls through the cracks.</p>
+        </div>
         <div className="hero-mock-wrap">
-          <div className="hero-floating f1">
-            <div style={tile}><IconSparkle size={14} /></div>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 12.5 }}>Resume tailored</div>
-              <div style={{ fontSize: 11, color: 'var(--text-mute)' }}>For Stripe · 98% match</div>
-            </div>
-          </div>
-          <div className="hero-floating f2">
-            <div style={{ width: 28, height: 28, borderRadius: 999, background: '#DCFCE7', color: '#16A34A', display: 'grid', placeItems: 'center' }}>
-              <IconCheck size={12} />
-            </div>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 12.5 }}>Recruiter replied</div>
-              <div style={{ fontSize: 11, color: 'var(--text-mute)' }}>Sara at Linear · 4m ago</div>
-            </div>
-          </div>
-          <div className="hero-floating f3">
-            <div style={{ width: 28, height: 28, borderRadius: 999, background: '#FEF3C7', color: '#D97706', display: 'grid', placeItems: 'center', fontSize: 14 }}>
-              🎉
-            </div>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 12.5 }}>Offer received!</div>
-              <div style={{ fontSize: 11, color: 'var(--text-mute)' }}>Priya · Product Designer</div>
-            </div>
-          </div>
           <div className="hero-mock">
             <MockDashboard />
           </div>
@@ -577,6 +600,7 @@ export default function Landing({ theme, toggleTheme }: { theme: string; toggleT
     <>
       <Navbar theme={theme} toggleTheme={toggleTheme} />
       <Hero />
+      <ProductPreview />
       <PeopleShowcase />
       <Stats />
       <Bento />
