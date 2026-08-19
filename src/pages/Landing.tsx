@@ -3,8 +3,15 @@ import { Link } from 'react-router-dom'
 import {
   IconRocket, IconSparkle, IconDoc, IconSend, IconMail, IconChart,
   IconSun, IconMoon, IconArrowRight, IconCheck, IconPlus, IconShield,
-  IconBriefcase, IconTwitter, IconLinkedIn, IconGithub, IconUsers,
+  IconBriefcase, IconTwitter, IconLinkedIn, IconGithub, IconUsers, IconFeather,
 } from '../icons'
+
+function greeting() {
+  const h = new Date().getHours()
+  if (h < 12) return 'Good morning'
+  if (h < 17) return 'Good afternoon'
+  return 'Good evening'
+}
 
 /* ── Navbar ─────────────────────────────────── */
 function Navbar({ theme, toggleTheme }: { theme: string; toggleTheme: () => void }) {
@@ -43,10 +50,12 @@ function Navbar({ theme, toggleTheme }: { theme: string; toggleTheme: () => void
 /* ── Mock Dashboard ─────────────────────────── */
 function MockDashboard() {
   const navItems = [
-    { label: 'Dashboard',   active: true,  icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg> },
-    { label: 'Resumes',     active: false, icon: <IconDoc size={14} /> },
-    { label: 'Job Matches', active: false, icon: <IconBriefcase size={14} /> },
-    { label: 'Analytics',   active: false, icon: <IconChart size={14} /> },
+    { label: 'Dashboard',     active: true,  icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg> },
+    { label: 'Resumes',       active: false, icon: <IconDoc size={14} /> },
+    { label: 'Cover Letters', active: false, icon: <IconFeather size={14} /> },
+    { label: 'Job Tracker',   active: false, icon: <IconBriefcase size={14} /> },
+    { label: 'Analytics',     active: false, icon: <IconChart size={14} /> },
+    { label: 'Outreach',      active: false, icon: <IconSend size={14} /> },
   ]
   const cards = [
     { icon: <IconDoc size={16} />,     lbl: 'RESUMES CREATED', num: '24',  delta: '+12% from last month' },
@@ -80,7 +89,7 @@ function MockDashboard() {
         </div>
       </aside>
       <div className="mock-main">
-        <h2 className="mock-greeting">Good morning, Alex.</h2>
+        <h2 className="mock-greeting">{greeting()}, Alex.</h2>
         <p className="mock-sub">
           Your AI career architect has identified <b>12 new matches</b> aligned with your Senior Product Designer trajectory.
         </p>
