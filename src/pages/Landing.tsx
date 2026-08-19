@@ -326,22 +326,7 @@ function Bento() {
               <div className="card-shot"><img src="/assets/card-ats-score.png" alt="ATS score of 92 out of 100 with keyword match, format, and relevance checks" /></div>
             </div>
           </div>
-          <div className="bento-card span-2">
-            <div className="ico-tile"><IconBriefcase size={20} /></div>
-            <h3>Smart Job Matching</h3>
-            <p>42,000 data points scanned per profile. Surfaces the roles where you'll actually win.</p>
-            <div className="bento-vis match-vis">
-              <div className="match-card">
-                <div className="logo" style={{ background: 'linear-gradient(135deg,#4F46E5,#7C3AED)' }} />
-                <div className="info">
-                  <div className="role">Sr. Product Designer</div>
-                  <div className="co">Stellar Systems</div>
-                </div>
-                <div className="pct">98%</div>
-              </div>
-            </div>
-          </div>
-          <div className="bento-card span-2">
+          <div className="bento-card span-3">
             <div className="ico-tile"><IconMail size={20} /></div>
             <h3>AI Cover Letters</h3>
             <p>Personal, specific, and never robotic. Drafts in 8 seconds.</p>
@@ -353,7 +338,7 @@ function Bento() {
               </div>
             </div>
           </div>
-          <div className="bento-card span-2">
+          <div className="bento-card span-3">
             <div className="ico-tile"><IconSend size={20} /></div>
             <h3>Smart Outreach</h3>
             <p>Recruiter-ready emails with reply tracking + follow-up sequencing.</p>
@@ -563,7 +548,7 @@ function Footer() {
     { key: 'github',   icon: <IconGithub size={14} />   },
   ]
   const cols = [
-    { h: 'Product',   links: ['Resume Builder', 'ATS Score', 'Job Matching', 'Cover Letters', 'Smart Outreach'] },
+    { h: 'Product',   links: ['Resume Builder', 'ATS Score', 'Cover Letters', 'Smart Outreach'] },
     { h: 'Resources', links: ['Blog', 'Resume guides', 'ATS playbook', 'Salary insights', 'Changelog'] },
     { h: 'Company',   links: ['About', 'Careers', 'Customers', 'Press', 'Contact'] },
     { h: 'Legal',     links: ['Privacy', 'Terms', 'Security', 'DPA', 'Cookies'] },

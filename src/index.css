@@ -572,20 +572,6 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .resume-vis { right: 26px; bottom: 26px; width: 220px; }
 .resume-vis .card-shot { transform: rotate(-3deg); }
 
-/* Job match cards */
-.match-vis  { right: 24px; bottom: 24px; left: 24px; }
-.match-card {
-  background: var(--card); border: 1px solid var(--border);
-  border-radius: 10px; padding: 12px 14px;
-  display: flex; align-items: center; gap: 12px;
-  margin-bottom: 8px; box-shadow: var(--shadow-sm);
-}
-.match-card .logo { width: 30px; height: 30px; border-radius: 6px; flex-shrink: 0; }
-.match-card .info { flex: 1; min-width: 0; }
-.match-card .role { font-size: 12px; font-weight: 700; }
-.match-card .co   { font-size: 11px; color: var(--text-mute); }
-.match-card .pct  { font-size: 11px; padding: 3px 8px; background: var(--blue-50); color: var(--accent); border-radius: 999px; font-weight: 700; }
-
 /* Cover letter */
 .cover-vis { right: 26px; bottom: 26px; left: 26px; top: 100px; }
 .cover-doc {
