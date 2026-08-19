@@ -42,6 +42,8 @@
   --text-mute:     #64748B;
   --accent:        #2563EB;
   --accent-2:      #1E40AF;
+  --green-50:      #ECFDF5;
+  --pink-50:       #FDF2F8;
   --shadow-sm: 0 1px 2px rgba(15,23,42,.04), 0 1px 1px rgba(15,23,42,.03);
   --shadow-md: 0 6px 16px -8px rgba(15,23,42,.12), 0 2px 4px rgba(15,23,42,.04);
   --shadow-lg: 0 24px 48px -16px rgba(30,64,175,.18), 0 8px 16px -8px rgba(30,64,175,.08);
@@ -63,6 +65,8 @@
   --accent-2:      #7396FF;
   --blue-50:       #131C36;
   --blue-100:      #182550;
+  --green-50:      #0F2419;
+  --pink-50:       #2A1220;
   --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
   --shadow-md: 0 6px 16px -8px rgba(0,0,0,.55), 0 2px 4px rgba(0,0,0,.3);
   --shadow-lg: 0 24px 48px -16px rgba(0,0,0,.6), 0 8px 16px -8px rgba(0,0,0,.4);
@@ -277,6 +281,24 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .hero-avatars > div:first-child { margin-left: 0; }
 .stars { color: #F59E0B; letter-spacing: -2px; font-size: 14px; }
 
+/* Trust badges strip */
+.trust-badges {
+  margin-top: 28px;
+  display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;
+}
+.trust-badge {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 9px 15px;
+  box-shadow: var(--shadow-sm);
+}
+.trust-badge .ico {
+  width: 34px; height: 34px; border-radius: 9px;
+  display: grid; place-items: center; flex-shrink: 0;
+}
+.trust-badge .tt { font-size: 12.5px; font-weight: 700; color: var(--text); line-height: 1.25; text-align: left; }
+.trust-badge .ss { font-size: 11px; color: var(--text-mute); margin-top: 1px; }
+
 /* Hero mockup wrapper */
 .hero-mock-wrap {
   margin-top: 56px;
@@ -309,6 +331,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 }
 .hero-floating.f1 { top: 18%; left: -2%; animation-delay: -2s; }
 .hero-floating.f2 { top: 55%; right: -2%; }
+.hero-floating.f3 { top: 82%; left: -4%; animation-delay: -3.5s; }
 @keyframes float {
   0%, 100% { transform: translateY(0); }
   50%       { transform: translateY(-8px); }
@@ -499,6 +522,13 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   z-index: 1;
   font-size: 38px; font-weight: 800; color: var(--accent); letter-spacing: -0.02em;
 }
+.ats-checks { display: flex; flex-direction: column; gap: 7px; margin-top: 18px; }
+.ats-checks .row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: var(--text); }
+.ats-checks .row .dot {
+  width: 17px; height: 17px; border-radius: 50%; flex-shrink: 0;
+  background: var(--green-50); color: #16A34A;
+  display: grid; place-items: center;
+}
 
 /* Resume preview */
 .resume-vis { right: 26px; bottom: 26px; width: 220px; }
@@ -571,6 +601,20 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   content: ""; display: inline-block;
   width: 5px; height: 5px; background: #22C55E;
   border-radius: 50%; margin-left: 5px; vertical-align: middle;
+}
+
+/* Outreach compose mock */
+.compose-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; padding: 11px 12px;
+  box-shadow: var(--shadow-sm);
+}
+.compose-card .field { font-size: 10.5px; color: var(--text-mute); margin-bottom: 4px; }
+.compose-card .field b { color: var(--text); font-weight: 600; }
+.compose-card .gen-btn {
+  margin-top: 7px; display: inline-flex; align-items: center; gap: 5px;
+  background: var(--accent); color: #fff; font-size: 10.5px; font-weight: 700;
+  padding: 5px 10px; border-radius: 7px;
 }
 
 /* ═══════════════════════════════════════════════

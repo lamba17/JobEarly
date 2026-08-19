@@ -43,3 +43,4 @@ export const IconHistory    = (p: IcoProps) => <Ico {...p}><path d="M3 12a9 9 0 
 export const IconZoomIn     = (p: IcoProps) => <Ico {...p}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M11 8v6"/><path d="M8 11h6"/></Ico>
 export const IconZoomOut    = (p: IcoProps) => <Ico {...p}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M8 11h6"/></Ico>
 export const IconFeather    = (p: IcoProps) => <Ico {...p}><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><line x1="16" x2="2" y1="8" y2="22"/><line x1="17.5" x2="9" y1="15" y2="15"/></Ico>
+export const IconUsers      = (p: IcoProps) => <Ico {...p}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></Ico>

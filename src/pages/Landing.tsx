@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import {
   IconRocket, IconSparkle, IconDoc, IconSend, IconMail, IconChart,
   IconSun, IconMoon, IconArrowRight, IconCheck, IconPlus, IconShield,
-  IconBriefcase, IconReply, IconTwitter, IconLinkedIn, IconGithub,
+  IconBriefcase, IconReply, IconTwitter, IconLinkedIn, IconGithub, IconUsers,
 } from '../icons'
 
 /* ── Navbar ─────────────────────────────────── */
@@ -165,14 +165,27 @@ function Hero() {
           </div>
           <div className="hero-trust">
             <div className="hero-avatars">
-              {(['', 'b', 'c', 'd', 'e'] as string[]).map(c => (
-                <div key={c} className={`placeholder-avatar${c ? ' ' + c : ''}`} />
+              {(['', 'b', 'c', 'd', 'e', 'b'] as string[]).map((c, i) => (
+                <div key={i} className={`placeholder-avatar${c ? ' ' + c : ''}`} />
               ))}
             </div>
             <span>
               <span className="stars">★★★★★</span>
               &nbsp; Trusted by 10,000+ candidates from Google, Stripe, Airbnb
             </span>
+          </div>
+          <div className="trust-badges">
+            {[
+              { icon: <IconUsers size={16} />,    bg: 'var(--blue-50)',  color: 'var(--accent)', tt: '10,000+',              ss: 'job seekers' },
+              { icon: <IconShield size={16} />,   bg: 'var(--pink-50)',  color: '#DB2777',        tt: 'Trusted by',           ss: 'Students & Professionals' },
+              { icon: <IconRocket size={15} stroke={2.4} />, bg: 'var(--ink-900)', color: '#fff', tt: 'Faster Applications', ss: '10 jobs in 10 minutes' },
+              { icon: <IconChart size={16} />,    bg: 'var(--green-50)', color: '#16A34A',        tt: 'Higher Reply Rate',    ss: 'Get noticed by recruiters' },
+            ].map((b, i) => (
+              <div key={i} className="trust-badge">
+                <div className="ico" style={{ background: b.bg, color: b.color }}>{b.icon}</div>
+                <div><div className="tt">{b.tt}</div><div className="ss">{b.ss}</div></div>
+              </div>
+            ))}
           </div>
         </div>
         <div className="hero-mock-wrap">
@@ -190,6 +203,15 @@ function Hero() {
             <div>
               <div style={{ fontWeight: 700, fontSize: 12.5 }}>Recruiter replied</div>
               <div style={{ fontSize: 11, color: 'var(--text-mute)' }}>Sara at Linear · 4m ago</div>
+            </div>
+          </div>
+          <div className="hero-floating f3">
+            <div style={{ width: 28, height: 28, borderRadius: 999, background: '#FEF3C7', color: '#D97706', display: 'grid', placeItems: 'center', fontSize: 14 }}>
+              🎉
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 12.5 }}>Offer received!</div>
+              <div style={{ fontSize: 11, color: 'var(--text-mute)' }}>Priya · Product Designer</div>
             </div>
           </div>
           <div className="hero-mock">
@@ -263,6 +285,13 @@ function Bento() {
             <div className="ico-tile"><IconShield size={20} /></div>
             <h3>ATS Readiness Score</h3>
             <p>Live keyword match, structural integrity, and a 0–100 score — so you know exactly what to fix before you submit.</p>
+            <div className="ats-checks">
+              {['Keyword Match', 'Format', 'Relevance'].map(c => (
+                <div key={c} className="row">
+                  <span className="dot"><IconCheck size={10} /></span>{c}
+                </div>
+              ))}
+            </div>
             <div className="bento-vis ats-vis">
               <div className="ats-ring"><div className="num">94%</div></div>
             </div>
@@ -307,12 +336,10 @@ function Bento() {
                 </div>
                 <div style={{ color: '#22C55E', flexShrink: 0 }}><IconReply size={14} /></div>
               </div>
-              <div className="email-card">
-                <div className="av">MR</div>
-                <div className="info">
-                  <div className="who">Marco Reyes · Vercel</div>
-                  <div className="preview">Quick question about your DS work</div>
-                </div>
+              <div className="compose-card">
+                <div className="field">To: <b>hr@company.com</b></div>
+                <div className="field">Subject: <b>Application for Software Engineer</b></div>
+                <span className="gen-btn"><IconSparkle size={10} /> Generate Email</span>
               </div>
             </div>
           </div>
