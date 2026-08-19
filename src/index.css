@@ -272,13 +272,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   display: inline-flex; align-items: center; gap: 14px;
   color: var(--text-mute); font-size: 13px;
 }
-.hero-avatars { display: flex; }
-.hero-avatars > div {
-  width: 26px; height: 26px; border-radius: 50%;
-  border: 2px solid var(--bg);
-  margin-left: -8px;
-}
-.hero-avatars > div:first-child { margin-left: 0; }
+.hero-avatars-img { height: 28px; width: auto; display: block; }
 .stars { color: #F59E0B; letter-spacing: -2px; font-size: 14px; }
 
 /* Trust badges strip */
@@ -335,6 +329,27 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 @keyframes float {
   0%, 100% { transform: translateY(0); }
   50%       { transform: translateY(-8px); }
+}
+
+/* People showcase strip */
+.showcase { padding: 56px 0 8px; }
+.showcase-row { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }
+.showcase-card { position: relative; width: 168px; }
+.showcase-card img {
+  width: 100%; height: 200px; object-fit: cover; border-radius: 16px;
+  box-shadow: var(--shadow-lg); display: block;
+}
+.showcase-bubble {
+  position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+  z-index: 1; width: 148px; text-align: center;
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+  padding: 7px 10px; font-size: 11px; font-weight: 700; color: var(--text);
+  line-height: 1.3; box-shadow: var(--shadow-md);
+}
+@media (max-width: 860px) {
+  .showcase-card { width: 130px; }
+  .showcase-card img { height: 155px; }
+  .showcase-bubble { width: 116px; font-size: 10px; }
 }
 
 /* ═══════════════════════════════════════════════
@@ -501,53 +516,21 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 
 .bento-vis { position: absolute; pointer-events: none; }
 
-/* ATS Score ring */
-.ats-vis { right: -20px; bottom: -20px; }
-.ats-ring {
-  position: relative;
-  width: 220px; height: 220px;
-  border-radius: 50%;
-  background: conic-gradient(var(--accent) 0% 94%, var(--blue-50) 94% 100%);
-  display: grid; place-items: center;
-  filter: drop-shadow(0 12px 30px rgba(37,99,235,.18));
+/* White card backdrop for product-shot PNGs — some have soft/translucent
+   edges that need a solid surface behind them to read correctly on dark bg */
+.card-shot {
+  background: #fff; border-radius: 12px; overflow: hidden;
+  box-shadow: 0 14px 28px rgba(15,23,42,.18);
 }
-.ats-ring::after {
-  content: "";
-  position: absolute;
-  width: 170px; height: 170px; border-radius: 50%;
-  background: var(--card); border: 1px solid var(--border);
-}
-.ats-ring .num {
-  position: relative;
-  z-index: 1;
-  font-size: 38px; font-weight: 800; color: var(--accent); letter-spacing: -0.02em;
-}
-.ats-checks { display: flex; flex-direction: column; gap: 7px; margin-top: 18px; }
-.ats-checks .row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: var(--text); }
-.ats-checks .row .dot {
-  width: 17px; height: 17px; border-radius: 50%; flex-shrink: 0;
-  background: var(--green-50); color: #16A34A;
-  display: grid; place-items: center;
-}
+.card-shot img { display: block; width: 100%; height: auto; }
+
+/* ATS Score card */
+.ats-vis { right: -8px; bottom: -8px; }
+.ats-vis .card-shot { width: 190px; }
 
 /* Resume preview */
 .resume-vis { right: 26px; bottom: 26px; width: 220px; }
-.resume-card {
-  background: var(--card); border: 1px solid var(--border);
-  border-radius: 10px; box-shadow: var(--shadow-md); overflow: hidden;
-  transform: rotate(-3deg);
-}
-.resume-head { background: var(--ink-900); color: #fff; padding: 14px; }
-.resume-head .nm   { font-size: 14px; font-weight: 800; letter-spacing: -0.01em; }
-.resume-head .role { font-size: 9px; color: #94A3B8; margin-top: 2px; }
-.resume-body { padding: 12px 14px; }
-.resume-line { height: 5px; background: var(--ink-100); border-radius: 2px; margin-bottom: 5px; }
-.resume-line.short  { width: 60%; }
-.resume-line.accent { background: var(--blue-100); }
-[data-theme="dark"] .resume-line        { background: var(--border); }
-[data-theme="dark"] .resume-line.accent { background: color-mix(in oklab, var(--accent) 35%, transparent); }
-.resume-tags { display: flex; gap: 4px; margin: 8px 0; flex-wrap: wrap; }
-.resume-tag  { font-size: 8px; padding: 3px 6px; background: var(--blue-50); color: var(--accent); border-radius: 3px; font-weight: 600; }
+.resume-vis .card-shot { transform: rotate(-3deg); }
 
 /* Job match cards */
 .match-vis  { right: 24px; bottom: 24px; left: 24px; }
@@ -580,42 +563,12 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 }
 @keyframes blink { 50% { opacity: 0; } }
 
-/* Outreach inbox */
-.outreach-vis { right: 18px; bottom: 26px; width: 260px; }
-.email-card {
-  background: var(--card); border: 1px solid var(--border);
-  border-radius: 10px; padding: 12px;
-  margin-bottom: 6px; box-shadow: var(--shadow-sm);
-  display: flex; gap: 10px; align-items: center;
-}
-.email-card .av {
-  width: 28px; height: 28px; border-radius: 50%;
-  background: var(--blue-100); color: var(--accent);
-  display: grid; place-items: center;
-  font-size: 11px; font-weight: 700; flex-shrink: 0;
-}
-.email-card .who     { font-size: 11px; font-weight: 700; }
-.email-card .preview { font-size: 10px; color: var(--text-mute); }
-.email-card .info    { flex: 1; min-width: 0; }
-.email-card.replied .who::after {
-  content: ""; display: inline-block;
-  width: 5px; height: 5px; background: #22C55E;
-  border-radius: 50%; margin-left: 5px; vertical-align: middle;
-}
-
-/* Outreach compose mock */
-.compose-card {
-  background: var(--card); border: 1px solid var(--border);
-  border-radius: 10px; padding: 11px 12px;
-  box-shadow: var(--shadow-sm);
-}
-.compose-card .field { font-size: 10.5px; color: var(--text-mute); margin-bottom: 4px; }
-.compose-card .field b { color: var(--text); font-weight: 600; }
-.compose-card .gen-btn {
-  margin-top: 7px; display: inline-flex; align-items: center; gap: 5px;
-  background: var(--accent); color: #fff; font-size: 10.5px; font-weight: 700;
-  padding: 5px 10px; border-radius: 7px;
-}
+/* Outreach — Gmail card stack */
+.outreach-vis { right: 18px; bottom: 20px; width: 230px; }
+.gmail-stack { position: relative; width: 100%; height: 200px; }
+.gmail-stack .card-shot { position: absolute; width: 145px; }
+.gmail-stack .g1 { top: 0; left: 0; transform: rotate(-4deg); }
+.gmail-stack .g2 { bottom: 0; right: 0; transform: rotate(3deg); }
 
 /* ═══════════════════════════════════════════════
    HOW IT WORKS

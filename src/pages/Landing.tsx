@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import {
   IconRocket, IconSparkle, IconDoc, IconSend, IconMail, IconChart,
   IconSun, IconMoon, IconArrowRight, IconCheck, IconPlus, IconShield,
-  IconBriefcase, IconReply, IconTwitter, IconLinkedIn, IconGithub, IconUsers,
+  IconBriefcase, IconTwitter, IconLinkedIn, IconGithub, IconUsers,
 } from '../icons'
 
 /* ── Navbar ─────────────────────────────────── */
@@ -164,11 +164,7 @@ function Hero() {
             <a href="#how" className="btn btn-ghost btn-lg">Watch 90-sec demo</a>
           </div>
           <div className="hero-trust">
-            <div className="hero-avatars">
-              {(['', 'b', 'c', 'd', 'e', 'b'] as string[]).map((c, i) => (
-                <div key={i} className={`placeholder-avatar${c ? ' ' + c : ''}`} />
-              ))}
-            </div>
+            <img src="/assets/avatar-strip.png" alt="" className="hero-avatars-img" />
             <span>
               <span className="stars">★★★★★</span>
               &nbsp; Trusted by 10,000+ candidates from Google, Stripe, Airbnb
@@ -223,6 +219,31 @@ function Hero() {
   )
 }
 
+/* ── People Showcase ────────────────────────── */
+const SHOWCASE = [
+  { img: '/assets/hero-showcase-woman-fistpump.png', caption: 'Got 3 interview calls in 1 week!' },
+  { img: '/assets/hero-showcase-man-laptop.png',      caption: '98% ATS match, first try' },
+  { img: '/assets/hero-showcase-woman-tablet.png',    caption: 'Cover letter written in 8 seconds' },
+  { img: '/assets/hero-showcase-man-hired.png',       caption: 'Offer received! 🎉' },
+  { img: '/assets/hero-showcase-woman-interview.png', caption: 'New interview invite!' },
+]
+function PeopleShowcase() {
+  return (
+    <section className="showcase">
+      <div className="container">
+        <div className="showcase-row">
+          {SHOWCASE.map((s, i) => (
+            <div key={i} className="showcase-card">
+              <div className="showcase-bubble">{s.caption}</div>
+              <img src={s.img} alt="" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 /* ── Stats ──────────────────────────────────── */
 function Stats() {
   return (
@@ -248,7 +269,6 @@ function Stats() {
 
 /* ── Bento ──────────────────────────────────── */
 function Bento() {
-  const resumeLines = ['', 'short', 'accent', '', 'short', '', 'accent', 'short']
   return (
     <section className="section" id="features">
       <div className="container">
@@ -263,37 +283,15 @@ function Bento() {
             <h3>ATS Resume Builder</h3>
             <p>Templates engineered against real applicant tracking systems. Drag, drop, regenerate — every line is tailored to the job you want.</p>
             <div className="bento-vis resume-vis">
-              <div className="resume-card">
-                <div className="resume-head">
-                  <div className="nm">Alex Thorne</div>
-                  <div className="role">Senior Product Designer</div>
-                </div>
-                <div className="resume-body">
-                  <div className="resume-tags">
-                    <span className="resume-tag">Design Systems</span>
-                    <span className="resume-tag">Figma</span>
-                    <span className="resume-tag">React</span>
-                  </div>
-                  {resumeLines.map((cls, i) => (
-                    <div key={i} className={`resume-line${cls ? ' ' + cls : ''}`} />
-                  ))}
-                </div>
-              </div>
+              <div className="card-shot"><img src="/assets/card-resume-ats.png" alt="Resume tailored to be ATS optimized" /></div>
             </div>
           </div>
           <div className="bento-card span-3 row-2">
             <div className="ico-tile"><IconShield size={20} /></div>
             <h3>ATS Readiness Score</h3>
             <p>Live keyword match, structural integrity, and a 0–100 score — so you know exactly what to fix before you submit.</p>
-            <div className="ats-checks">
-              {['Keyword Match', 'Format', 'Relevance'].map(c => (
-                <div key={c} className="row">
-                  <span className="dot"><IconCheck size={10} /></span>{c}
-                </div>
-              ))}
-            </div>
             <div className="bento-vis ats-vis">
-              <div className="ats-ring"><div className="num">94%</div></div>
+              <div className="card-shot"><img src="/assets/card-ats-score.png" alt="ATS score of 92 out of 100 with keyword match, format, and relevance checks" /></div>
             </div>
           </div>
           <div className="bento-card span-2">
@@ -328,18 +326,9 @@ function Bento() {
             <h3>Smart Outreach</h3>
             <p>Recruiter-ready emails with reply tracking + follow-up sequencing.</p>
             <div className="bento-vis outreach-vis">
-              <div className="email-card replied">
-                <div className="av">SK</div>
-                <div className="info">
-                  <div className="who">Sara Kim · Linear</div>
-                  <div className="preview">Re: Loved your portfolio — let's talk</div>
-                </div>
-                <div style={{ color: '#22C55E', flexShrink: 0 }}><IconReply size={14} /></div>
-              </div>
-              <div className="compose-card">
-                <div className="field">To: <b>hr@company.com</b></div>
-                <div className="field">Subject: <b>Application for Software Engineer</b></div>
-                <span className="gen-btn"><IconSparkle size={10} /> Generate Email</span>
+              <div className="gmail-stack">
+                <div className="card-shot g1"><img src="/assets/card-gmail-generate.png" alt="Generate a recruiter email in Gmail" /></div>
+                <div className="card-shot g2"><img src="/assets/card-gmail-send.png" alt="Send the AI-written email via Gmail" /></div>
               </div>
             </div>
           </div>
@@ -588,6 +577,7 @@ export default function Landing({ theme, toggleTheme }: { theme: string; toggleT
     <>
       <Navbar theme={theme} toggleTheme={toggleTheme} />
       <Hero />
+      <PeopleShowcase />
       <Stats />
       <Bento />
       <HowItWorks />
