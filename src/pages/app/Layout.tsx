@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -16,6 +17,8 @@ function SidebarItem({ to, icon, label }: { to: string; icon: React.ReactNode; l
 export default function AppLayout({ theme, toggleTheme }: { theme: string; toggleTheme: () => void }) {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   const initials = user?.name
     ? user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
@@ -25,6 +28,20 @@ export default function AppLayout({ theme, toggleTheme }: { theme: string; toggl
     signOut()
     navigate('/')
   }
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const onClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false) }
+    document.addEventListener('mousedown', onClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [menuOpen])
 
   return (
     <div className="app-wrap">
@@ -63,13 +80,6 @@ export default function AppLayout({ theme, toggleTheme }: { theme: string; toggl
             <div className="upg-text">Unlock unlimited AI resume tailoring.</div>
             <button className="upg-btn">Upgrade to Pro</button>
           </div>
-          <button
-            onClick={handleSignOut}
-            className="sidebar-nav-item"
-            style={{ marginTop: 8, width: '100%', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-mute)' }}
-          >
-            <IconLogOut size={15} /> Sign out
-          </button>
         </div>
       </aside>
 
@@ -92,7 +102,31 @@ export default function AppLayout({ theme, toggleTheme }: { theme: string; toggl
             <NavLink to="/app/resume-builder" className="btn btn-primary btn-sm">
               Build Resume <IconArrowRight size={13} />
             </NavLink>
-            <div className="app-avatar">{initials}</div>
+            <div className="app-avatar-wrap" ref={menuRef}>
+              <button
+                className="app-avatar"
+                style={{ border: 'none' }}
+                onClick={() => setMenuOpen(v => !v)}
+                aria-haspopup="true"
+                aria-expanded={menuOpen}
+              >
+                {initials}
+              </button>
+              {menuOpen && (
+                <div className="app-avatar-menu">
+                  <div className="app-avatar-menu-header">
+                    <div className="name">{user?.name ?? 'User'}</div>
+                    <div className="email">{user?.email ?? ''}</div>
+                  </div>
+                  <NavLink to="/app/dashboard" className="app-avatar-menu-item" onClick={() => setMenuOpen(false)}>
+                    <IconSettings size={15} /> Settings
+                  </NavLink>
+                  <button onClick={handleSignOut} className="app-avatar-menu-item danger">
+                    <IconLogOut size={15} /> Sign out
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
