@@ -12,6 +12,8 @@ import CoverLetter from './pages/app/CoverLetter'
 import JobTracker from './pages/app/JobTracker'
 import Performance from './pages/app/Performance'
 import Outreach from './pages/app/Outreach'
+import Settings from './pages/app/Settings'
+import Support from './pages/app/Support'
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user } = useAuth()
@@ -53,6 +55,8 @@ export default function App() {
             <Route path="job-match" element={<JobTracker />} />
             <Route path="performance" element={<Performance />} />
             <Route path="outreach" element={<Outreach />} />
+            <Route path="settings" element={<Settings />} />
+            <Route path="help" element={<Support />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

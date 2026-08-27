@@ -70,8 +70,8 @@ export default function AppLayout({ theme, toggleTheme }: { theme: string; toggl
 
           <div className="sidebar-divider" />
 
-          <SidebarItem to="/app/dashboard" icon={<IconHelp size={15} />}     label="Help Center" />
-          <SidebarItem to="/app/dashboard" icon={<IconSettings size={15} />} label="Settings" />
+          <SidebarItem to="/app/help"     icon={<IconHelp size={15} />}     label="Help Center" />
+          <SidebarItem to="/app/settings" icon={<IconSettings size={15} />} label="Settings" />
         </nav>
 
         <div className="sidebar-footer">
@@ -118,7 +118,7 @@ export default function AppLayout({ theme, toggleTheme }: { theme: string; toggl
                     <div className="name">{user?.name ?? 'User'}</div>
                     <div className="email">{user?.email ?? ''}</div>
                   </div>
-                  <NavLink to="/app/dashboard" className="app-avatar-menu-item" onClick={() => setMenuOpen(false)}>
+                  <NavLink to="/app/settings" className="app-avatar-menu-item" onClick={() => setMenuOpen(false)}>
                     <IconSettings size={15} /> Settings
                   </NavLink>
                   <button onClick={handleSignOut} className="app-avatar-menu-item danger">

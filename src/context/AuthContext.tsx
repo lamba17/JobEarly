@@ -14,6 +14,8 @@ interface AuthCtx {
   signUp: (data: User) => string | null
   signOut: () => void
   updateApiKey: (key: string) => void
+  updateProfile: (data: { name: string; jobTitle: string }) => void
+  changePassword: (currentPassword: string, newPassword: string) => string | null
 }
 
 const AuthContext = createContext<AuthCtx | null>(null)
@@ -23,6 +25,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try { return JSON.parse(localStorage.getItem('je-current') ?? 'null') }
     catch { return null }
   })
+
+  const persistUser = (updated: User) => {
+    setUser(updated)
+    localStorage.setItem('je-current', JSON.stringify(updated))
+    const users: User[] = JSON.parse(localStorage.getItem('je-users') ?? '[]')
+    const idx = users.findIndex(u => u.email === updated.email)
+    if (idx !== -1) {
+      users[idx] = updated
+      localStorage.setItem('je-users', JSON.stringify(users))
+    }
+  }
 
   const signIn = (email: string, password: string): string | null => {
     const users: User[] = JSON.parse(localStorage.getItem('je-users') ?? '[]')
@@ -49,20 +62,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const updateApiKey = (key: string) => {
-    if (user) {
-      const updated = { ...user, claudeApiKey: key }
-      setUser(updated)
-      localStorage.setItem('je-current', JSON.stringify(updated))
-      const users: User[] = JSON.parse(localStorage.getItem('je-users') ?? '[]')
-      const idx = users.findIndex(u => u.email === user.email)
-      if (idx !== -1) {
-        users[idx] = updated
-        localStorage.setItem('je-users', JSON.stringify(users))
-      }
-    }
+    if (user) persistUser({ ...user, claudeApiKey: key })
   }
 
-  return <AuthContext.Provider value={{ user, signIn, signUp, signOut, updateApiKey }}>{children}</AuthContext.Provider>
+  const updateProfile = (data: { name: string; jobTitle: string }) => {
+    if (user) persistUser({ ...user, ...data })
+  }
+
+  const changePassword = (currentPassword: string, newPassword: string): string | null => {
+    if (!user) return 'You must be signed in to change your password.'
+    if (user.password !== currentPassword) return 'Current password is incorrect.'
+    if (newPassword.length < 6) return 'New password must be at least 6 characters.'
+    persistUser({ ...user, password: newPassword })
+    return null
+  }
+
+  return (
+    <AuthContext.Provider value={{ user, signIn, signUp, signOut, updateApiKey, updateProfile, changePassword }}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuth() {
