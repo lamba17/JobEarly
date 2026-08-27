@@ -63,6 +63,8 @@ ${jobDescription || 'Not provided — write a strong letter tailored to the targ
 
 Write a complete, ready-to-send cover letter (3-4 paragraphs, under 350 words). Do not include a header, date, or address block — start directly with the salutation ("Dear Hiring Manager," or similar). End with a professional sign-off and the candidate's name.
 
+IMPORTANT: The employer is "${company}" — use this exact name every time you refer to the company. The job description above may mention internal teams, products, tools, or systems by name — those are NOT the company name. Never substitute one of those names for "${company}".
+
 Return ONLY the letter text. No explanations, no markdown, no surrounding quotes.`
 
     const message = await client.messages.create({
