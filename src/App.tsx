@@ -5,6 +5,10 @@ import { GmailProvider } from './context/GmailContext'
 import Landing from './pages/Landing'
 import SignIn from './pages/SignIn'
 import SignUp from './pages/SignUp'
+import ForgotPassword from './pages/ForgotPassword'
+import Sitemap from './pages/Sitemap'
+import { Privacy, Terms, Security, Dpa, Cookies } from './pages/LegalPages'
+import { About, Careers, Customers, Press, Contact } from './pages/CompanyPages'
 import AppLayout from './pages/app/Layout'
 import Dashboard from './pages/app/Dashboard'
 import ResumeBuilder from './pages/app/ResumeBuilder'
@@ -43,6 +47,18 @@ export default function App() {
           <Route path="/" element={<Landing theme={theme} toggleTheme={toggleTheme} />} />
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/sitemap" element={<Sitemap theme={theme} toggleTheme={toggleTheme} />} />
+          <Route path="/privacy" element={<Privacy theme={theme} toggleTheme={toggleTheme} />} />
+          <Route path="/terms" element={<Terms theme={theme} toggleTheme={toggleTheme} />} />
+          <Route path="/security" element={<Security theme={theme} toggleTheme={toggleTheme} />} />
+          <Route path="/dpa" element={<Dpa theme={theme} toggleTheme={toggleTheme} />} />
+          <Route path="/cookies" element={<Cookies theme={theme} toggleTheme={toggleTheme} />} />
+          <Route path="/about" element={<About theme={theme} toggleTheme={toggleTheme} />} />
+          <Route path="/careers" element={<Careers theme={theme} toggleTheme={toggleTheme} />} />
+          <Route path="/customers" element={<Customers theme={theme} toggleTheme={toggleTheme} />} />
+          <Route path="/press" element={<Press theme={theme} toggleTheme={toggleTheme} />} />
+          <Route path="/contact" element={<Contact theme={theme} toggleTheme={toggleTheme} />} />
           <Route path="/app" element={
             <ProtectedRoute>
               <AppLayout theme={theme} toggleTheme={toggleTheme} />

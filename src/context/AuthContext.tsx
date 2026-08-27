@@ -16,6 +16,8 @@ interface AuthCtx {
   updateApiKey: (key: string) => void
   updateProfile: (data: { name: string; jobTitle: string }) => void
   changePassword: (currentPassword: string, newPassword: string) => string | null
+  findAccount: (email: string) => boolean
+  resetPassword: (email: string, newPassword: string) => string | null
 }
 
 const AuthContext = createContext<AuthCtx | null>(null)
@@ -77,8 +79,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return null
   }
 
+  const findAccount = (email: string): boolean => {
+    const users: User[] = JSON.parse(localStorage.getItem('je-users') ?? '[]')
+    return users.some(u => u.email.toLowerCase() === email.toLowerCase())
+  }
+
+  const resetPassword = (email: string, newPassword: string): string | null => {
+    if (newPassword.length < 6) return 'New password must be at least 6 characters.'
+    const users: User[] = JSON.parse(localStorage.getItem('je-users') ?? '[]')
+    const idx = users.findIndex(u => u.email.toLowerCase() === email.toLowerCase())
+    if (idx === -1) return 'No account found with that email.'
+    users[idx] = { ...users[idx], password: newPassword }
+    localStorage.setItem('je-users', JSON.stringify(users))
+    if (user?.email.toLowerCase() === email.toLowerCase()) persistUser(users[idx])
+    return null
+  }
+
   return (
-    <AuthContext.Provider value={{ user, signIn, signUp, signOut, updateApiKey, updateProfile, changePassword }}>
+    <AuthContext.Provider value={{ user, signIn, signUp, signOut, updateApiKey, updateProfile, changePassword, findAccount, resetPassword }}>
       {children}
     </AuthContext.Provider>
   )

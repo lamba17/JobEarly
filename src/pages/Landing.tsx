@@ -1,9 +1,12 @@
 import { useState, useLayoutEffect, useRef, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
+import Navbar from '../components/site/Navbar'
+import Footer from '../components/site/Footer'
+import { TESTIMONIALS } from '../data/testimonials'
 import {
-  IconRocket, IconSparkle, IconDoc, IconSend, IconMail, IconChart,
-  IconSun, IconMoon, IconArrowRight, IconCheck, IconPlus, IconShield,
-  IconBriefcase, IconTwitter, IconLinkedIn, IconGithub, IconUsers, IconFeather,
+  IconSparkle, IconDoc, IconSend, IconMail, IconChart,
+  IconArrowRight, IconCheck, IconPlus, IconShield,
+  IconBriefcase, IconUsers, IconFeather, IconRocket,
 } from '../icons'
 
 function greeting() {
@@ -11,40 +14,6 @@ function greeting() {
   if (h < 12) return 'Good morning'
   if (h < 17) return 'Good afternoon'
   return 'Good evening'
-}
-
-/* ── Navbar ─────────────────────────────────── */
-function Navbar({ theme, toggleTheme }: { theme: string; toggleTheme: () => void }) {
-  const [scrolled, setScrolled] = useState(false)
-  useState(() => {
-    const fn = () => setScrolled(window.scrollY > 8)
-    window.addEventListener('scroll', fn, { passive: true })
-  })
-  return (
-    <nav className={`nav${scrolled ? ' scrolled' : ''}`}>
-      <div className="container nav-row">
-        <Link to="/" className="brand">
-          <span className="brand-mark"><IconRocket size={16} stroke={2.4} /></span>
-          <span>JobEarly</span>
-        </Link>
-        <div className="nav-links">
-          {([['Features','#features'],['How it works','#how'],['Pricing','#pricing'],['FAQ','#faq']] as [string,string][]).map(([l,h]) => (
-            <a key={l} className="nav-link" href={h}>{l}</a>
-          ))}
-        </div>
-        <div className="nav-actions">
-          <button className="theme-toggle" onClick={toggleTheme} aria-label="Toggle theme">
-            {theme === 'dark' ? <IconSun size={16} /> : <IconMoon size={16} />}
-          </button>
-          <Link to="/signin" className="btn btn-ghost btn-sm">Sign in</Link>
-          <Link to="/signup" className="btn btn-soft btn-sm">Sign up</Link>
-          <Link to="/signup" className="btn btn-primary btn-sm">
-            Get Early Access <IconArrowRight size={14} />
-          </Link>
-        </div>
-      </div>
-    </nav>
-  )
 }
 
 /* ── Mock Dashboard ─────────────────────────── */
@@ -153,11 +122,11 @@ function Hero() {
       <div className="container">
         <div className="hero-split">
           <div className="hero-inner">
-            <div className="eyebrow">
+            <a href="/#feature-ats" className="eyebrow">
               <span className="pill">NEW</span>
               AI-powered ATS scoring is here
               <span className="arrow">→</span>
-            </div>
+            </a>
             <h1>
               Get hired{' '}
               <span className="serif-italic accent">before</span>
@@ -310,7 +279,7 @@ function Bento() {
           <p className="sub">Built for the modern job hunt. JobEarly combines ATS-grade tooling, AI personalization, and recruiter-ready outreach — all in one workspace.</p>
         </div>
         <div className="bento">
-          <div className="bento-card span-3 row-2">
+          <div id="feature-resume" className="bento-card span-3 row-2">
             <div className="ico-tile"><IconDoc size={20} /></div>
             <h3>ATS Resume Builder</h3>
             <p>Templates engineered against real applicant tracking systems. Drag, drop, regenerate — every line is tailored to the job you want.</p>
@@ -318,7 +287,7 @@ function Bento() {
               <div className="card-shot"><img src="/assets/card-resume-ats.png" alt="Resume tailored to be ATS optimized" /></div>
             </div>
           </div>
-          <div className="bento-card span-3 row-2">
+          <div id="feature-ats" className="bento-card span-3 row-2">
             <div className="ico-tile"><IconShield size={20} /></div>
             <h3>ATS Readiness Score</h3>
             <p>Live keyword match, structural integrity, and a 0–100 score — so you know exactly what to fix before you submit.</p>
@@ -326,7 +295,7 @@ function Bento() {
               <div className="card-shot"><img src="/assets/card-ats-score.png" alt="ATS score of 92 out of 100 with keyword match, format, and relevance checks" /></div>
             </div>
           </div>
-          <div className="bento-card span-3">
+          <div id="feature-cover-letters" className="bento-card span-3">
             <div className="ico-tile"><IconMail size={20} /></div>
             <h3>AI Cover Letters</h3>
             <p>Personal, specific, and never robotic. Drafts in 8 seconds.</p>
@@ -338,7 +307,7 @@ function Bento() {
               </div>
             </div>
           </div>
-          <div className="bento-card span-3">
+          <div id="feature-outreach" className="bento-card span-3">
             <div className="ico-tile"><IconSend size={20} /></div>
             <h3>Smart Outreach</h3>
             <p>Recruiter-ready emails with reply tracking + follow-up sequencing.</p>
@@ -389,18 +358,7 @@ function HowItWorks() {
 }
 
 /* ── Testimonials ───────────────────────────── */
-interface Testimonial { q: string; n: string; r: string; av: string }
-const TESTIMONIALS: Testimonial[] = [
-  { q: "I went from 0 callbacks in 6 weeks to 4 onsite interviews in 9 days. The ATS score told me exactly what was wrong.", n: "Priya Shah",    r: "Senior PM → Stripe",         av: ''  },
-  { q: "The cover letters don't read like AI. My recruiter literally asked who wrote them. I told her — she signed up.",       n: "Marcus Chen",   r: "Eng Manager → Linear",      av: 'b' },
-  { q: "Outreach mode is the unlock. I sent 18 emails, got 11 replies, and landed two final rounds in a week.",               n: "Sara Okafor",   r: "Product Designer → Figma",  av: 'c' },
-  { q: "I had been job hunting for 4 months. JobEarly got me to offer in 16 days. The keyword matching is unreal.",           n: "Daniel Rivera", r: "Data Scientist → Anthropic", av: 'd' },
-  { q: "Finally — a tool that doesn't make me sound like a LinkedIn bot. The AI gets my voice and improves it.",              n: "Amélie Laurent", r: "Brand Designer → Notion",   av: 'e' },
-  { q: "I used to spend an entire weekend tailoring one resume. JobEarly does it in 30 seconds, better than I could.",        n: "Tomás Aguilar", r: "Senior Dev → Vercel",        av: ''  },
-  { q: "The job match scoring saves me hours. I only apply where I have a real shot now — and I get more interviews.",        n: "Naomi Park",    r: "UX Researcher → Airbnb",     av: 'b' },
-  { q: "Pro is criminally underpriced. I'd pay 5× for what this thing did to my hit rate.",                                   n: "Jordan Bailey", r: "Growth Marketer → Ramp",     av: 'c' },
-]
-function TmCard({ t }: { t: Testimonial }) {
+function TmCard({ t }: { t: typeof TESTIMONIALS[number] }) {
   return (
     <div className="tm-card">
       <div className="stars">★★★★★</div>
@@ -533,58 +491,10 @@ function CtaBanner() {
         <p>Join 10,000+ candidates already using JobEarly to beat ATS filters and land interviews at the companies they actually want.</p>
         <div className="ctas">
           <Link to="/signup" className="btn btn-primary btn-lg">Start free <IconArrowRight size={16} /></Link>
-          <a href="#" className="btn btn-ghost btn-lg">Book a 15-min demo</a>
+          <a href="mailto:hello@jobearly.ai?subject=Demo%20request" className="btn btn-ghost btn-lg">Book a 15-min demo</a>
         </div>
       </div>
     </div>
-  )
-}
-
-/* ── Footer ─────────────────────────────────── */
-function Footer() {
-  const socials = [
-    { key: 'twitter',  icon: <IconTwitter size={14} />  },
-    { key: 'linkedin', icon: <IconLinkedIn size={14} /> },
-    { key: 'github',   icon: <IconGithub size={14} />   },
-  ]
-  const cols = [
-    { h: 'Product',   links: ['Resume Builder', 'ATS Score', 'Cover Letters', 'Smart Outreach'] },
-    { h: 'Resources', links: ['Blog', 'Resume guides', 'ATS playbook', 'Salary insights', 'Changelog'] },
-    { h: 'Company',   links: ['About', 'Careers', 'Customers', 'Press', 'Contact'] },
-    { h: 'Legal',     links: ['Privacy', 'Terms', 'Security', 'DPA', 'Cookies'] },
-  ]
-  const iconBox: CSSProperties = {
-    width: 32, height: 32, borderRadius: 8,
-    border: '1px solid var(--border)', display: 'grid',
-    placeItems: 'center', color: 'var(--text-soft)',
-  }
-  return (
-    <footer className="footer">
-      <div className="container">
-        <div className="footer-grid">
-          <div>
-            <Link to="/" className="brand">
-              <span className="brand-mark"><IconRocket size={16} stroke={2.4} /></span>
-              <span>JobEarly</span>
-            </Link>
-            <p className="desc">AI-powered job application platform. Get hired before everyone else.</p>
-            <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
-              {socials.map(({ key, icon }) => <a key={key} href="#" style={iconBox}>{icon}</a>)}
-            </div>
-          </div>
-          {cols.map(({ h, links }) => (
-            <div key={h} className="footer-col">
-              <h5>{h}</h5>
-              <ul>{links.map(l => <li key={l}><a href="#">{l}</a></li>)}</ul>
-            </div>
-          ))}
-        </div>
-        <div className="footer-bottom">
-          <div>© 2026 JobEarly, Inc. — Made for people who don't wait.</div>
-          <div className="legal"><a href="#">Status</a><a href="#">Sitemap</a></div>
-        </div>
-      </div>
-    </footer>
   )
 }
 
