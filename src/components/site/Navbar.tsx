@@ -25,7 +25,6 @@ export default function Navbar({ theme, toggleTheme }: { theme: string; toggleTh
             {theme === 'dark' ? <IconSun size={16} /> : <IconMoon size={16} />}
           </button>
           <Link to="/signin" className="btn btn-ghost btn-sm nav-signin">Sign in</Link>
-          <Link to="/signup" className="btn btn-soft btn-sm nav-signup">Sign up</Link>
           <Link to="/signup" className="btn btn-primary btn-sm">
             Get Early Access <IconArrowRight size={14} />
           </Link>

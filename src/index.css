@@ -890,7 +890,6 @@ a.eyebrow:hover { border-color: var(--border-strong); box-shadow: var(--shadow-m
 @media (max-width: 720px) {
   .container { padding: 0 20px; }
   .nav-links { display: none; }
-  .nav-signup { display: none; }
   .hero { padding: 56px 0 36px; }
   .hero-floating { display: none; }
   .bento { grid-template-columns: 1fr; }
