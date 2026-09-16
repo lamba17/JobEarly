@@ -402,8 +402,8 @@ function Pricing() {
     if (btn) setPillStyle({ left: btn.offsetLeft, width: btn.offsetWidth })
   }, [annual])
 
-  const proPrice  = annual ? '₹299' : '₹599'
-  const proStrike = annual ? '₹599' : null
+  const proPrice  = annual ? '₹99' : '₹199'
+  const proStrike = annual ? '₹199' : null
   const freeFeatures = ['3 AI-tailored resumes / month', 'Basic ATS scoring', '5 cover letter drafts', 'Unlimited job matching', 'Standard email support']
   const proFeatures  = ['Unlimited AI-tailored resumes', 'Advanced ATS readiness audits', 'Unlimited cover letters', 'Smart Outreach with reply tracking', 'Performance analytics + insights', 'Priority human + AI support']
 

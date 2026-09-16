@@ -12,7 +12,7 @@ const PRO_FEATURES = [
 
 export default function UpgradeModal({ onClose }: { onClose: () => void }) {
   const [annual, setAnnual] = useState(true)
-  const price = annual ? '₹299' : '₹599'
+  const price = annual ? '₹99' : '₹199'
 
   return (
     <div
