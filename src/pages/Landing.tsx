@@ -404,7 +404,7 @@ function Pricing() {
 
   const proPrice  = annual ? '₹99' : '₹199'
   const proStrike = annual ? '₹199' : null
-  const freeFeatures = ['3 AI-tailored resumes / month', 'Basic ATS scoring', '5 cover letter drafts', 'Unlimited job matching', 'Standard email support']
+  const freeFeatures = ['1 AI-tailored resume / month', 'Basic ATS scoring', '5 cover letter drafts', 'Unlimited job matching', 'Standard email support']
   const proFeatures  = ['Unlimited AI-tailored resumes', 'Advanced ATS readiness audits', 'Unlimited cover letters', 'Smart Outreach with reply tracking', 'Performance analytics + insights', 'Priority human + AI support']
 
   return (
@@ -455,7 +455,7 @@ const FAQS = [
   { q: 'Do you support international roles?',   a: 'Yes. JobEarly works for English-language roles globally and includes filters for sponsorship-friendly companies, regional ATS systems, and salary band detection in 20+ markets including India, US, UK, and EU.' },
   { q: 'Is my data private?',                   a: 'Your resume, job search history, and outreach inbox are encrypted at rest and never used to train shared models. You can export or delete everything in one click. SOC 2 Type II audit completed Q1 2026.' },
   { q: 'Can I cancel anytime?',                 a: "Yes. Pro is month-to-month or annual — cancel from your account any time, and you'll keep access until the end of the period. No questions asked." },
-  { q: "What's included in the free plan?",     a: '3 AI-tailored resumes per month, basic ATS scoring, 5 cover letter drafts, and unlimited job matching. Plenty to land your next role — most free users land an interview within 3 weeks.' },
+  { q: "What's included in the free plan?",     a: '1 AI-tailored resume per month, basic ATS scoring, 5 cover letter drafts, and unlimited job matching. Plenty to land your next role — most free users land an interview within 3 weeks.' },
 ]
 function FAQ() {
   const [open, setOpen] = useState(0)
