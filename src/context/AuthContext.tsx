@@ -1,102 +1,146 @@
-import { createContext, useContext, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import type { Session } from '@supabase/supabase-js'
+import { supabase } from '../lib/supabaseClient'
 
 export interface User {
+  id: string
   name: string
   email: string
-  password: string
   jobTitle: string
   claudeApiKey?: string
 }
 
+interface SignUpData {
+  name: string
+  email: string
+  jobTitle: string
+  password: string
+}
+
 interface AuthCtx {
   user: User | null
-  signIn: (email: string, password: string) => string | null
-  signUp: (data: User) => string | null
-  signOut: () => void
-  updateApiKey: (key: string) => void
-  updateProfile: (data: { name: string; jobTitle: string }) => void
-  changePassword: (currentPassword: string, newPassword: string) => string | null
-  findAccount: (email: string) => boolean
-  resetPassword: (email: string, newPassword: string) => string | null
+  loading: boolean
+  signIn: (email: string, password: string) => Promise<string | null>
+  signUp: (data: SignUpData) => Promise<{ error: string | null; needsEmailConfirmation: boolean }>
+  signOut: () => Promise<void>
+  updateApiKey: (key: string) => Promise<void>
+  updateProfile: (data: { name: string; jobTitle: string }) => Promise<string | null>
+  changePassword: (currentPassword: string, newPassword: string) => Promise<string | null>
+  requestPasswordReset: (email: string) => Promise<void>
+  updatePasswordFromRecovery: (newPassword: string) => Promise<string | null>
 }
 
 const AuthContext = createContext<AuthCtx | null>(null)
 
+async function loadUser(session: Session | null): Promise<User | null> {
+  if (!session?.user) return null
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('name, job_title, claude_api_key')
+    .eq('id', session.user.id)
+    .single()
+
+  return {
+    id: session.user.id,
+    email: session.user.email ?? '',
+    name: profile?.name ?? '',
+    jobTitle: profile?.job_title ?? '',
+    claudeApiKey: profile?.claude_api_key ?? undefined,
+  }
+}
+
+function authErrorMessage(message: string): string {
+  if (message.toLowerCase().includes('invalid login credentials')) return 'Invalid email or password. Please try again.'
+  if (message.toLowerCase().includes('user already registered')) return 'An account with this email already exists.'
+  return message
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => {
-    try { return JSON.parse(localStorage.getItem('je-current') ?? 'null') }
-    catch { return null }
-  })
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  const persistUser = (updated: User) => {
-    setUser(updated)
-    localStorage.setItem('je-current', JSON.stringify(updated))
-    const users: User[] = JSON.parse(localStorage.getItem('je-users') ?? '[]')
-    const idx = users.findIndex(u => u.email === updated.email)
-    if (idx !== -1) {
-      users[idx] = updated
-      localStorage.setItem('je-users', JSON.stringify(users))
-    }
-  }
+  useEffect(() => {
+    let cancelled = false
 
-  const signIn = (email: string, password: string): string | null => {
-    const users: User[] = JSON.parse(localStorage.getItem('je-users') ?? '[]')
-    const found = users.find(u => u.email === email && u.password === password)
-    if (!found) return 'Invalid email or password. Please try again.'
-    setUser(found)
-    localStorage.setItem('je-current', JSON.stringify(found))
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      const u = await loadUser(session)
+      if (!cancelled) { setUser(u); setLoading(false) }
+    })
+
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const u = await loadUser(session)
+      if (!cancelled) setUser(u)
+    })
+
+    return () => { cancelled = true; listener.subscription.unsubscribe() }
+  }, [])
+
+  const signIn = async (email: string, password: string): Promise<string | null> => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) return authErrorMessage(error.message)
     return null
   }
 
-  const signUp = (data: User): string | null => {
-    const users: User[] = JSON.parse(localStorage.getItem('je-users') ?? '[]')
-    if (users.find(u => u.email === data.email)) return 'An account with this email already exists.'
-    users.push(data)
-    localStorage.setItem('je-users', JSON.stringify(users))
-    setUser(data)
-    localStorage.setItem('je-current', JSON.stringify(data))
-    return null
+  const signUp = async (data: SignUpData): Promise<{ error: string | null; needsEmailConfirmation: boolean }> => {
+    const { data: result, error } = await supabase.auth.signUp({
+      email: data.email,
+      password: data.password,
+      options: { data: { name: data.name, job_title: data.jobTitle } },
+    })
+    if (error) return { error: authErrorMessage(error.message), needsEmailConfirmation: false }
+    return { error: null, needsEmailConfirmation: !result.session }
   }
 
-  const signOut = () => {
+  const signOut = async () => {
+    await supabase.auth.signOut()
     setUser(null)
-    localStorage.removeItem('je-current')
   }
 
-  const updateApiKey = (key: string) => {
-    if (user) persistUser({ ...user, claudeApiKey: key })
+  const updateApiKey = async (key: string) => {
+    if (!user) return
+    await supabase.from('profiles').update({ claude_api_key: key }).eq('id', user.id)
+    setUser({ ...user, claudeApiKey: key })
   }
 
-  const updateProfile = (data: { name: string; jobTitle: string }) => {
-    if (user) persistUser({ ...user, ...data })
-  }
-
-  const changePassword = (currentPassword: string, newPassword: string): string | null => {
-    if (!user) return 'You must be signed in to change your password.'
-    if (user.password !== currentPassword) return 'Current password is incorrect.'
-    if (newPassword.length < 6) return 'New password must be at least 6 characters.'
-    persistUser({ ...user, password: newPassword })
+  const updateProfile = async (data: { name: string; jobTitle: string }): Promise<string | null> => {
+    if (!user) return 'You must be signed in.'
+    const { error } = await supabase
+      .from('profiles')
+      .update({ name: data.name, job_title: data.jobTitle })
+      .eq('id', user.id)
+    if (error) return error.message
+    setUser({ ...user, ...data })
     return null
   }
 
-  const findAccount = (email: string): boolean => {
-    const users: User[] = JSON.parse(localStorage.getItem('je-users') ?? '[]')
-    return users.some(u => u.email.toLowerCase() === email.toLowerCase())
+  const changePassword = async (currentPassword: string, newPassword: string): Promise<string | null> => {
+    if (!user) return 'You must be signed in to change your password.'
+    if (newPassword.length < 6) return 'New password must be at least 6 characters.'
+    const { error: reauthError } = await supabase.auth.signInWithPassword({ email: user.email, password: currentPassword })
+    if (reauthError) return 'Current password is incorrect.'
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) return error.message
+    return null
   }
 
-  const resetPassword = (email: string, newPassword: string): string | null => {
-    if (newPassword.length < 6) return 'New password must be at least 6 characters.'
-    const users: User[] = JSON.parse(localStorage.getItem('je-users') ?? '[]')
-    const idx = users.findIndex(u => u.email.toLowerCase() === email.toLowerCase())
-    if (idx === -1) return 'No account found with that email.'
-    users[idx] = { ...users[idx], password: newPassword }
-    localStorage.setItem('je-users', JSON.stringify(users))
-    if (user?.email.toLowerCase() === email.toLowerCase()) persistUser(users[idx])
+  const requestPasswordReset = async (email: string): Promise<void> => {
+    await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+  }
+
+  const updatePasswordFromRecovery = async (newPassword: string): Promise<string | null> => {
+    if (newPassword.length < 6) return 'Password must be at least 6 characters.'
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) return error.message
     return null
   }
 
   return (
-    <AuthContext.Provider value={{ user, signIn, signUp, signOut, updateApiKey, updateProfile, changePassword, findAccount, resetPassword }}>
+    <AuthContext.Provider value={{
+      user, loading, signIn, signUp, signOut, updateApiKey,
+      updateProfile, changePassword, requestPasswordReset, updatePasswordFromRecovery,
+    }}>
       {children}
     </AuthContext.Provider>
   )

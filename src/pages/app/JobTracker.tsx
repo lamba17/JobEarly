@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../../context/AuthContext'
-import { type Status, type Portal, type JobApplication, STATUS_META, PORTAL_META, ALL_STATUSES, jobTrackerKey } from '../../lib/jobTracker'
+import { useJobApplications } from '../../hooks/useJobApplications'
+import { type Status, type Portal, type JobApplication, STATUS_META, PORTAL_META, ALL_STATUSES } from '../../lib/jobTracker'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
-
 function daysSince(dateStr: string): string {
   if (!dateStr) return ''
   const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000)
@@ -41,11 +40,8 @@ const EMPTY_FORM: Omit<JobApplication, 'id' | 'createdAt'> = {
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function JobTracker() {
   const { user } = useAuth()
-  const storageKey = jobTrackerKey(user?.email)
+  const { jobs, addJob, updateJob, deleteJob: removeJob } = useJobApplications(user?.id)
 
-  const [jobs, setJobs] = useState<JobApplication[]>(() => {
-    try { return JSON.parse(localStorage.getItem(storageKey) ?? '[]') } catch { return [] }
-  })
   const [statusFilter, setStatusFilter] = useState<Status | 'all'>('all')
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
@@ -54,10 +50,6 @@ export default function JobTracker() {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<'date' | 'company' | 'status'>('date')
   const firstInputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    localStorage.setItem(storageKey, JSON.stringify(jobs))
-  }, [jobs, storageKey])
 
   useEffect(() => {
     if (showModal) setTimeout(() => firstInputRef.current?.focus(), 50)
@@ -80,23 +72,23 @@ export default function JobTracker() {
     setShowModal(true)
   }
 
-  function saveJob() {
+  async function saveJob() {
     if (!form.company.trim() || !form.role.trim()) return
     if (editingId) {
-      setJobs(prev => prev.map(j => j.id === editingId ? { ...j, ...form } : j))
+      await updateJob(editingId, form)
     } else {
-      setJobs(prev => [{ ...form, id: uid(), createdAt: Date.now() }, ...prev])
+      await addJob(form)
     }
     setShowModal(false)
   }
 
-  function deleteJob(id: string) {
-    setJobs(prev => prev.filter(j => j.id !== id))
+  async function deleteJob(id: string) {
+    await removeJob(id)
     setDeleteId(null)
   }
 
-  function updateStatus(id: string, status: Status) {
-    setJobs(prev => prev.map(j => j.id === id ? { ...j, status } : j))
+  async function updateStatus(id: string, status: Status) {
+    await updateJob(id, { status })
   }
 
   // ── Derived data ──────────────────────────────────────────────────────────

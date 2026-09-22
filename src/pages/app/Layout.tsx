@@ -26,8 +26,8 @@ export default function AppLayout({ theme, toggleTheme }: { theme: string; toggl
     ? user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
     : 'U'
 
-  const handleSignOut = () => {
-    signOut()
+  const handleSignOut = async () => {
+    await signOut()
     navigate('/')
   }
 

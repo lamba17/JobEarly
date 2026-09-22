@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { getUserData } from '../../lib/userStore'
-import { loadJobs } from '../../lib/jobTracker'
+import { useResumes } from '../../hooks/useResumes'
+import { useJobApplications } from '../../hooks/useJobApplications'
 import { IconDoc, IconBriefcase, IconSend, IconArrowRight } from '../../icons'
 
 const greeting = () => {
@@ -23,20 +23,22 @@ function timeAgo(iso: string) {
 export default function Dashboard() {
   const { user } = useAuth()
   const firstName = user?.name?.split(' ')[0] ?? 'there'
-  const data = user ? getUserData(user.email) : { resumes: 0, jobsApplied: 0, outreach: 0, recentDocs: [] }
-  const jobsApplied = loadJobs(user?.email).length
+  const { resumes } = useResumes(user?.id)
+  const { jobs } = useJobApplications(user?.id)
+  const jobsApplied = jobs.length
+  const recentDocs = resumes.slice(0, 10)
 
   const stats = [
-    { icon: <IconDoc size={16} />,       lbl: 'RESUMES CREATED', num: String(data.resumes), delta: data.resumes === 0 ? 'Create your first resume →' : `${data.recentDocs.length} saved` },
+    { icon: <IconDoc size={16} />,       lbl: 'RESUMES CREATED', num: String(resumes.length), delta: resumes.length === 0 ? 'Create your first resume →' : `${recentDocs.length} saved` },
     { icon: <IconBriefcase size={16} />, lbl: 'JOBS APPLIED',    num: String(jobsApplied),  delta: jobsApplied === 0 ? 'Track your first application →' : 'In Job Tracker' },
-    { icon: <IconSend size={16} />,      lbl: 'OUTREACH SENT',   num: String(data.outreach), delta: data.outreach === 0 ? 'Send your first outreach →' : 'Responses received' },
+    { icon: <IconSend size={16} />,      lbl: 'OUTREACH SENT',   num: '0', delta: 'Send your first outreach →' },
   ]
 
   return (
     <>
       <p className="page-greeting">{greeting()}, {firstName}.</p>
       <p className="page-greeting-sub">
-        {data.resumes === 0
+        {resumes.length === 0
           ? 'Welcome to JobEarly! Start by building your first AI-tailored resume.'
           : <>You've tracked <b>{jobsApplied} application{jobsApplied === 1 ? '' : 's'}</b> so far — keep tailoring, keep applying.</>
         }
@@ -60,10 +62,10 @@ export default function Dashboard() {
         <div className="dash-section">
           <div className="dash-section-head">
             <h4>Recent Activity</h4>
-            {data.recentDocs.length > 0 && <Link to="/app/resume-builder">View All Documents</Link>}
+            {recentDocs.length > 0 && <Link to="/app/resume-builder">View All Documents</Link>}
           </div>
 
-          {data.recentDocs.length === 0 ? (
+          {recentDocs.length === 0 ? (
             <div className="dash-empty">
               <div className="dash-empty-icon"><IconDoc size={22} /></div>
               <div className="dash-empty-title">No resumes yet</div>
@@ -73,8 +75,8 @@ export default function Dashboard() {
               </Link>
             </div>
           ) : (
-            data.recentDocs.map(({ title, savedAt, atsScore }) => (
-              <div key={title} className="activity-row">
+            recentDocs.map(({ title, savedAt, atsScore }, i) => (
+              <div key={`${title}-${i}`} className="activity-row">
                 <div className="doc-ico"><IconDoc size={15} /></div>
                 <div>
                   <div className="ttl">{title}</div>

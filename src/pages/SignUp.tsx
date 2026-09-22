@@ -9,20 +9,40 @@ export default function SignUp() {
   const [form, setForm] = useState({ name: '', email: '', jobTitle: '', password: '', confirm: '' })
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [checkEmail, setCheckEmail] = useState(false)
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }))
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
     if (form.password !== form.confirm) { setError('Passwords do not match.'); return }
     if (form.password.length < 6) { setError('Password must be at least 6 characters.'); return }
     setLoading(true)
-    const err = signUp({ name: form.name, email: form.email, jobTitle: form.jobTitle, password: form.password })
+    const { error: err, needsEmailConfirmation } = await signUp({ name: form.name, email: form.email, jobTitle: form.jobTitle, password: form.password })
     setLoading(false)
     if (err) { setError(err); return }
+    if (needsEmailConfirmation) { setCheckEmail(true); return }
     navigate('/app/dashboard')
+  }
+
+  if (checkEmail) {
+    return (
+      <div className="auth-page">
+        <div className="auth-card">
+          <div className="auth-logo">
+            <span className="brand-mark"><IconRocket size={16} stroke={2.4} /></span>
+            <span>JobEarly</span>
+          </div>
+          <h1>Check your email</h1>
+          <p className="sub">We sent a confirmation link to <b>{form.email}</b>. Click it to activate your account, then sign in.</p>
+          <div className="auth-footer" style={{ marginTop: 8 }}>
+            <Link to="/signin">Go to Sign In</Link>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

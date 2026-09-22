@@ -79,7 +79,7 @@ async function extractTextFromFile(file: File): Promise<ExtractResult> {
   throw new Error(`Unsupported file type: .${ext}. Please upload a PDF, DOCX, or TXT file.`)
 }
 import { useAuth } from '../../context/AuthContext'
-import { addResume } from '../../lib/userStore'
+import { useResumes } from '../../hooks/useResumes'
 import {
   IconSparkle, IconUndo, IconRedo,
   IconDownload, IconShare, IconCustomize, IconZoomIn, IconZoomOut,
@@ -804,6 +804,7 @@ async function generateResumeAnalysisReport(resumeText: string, jobDescription: 
 
 export default function ResumeBuilder() {
   const { user } = useAuth()
+  const { addResume } = useResumes(user?.id)
 
   // UI state
   const [saved, setSaved]               = useState(false)
@@ -1021,11 +1022,11 @@ export default function ResumeBuilder() {
     setActiveTab('editor')
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!user) return
     const date = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
     const filename = name ? `${name} — ${date}.pdf` : `Resume — ${date}.pdf`
-    addResume(user.email, filename, atsScore)
+    await addResume(filename, atsScore)
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)
   }

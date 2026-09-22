@@ -14,18 +14,19 @@ export default function Settings() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [passwordMsg, setPasswordMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!name.trim()) { setProfileMsg({ type: 'err', text: 'Full name is required.' }); return }
-    updateProfile({ name: name.trim(), jobTitle: jobTitle.trim() })
+    const err = await updateProfile({ name: name.trim(), jobTitle: jobTitle.trim() })
+    if (err) { setProfileMsg({ type: 'err', text: err }); return }
     setProfileMsg({ type: 'ok', text: 'Profile updated.' })
     setTimeout(() => setProfileMsg(null), 2500)
   }
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault()
     if (newPassword !== confirmPassword) { setPasswordMsg({ type: 'err', text: 'New passwords do not match.' }); return }
-    const err = changePassword(currentPassword, newPassword)
+    const err = await changePassword(currentPassword, newPassword)
     if (err) { setPasswordMsg({ type: 'err', text: err }); return }
     setCurrentPassword(''); setNewPassword(''); setConfirmPassword('')
     setPasswordMsg({ type: 'ok', text: 'Password updated.' })

@@ -12,7 +12,7 @@ export interface JobApplication {
   salary: string
   notes: string
   followUpDate: string
-  createdAt: number
+  createdAt: string
 }
 
 export const STATUS_META: Record<Status, { label: string; color: string; bg: string; border: string }> = {
@@ -37,15 +37,3 @@ export const PORTAL_META: Record<Portal, { label: string; color: string }> = {
 
 export const ALL_STATUSES = Object.keys(STATUS_META) as Status[]
 export const ALL_PORTALS = Object.keys(PORTAL_META) as Portal[]
-
-export function jobTrackerKey(email?: string | null): string {
-  return `je-tracker-${email ?? 'guest'}`
-}
-
-export function loadJobs(email?: string | null): JobApplication[] {
-  try {
-    return JSON.parse(localStorage.getItem(jobTrackerKey(email)) ?? '[]')
-  } catch {
-    return []
-  }
-}

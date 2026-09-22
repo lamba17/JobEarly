@@ -11,11 +11,11 @@ export default function SignIn() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
     setLoading(true)
-    const err = signIn(email, password)
+    const err = await signIn(email, password)
     setLoading(false)
     if (err) { setError(err); return }
     navigate('/app/dashboard')

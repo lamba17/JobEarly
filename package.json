@@ -6,12 +6,14 @@
   "scripts": {
     "dev": "npm run build:server && concurrently \"npm run server\" \"vite\"",
     "server": "node dist-server/server.js",
+    "vite:only": "vite",
     "build:server": "tsc --project tsconfig.server.json",
     "build": "npm run build:server && tsc && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.24.3",
+    "@supabase/supabase-js": "^2.116.0",
     "@types/react-router-dom": "^5.3.3",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",

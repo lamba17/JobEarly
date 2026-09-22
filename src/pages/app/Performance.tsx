@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom'
 import { IconSparkle } from '../../icons'
 import { useAuth } from '../../context/AuthContext'
-import { loadJobs, STATUS_META, PORTAL_META, ALL_STATUSES, ALL_PORTALS, type JobApplication, type Status } from '../../lib/jobTracker'
+import { useJobApplications } from '../../hooks/useJobApplications'
+import { STATUS_META, PORTAL_META, ALL_STATUSES, ALL_PORTALS, type JobApplication, type Status } from '../../lib/jobTracker'
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 function IconClock() {
@@ -35,8 +36,8 @@ function buildWeeklyBuckets(jobs: JobApplication[], weeks: number) {
   })
 }
 
-function timeAgo(ts: number): string {
-  const diff = Date.now() - ts
+function timeAgo(ts: string): string {
+  const diff = Date.now() - new Date(ts).getTime()
   const mins = Math.floor(diff / 60000)
   if (mins < 1) return 'Just now'
   if (mins < 60) return `${mins}m ago`
@@ -50,7 +51,7 @@ function timeAgo(ts: number): string {
 // ── Main export ───────────────────────────────────────────────────────────────
 export default function Performance() {
   const { user } = useAuth()
-  const jobs = loadJobs(user?.email)
+  const { jobs } = useJobApplications(user?.id)
   const total = jobs.length
 
   if (total === 0) {
@@ -95,7 +96,7 @@ export default function Performance() {
   })
   const topCompanies = [...companyMap.values()].sort((a, b) => b.count - a.count).slice(0, 5)
 
-  const recent = [...jobs].sort((a, b) => b.createdAt - a.createdAt).slice(0, 4)
+  const recent = [...jobs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 4)
 
   // Dynamic insight, prioritising actionable follow-ups over general trends
   const today = new Date(); today.setHours(0, 0, 0, 0)

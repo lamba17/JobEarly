@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
-import { loadTickets, saveTickets, CATEGORY_META, STATUS_META, type SupportTicket, type TicketCategory } from '../../lib/supportTickets'
+import { useSupportTickets } from '../../hooks/useSupportTickets'
+import { CATEGORY_META, STATUS_META, type TicketCategory } from '../../lib/supportTickets'
 import { IconHelp } from '../../icons'
-
-function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 
 const CATEGORIES = Object.keys(CATEGORY_META) as TicketCategory[]
 
@@ -20,28 +19,20 @@ export default function Support() {
   const [category, setCategory] = useState<TicketCategory>('bug')
   const [description, setDescription] = useState('')
   const [error, setError] = useState('')
-  const [tickets, setTickets] = useState<SupportTicket[]>(() => loadTickets(user?.email))
+  const { tickets, addTicket, toggleStatus } = useSupportTickets(user?.id)
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!subject.trim() || !description.trim()) {
       setError('Please fill in a subject and description.')
       return
     }
     setError('')
-    const ticket: SupportTicket = {
-      id: uid(), subject: subject.trim(), category, description: description.trim(),
-      status: 'open', createdAt: Date.now(),
-    }
-    const updated = [ticket, ...tickets]
-    setTickets(updated)
-    saveTickets(user?.email, updated)
+    await addTicket({ subject: subject.trim(), category, description: description.trim() })
     setSubject(''); setDescription(''); setCategory('bug')
   }
 
-  const handleToggleStatus = (id: string) => {
-    const updated = tickets.map(t => t.id === id ? { ...t, status: t.status === 'resolved' ? 'open' as const : 'resolved' as const } : t)
-    setTickets(updated)
-    saveTickets(user?.email, updated)
+  const handleToggleStatus = async (id: string, current: (typeof tickets)[number]['status']) => {
+    await toggleStatus(id, current)
   }
 
   return (
@@ -112,7 +103,7 @@ export default function Support() {
                       <span style={{ fontSize: 11.5, color: 'var(--text-mute)' }}>{new Date(t.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                     </div>
                     <p style={{ margin: '0 0 10px', fontSize: 12.5, color: 'var(--text-soft)', lineHeight: 1.55 }}>{t.description}</p>
-                    <button onClick={() => handleToggleStatus(t.id)} style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--accent)', background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    <button onClick={() => handleToggleStatus(t.id, t.status)} style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--accent)', background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit' }}>
                       {t.status === 'resolved' ? 'Reopen' : 'Mark as Resolved'}
                     </button>
                   </div>

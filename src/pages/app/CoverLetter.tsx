@@ -1,9 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
-import { loadCoverLetters, saveCoverLetters, type CoverLetter, type Tone } from '../../lib/coverLetters'
+import { useCoverLetters } from '../../hooks/useCoverLetters'
+import type { CoverLetter, Tone } from '../../lib/coverLetters'
 import { IconSparkle, IconDownload } from '../../icons'
-
-function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 
 interface Form {
   fullName: string
@@ -59,9 +58,7 @@ export default function CoverLetterPage() {
   const [showRefine, setShowRefine] = useState(false)
   const [copied, setCopied] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [library, setLibrary] = useState<CoverLetter[]>(() => loadCoverLetters(user?.email))
-
-  useEffect(() => { setLibrary(loadCoverLetters(user?.email)) }, [user?.email])
+  const { letters: library, saveLetter, deleteLetter } = useCoverLetters(user?.id)
 
   const set = (k: keyof Form, v: string) => setForm(f => ({ ...f, [k]: v }))
 
@@ -115,17 +112,11 @@ export default function CoverLetterPage() {
     }
   }
 
-  const handleSaveToLibrary = () => {
+  const handleSaveToLibrary = async () => {
     if (!letter) return
-    const entry: CoverLetter = {
-      id: activeId ?? uid(),
-      company: form.company, role: form.targetRole, letter, tone: form.tone,
-      createdAt: activeId ? (library.find(l => l.id === activeId)?.createdAt ?? Date.now()) : Date.now(),
-    }
-    const updated = activeId ? library.map(l => l.id === activeId ? entry : l) : [entry, ...library]
-    setLibrary(updated)
-    saveCoverLetters(user?.email, updated)
-    setActiveId(entry.id)
+    const result = await saveLetter(activeId, { company: form.company, role: form.targetRole, letter, tone: form.tone })
+    if (!result) return
+    setActiveId(result.id)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
@@ -137,10 +128,8 @@ export default function CoverLetterPage() {
     setError(''); setShowRefine(false)
   }
 
-  const handleDeleteSaved = (id: string) => {
-    const updated = library.filter(l => l.id !== id)
-    setLibrary(updated)
-    saveCoverLetters(user?.email, updated)
+  const handleDeleteSaved = async (id: string) => {
+    await deleteLetter(id)
     if (activeId === id) { setActiveId(null); setLetter('') }
   }
 
