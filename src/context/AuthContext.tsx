@@ -88,6 +88,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       options: { data: { name: data.name, job_title: data.jobTitle } },
     })
     if (error) return { error: authErrorMessage(error.message), needsEmailConfirmation: false }
+
+    // Fire-and-forget: a welcome email failing should never block signup.
+    fetch('/api/send-welcome-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: data.email, name: data.name }),
+    }).catch(() => {})
+
     return { error: null, needsEmailConfirmation: !result.session }
   }
 

@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express'
 import Anthropic from '@anthropic-ai/sdk'
+import nodemailer from 'nodemailer'
 import 'dotenv/config'
 
 const app = express()
@@ -16,6 +17,13 @@ app.use((req, res, next) => {
 const client = new Anthropic({
   apiKey: process.env.CLAUDE_API_KEY,
 })
+
+const mailTransport = process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD
+  ? nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
+    })
+  : null
 
 // Endpoint for generating analysis report
 app.post('/api/analyze-resume', async (req: Request, res: Response) => {
@@ -224,7 +232,39 @@ Return ONLY the letter text. No explanations, no markdown, no surrounding quotes
   }
 })
 
+// Endpoint for sending the post-signup welcome email
+app.post('/api/send-welcome-email', async (req: Request, res: Response) => {
+  try {
+    const { email, name } = req.body
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' })
+    }
+
+    if (!mailTransport) {
+      console.warn('Welcome email skipped: GMAIL_USER / GMAIL_APP_PASSWORD not configured')
+      return res.json({ sent: false })
+    }
+
+    const firstName = (name || '').split(' ')[0] || 'there'
+
+    await mailTransport.sendMail({
+      from: `"JobEarly" <${process.env.GMAIL_USER}>`,
+      to: email,
+      subject: 'Welcome to JobEarly!',
+      text: `Hi ${firstName},\n\nThank you for signing up, and we look forward to you using JobEarly.\n\n— The JobEarly Team`,
+      html: `<p>Hi ${firstName},</p><p>Thank you for signing up, and we look forward to you using JobEarly.</p><p>— The JobEarly Team</p>`,
+    })
+
+    res.json({ sent: true })
+  } catch (error: any) {
+    console.error('Welcome email error:', error)
+    res.status(500).json({ error: error.message || 'Failed to send welcome email' })
+  }
+})
+
 app.listen(PORT, () => {
   console.log(`🚀 Backend server running on http://localhost:${PORT}`)
   console.log(`CLAUDE_API_KEY: ${process.env.CLAUDE_API_KEY ? '✓ Set' : '✗ Not set'}`)
+  console.log(`GMAIL welcome email: ${mailTransport ? '✓ Configured' : '✗ Not configured'}`)
 })
