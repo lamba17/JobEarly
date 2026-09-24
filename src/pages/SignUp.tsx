@@ -88,7 +88,7 @@ export default function SignUp() {
         </form>
 
         <p style={{ fontSize: 12, color: 'var(--text-mute)', textAlign: 'center', marginTop: 12 }}>
-          By signing up, you agree to our <a href="#" style={{ color: 'var(--accent)' }}>Terms</a> and <a href="#" style={{ color: 'var(--accent)' }}>Privacy Policy</a>.
+          By signing up, you agree to our <Link to="/terms" style={{ color: 'var(--accent)' }}>Terms</Link> and <Link to="/privacy" style={{ color: 'var(--accent)' }}>Privacy Policy</Link>.
         </p>
         <div className="auth-footer">
           Already have an account? <Link to="/signin">Sign in</Link>
