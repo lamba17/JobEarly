@@ -48,6 +48,15 @@ function repairJson(raw: string): string {
   return result
 }
 
+// Drop leading/trailing ellipses the model adds when it truncates excerpts
+function cleanExample(value: unknown): string {
+  return String(value || '')
+    .trim()
+    .replace(/^(\.{2,}|…)\s*/, '')
+    .replace(/\s*(\.{3,}|…)$/, '')
+    .slice(0, 400)
+}
+
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
@@ -78,7 +87,7 @@ ${resumeText.slice(0, 6000)}
 Job Description:
 ${jobDescription.slice(0, 2000)}
 
-Return ONLY valid JSON with no markdown, no code blocks, no explanation. Keep "before" and "after" values SHORT (under 100 chars each) and escape any quotes inside them:
+Return ONLY valid JSON with no markdown, no code blocks, no explanation. Escape any quotes inside string values. For "example", "before" must be a COMPLETE bullet or sentence copied verbatim from the resume (never truncated, never starting or ending with "..." or "…"), and "after" must be the COMPLETE rewritten version of that same bullet, starting with a real word (never an ellipsis or fragment). Each may be up to 300 characters:
 {
   "grade": "B",
   "status": "GOOD",
@@ -93,8 +102,8 @@ Return ONLY valid JSON with no markdown, no code blocks, no explanation. Keep "b
       "whyImportant": "Why this matters",
       "howToImprove": "Specific actionable fix",
       "example": {
-        "before": "Short excerpt from resume (under 100 chars)",
-        "after": "Improved version (under 100 chars)"
+        "before": "Complete original bullet copied verbatim from the resume",
+        "after": "Complete rewritten version of that same bullet"
       }
     }
   ],
@@ -105,7 +114,7 @@ Return ONLY valid JSON with no markdown, no code blocks, no explanation. Keep "b
 
     const message = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 4096,
+      max_tokens: 6000,
       messages: [{ role: 'user', content: prompt }],
     })
 
@@ -135,8 +144,8 @@ Return ONLY valid JSON with no markdown, no code blocks, no explanation. Keep "b
     report.issues = (report.issues || []).map((issue: any) => ({
       ...issue,
       example: issue.example ? {
-        before: String(issue.example.before || '').slice(0, 200),
-        after:  String(issue.example.after  || '').slice(0, 200),
+        before: cleanExample(issue.example.before),
+        after:  cleanExample(issue.example.after),
       } : undefined,
     }))
     report.urgentCount   = report.urgentCount   ?? report.issues.filter((i: any) => i.category === 'urgent').length
