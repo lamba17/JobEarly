@@ -307,6 +307,89 @@ interface ParsedResume {
 }
 
 // ── Resume Text Parser ────────────────────────────────────────────────────────
+// ── Applying an AI suggestion ─────────────────────────────────────────────────
+
+interface EditableResume {
+  workExp: WorkExp[]; skills: string[]; skillCategories: SkillCategory[]
+  summary: string; education: EduEntry[]; certifications: string[]
+}
+type ApplyResult = { ok: true; next: EditableResume } | { ok: false; message: string }
+
+const CUT_OFF_RE = /^\s*["'“]?\s*(\.\.\.|…)|(\.\.\.|…)\s*["'”]?\s*$/
+
+// Strips wrapping quotes, bullet markers and ALL-CAPS labels such as "PRIMARY SKILLS:"
+const cleanSuggestionText = (s: string) => s
+  .replace(/^["'“]|["'”]$/g, '')
+  .replace(/^[•\-*]\s*/, '')
+  .replace(/^[A-Z][A-Z\s&]{2,}:\s*/, '')
+  .trim()
+
+function suggestionMatchScore(text: string, rawBefore: string, beforeWords: string[]): number {
+  if (!text) return 0
+  const t = text.toLowerCase()
+  const b = rawBefore.toLowerCase()
+  if (t === b) return 100
+  if (t.includes(b)) return 90
+  if (b.includes(t) && t.length >= b.length * 0.6) return 85
+  if (b.length > 10 && t.includes(b.slice(0, 40))) return 80
+  if (beforeWords.length >= 2) {
+    const ratio = beforeWords.filter(w => t.includes(w)).length / beforeWords.length
+    if (ratio >= (beforeWords.length <= 4 ? 0.4 : 0.5)) return Math.round(ratio * 70)
+  }
+  return 0
+}
+
+// Replaces exactly ONE resume entry (the best match for `before`) with `after`.
+// Refuses cut-off suggestions so a fragment like "...cutting effort by 45%" never overwrites a full bullet.
+function applySuggestion(data: EditableResume, beforeRaw: string, afterRaw: string): ApplyResult {
+  if (CUT_OFF_RE.test(afterRaw) || CUT_OFF_RE.test(beforeRaw)) {
+    return { ok: false, message: 'This suggestion was cut off, so it can\'t replace a full bullet. Use Copy and edit it manually.' }
+  }
+  const rawBefore = cleanSuggestionText(beforeRaw)
+  const after = cleanSuggestionText(afterRaw)
+  if (!rawBefore || !after) return { ok: false, message: 'This suggestion is empty.' }
+
+  const beforeWords = rawBefore.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 2)
+  type Loc =
+    | { k: 'bullet'; e: number; i: number } | { k: 'title'; e: number } | { k: 'summary' }
+    | { k: 'skill'; i: number } | { k: 'cat'; c: number; i: number }
+    | { k: 'activity'; e: number; i: number } | { k: 'degree'; e: number } | { k: 'cert'; i: number }
+
+  let best: { score: number; loc: Loc } | null = null
+  const consider = (text: string, loc: Loc) => {
+    const score = suggestionMatchScore(text, rawBefore, beforeWords)
+    if (score > 0 && (!best || score > best.score)) best = { score, loc }
+  }
+  data.workExp.forEach((exp, e) => {
+    exp.bullets.forEach((b, i) => consider(b, { k: 'bullet', e, i }))
+    if (exp.title) consider(exp.title, { k: 'title', e })
+  })
+  consider(data.summary, { k: 'summary' })
+  data.skills.forEach((s, i) => consider(s, { k: 'skill', i }))
+  data.skillCategories.forEach((cat, c) => cat.skills.forEach((s, i) => consider(s, { k: 'cat', c, i })))
+  data.education.forEach((edu, e) => {
+    (edu.activities || []).forEach((a, i) => consider(a, { k: 'activity', e, i }))
+    consider(edu.degree, { k: 'degree', e })
+  })
+  data.certifications.forEach((c, i) => consider(c, { k: 'cert', i }))
+
+  if (!best) return { ok: false, message: 'Couldn\'t find that text in your resume. Use Copy and paste it where you want it.' }
+  const loc = (best as { score: number; loc: Loc }).loc
+
+  const next: EditableResume = JSON.parse(JSON.stringify(data))
+  switch (loc.k) {
+    case 'bullet':   next.workExp[loc.e].bullets[loc.i] = after; break
+    case 'title':    next.workExp[loc.e].title = after; break
+    case 'summary':  next.summary = after; break
+    case 'skill':    next.skills[loc.i] = after; break
+    case 'cat':      next.skillCategories[loc.c].skills[loc.i] = after; break
+    case 'activity': next.education[loc.e].activities![loc.i] = after; break
+    case 'degree':   next.education[loc.e].degree = after; break
+    case 'cert':     next.certifications[loc.i] = after; break
+  }
+  return { ok: true, next }
+}
+
 function parseResumeText(raw: string, linkMap: Record<string, string> = {}): ParsedResume {
   const lines = raw.split('\n').map(l => l.trim()).filter(Boolean)
 
@@ -321,7 +404,12 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
   const linkedin = linkedinMatch ? `linkedin.com/in/${linkedinMatch[1]}` : ''
 
   // ── Location — search only in the first 8 header lines ───────────────────
-  const headerLines = lines.slice(0, 8).join(' ')
+  // Stop at the first section heading so a job's office city isn't mistaken for the candidate's location.
+  const firstHeadingIdx = lines.findIndex((l, i) => i > 0 && /^(work\s+experience|professional\s+experience|experience|education|technical\s+skills|skills|summary|profile)\s*$/i.test(l))
+  const headerLines = lines.slice(0, firstHeadingIdx > 0 ? Math.min(8, firstHeadingIdx) : 8).join(' ')
+  const labeledLocation = lines
+    .map(l => l.match(/\blocation\s*[:\-]\s*(.+)$/i)?.[1]?.trim() ?? '')
+    .find(v => v.length > 2 && v.length < 60) ?? ''
   const LOC_CITIES = [
     'Vancouver','Toronto','Ottawa','Calgary','Montreal','Edmonton',
     'New York','San Francisco','Seattle','Boston','Austin','Chicago','Los Angeles','New Jersey',
@@ -352,6 +440,8 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
   }
   // Ignore US state codes standing alone (false positives like "BC" in company names)
   if (LOC_REGIONS.includes(location)) location = ''
+  // An explicit "Location: …" label always wins over guessing from city names
+  if (labeledLocation) location = labeledLocation
 
   // ── Name ─────────────────────────────────────────────────────────────────
   // Find name near contact info (email/phone), not just first matching line
@@ -464,12 +554,16 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
     const inlineMatch = line.match(SKILL_CAT_INLINE)
     if (inlineMatch) {
       const cat = inlineMatch[1].trim()
+      if (/portfolio/i.test(cat)) { currentCat = cat; continue }
       const items = parseSkillItems(line)
       if (items.length) skillGroups.push({ category: cat, skills: items })
       items.forEach(s => { if (!skillSet.includes(s)) skillSet.push(s) })
       currentCat = ''
       continue
     }
+
+    // Link labels under a "Portfolio Links" header (e.g. "Tableau Profile") are not skills
+    if (/portfolio/i.test(currentCat)) continue
 
     // Plain skill line (possibly under a category header)
     const items = parseSkillItems(line.replace(/^[•\-*▸◆→>]\s*/, '').replace(/[•▸◆]/g, ','))
@@ -644,6 +738,34 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
   const ACTIVITY_RE = /\b(president|co-president|delegate|volunteer|club|initiative|competition|council|team\s+leader|merit\s+list|honor\s+roll|clean\s+india|ambulance|csr|scholarship|award)\b/i
   const LOC_LINE_RE = /^(new york|san francisco|los angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|vancouver|montreal|mumbai|bangalore|bengaluru|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|lima|peru)[,\s]/i
 
+  const PERIOD_RE = /(\d{4})\s*[-–—]\s*(?:[A-Za-z]{3,9}\.?\s+)?(\d{4}|present|current|now)/i
+  const periodOf = (s: string): string => {
+    const full = s.match(PERIOD_RE)
+    if (full) return `${full[1]} — ${full[2].charAt(0).toUpperCase() + full[2].slice(1)}`
+    return s.match(/\b(\d{4})\b/)?.[1] ?? ''
+  }
+
+  // Strip the year range and any trailing "City, Country" fragment from a school/degree header line
+  const cleanEduHeader = (s: string, pf: RegExpMatchArray | null): string => s
+    .replace(pf ? pf[0] : /\b\d{4}\b/, '')
+    .replace(/\s+(?:,-?\s*)?(baltimore|new york|san francisco|los angeles|chicago|seattle|boston|austin|miami|denver|toronto|vancouver|montreal|mumbai|bengaluru|bangalore|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|washington|lima|peru|india|usa|canada|uk|singapore|bc|on|ny|ca|md|il|tx|wa|maryland|california|texas|washington|illinois)\b.*/i, '')
+    .replace(/[,·|\t]+$/, '')
+    .trim()
+
+  // Split on ";" but not inside parentheses, so "(Lima, Peru Feb-Mar 2020)" stays in one piece
+  const splitTopLevel = (s: string): string[] => {
+    const out: string[] = []
+    let depth = 0, cur = ''
+    for (const ch of s) {
+      if (ch === '(') depth++
+      else if (ch === ')') depth = Math.max(0, depth - 1)
+      if (ch === ';' && depth === 0) { out.push(cur); cur = ''; continue }
+      cur += ch
+    }
+    out.push(cur)
+    return out.map(p => p.replace(/[;,\s]+$/, '').trim()).filter(Boolean)
+  }
+
   interface RawEdu { degree: string; school: string; period: string; specialization?: string; activities: string[] }
   const edus: RawEdu[] = []
   let curEdu: Partial<RawEdu> | null = null
@@ -667,8 +789,10 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
   for (let i = 0; i < rawEduLines.length; i++) {
     const l = rawEduLines[i]
     const next = rawEduLines[i + 1] ?? ''
+    // A wrapped line ends mid-phrase: dangling conjunction, trailing dash, or an unclosed "("
+    const wraps = /\b(and|&|in|of|for|with)\s*$/i.test(l) || /[–—-]\s*$/.test(l) || l.split('(').length > l.split(')').length
     if (
-      /\b(and|&|in|of|for|with)\s*$/i.test(l) &&
+      wraps &&
       next && !/^\d{4}/.test(next) && !SCHOOL_RE.test(next) && !DEGREE_RE.test(next)
     ) {
       mergedEduLines.push(l + ' ' + next)
@@ -679,11 +803,9 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
   }
 
   for (const line of mergedEduLines) {
-    const periodFull = line.match(/(\d{4})\s*[-–—]\s*(\d{4}|present|current|now)/i)
-    const singleYear = line.match(/\b(\d{4})\b/)
-    const period = periodFull
-      ? `${periodFull[1]} — ${periodFull[2].charAt(0).toUpperCase() + periodFull[2].slice(1)}`
-      : (singleYear ? singleYear[1] : '')
+    // Accepts "2019-2021" and "Jun 2012 – May 2016"
+    const periodFull = line.match(PERIOD_RE)
+    const period = periodOf(line)
 
     const hasDegree  = DEGREE_RE.test(line)
     const hasSchool  = SCHOOL_RE.test(line)
@@ -691,12 +813,7 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
     const specMatch  = line.match(SPEC_RE)
     const isLocation = LOC_LINE_RE.test(line.trim())
 
-    // Clean: strip year range + trailing city/region fragments
-    const lineClean = line
-      .replace(periodFull ? periodFull[0] : /\b\d{4}\b/, '')
-      .replace(/\s+(?:,-?\s*)?(baltimore|new york|san francisco|los angeles|chicago|seattle|boston|austin|miami|denver|toronto|vancouver|montreal|mumbai|bengaluru|bangalore|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|washington|lima|peru|india|usa|canada|uk|singapore|bc|on|ny|ca|md|il|tx|wa|maryland|california|texas|washington|illinois)\b.*/i, '')
-      .replace(/[,·|\t]+$/, '')
-      .trim()
+    const lineClean = cleanEduHeader(line, periodFull)
 
     // Degree takes priority over school when both match
     if (hasSchool && !hasDegree) {
@@ -704,23 +821,38 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
       curEdu = { school: lineClean || line.replace(/\s*\d{4}.*$/, '').trim(), activities: [] }
       if (period) curEdu.period = period
     } else if (hasDegree) {
-      const degreeText = lineClean.replace(/:\s*.+$/, '').trim()
+      // "B.Tech Electrical & Tele-Communication: Placement team Lead; CSR club…" →
+      // degree is the part before the colon, the rest is specialization / activities.
+      const colonIdx = line.indexOf(':')
+      const hasTail = colonIdx > -1 && DEGREE_RE.test(line.slice(0, colonIdx))
+      const head = hasTail ? line.slice(0, colonIdx) : line
+      const tail = hasTail ? line.slice(colonIdx + 1).trim() : ''
+      const degreeText = cleanEduHeader(head, head.match(PERIOD_RE)).replace(/:\s*.+$/, '').trim()
+      const headPeriod = periodOf(head)
+
       if (curEdu && !curEdu.degree) {
         curEdu.degree = degreeText
-        if (period && !curEdu.period) curEdu.period = period
+        if (headPeriod && !curEdu.period) curEdu.period = headPeriod
       } else {
         flushEdu()
         curEdu = { degree: degreeText, activities: [] }
-        if (period) curEdu.period = period
+        if (headPeriod) curEdu.period = headPeriod
+      }
+
+      for (const part of splitTopLevel(tail)) {
+        const spec = part.match(SPEC_RE)
+        if (spec) curEdu.specialization = spec[1].trim()
+        else if (part.length > 3) curEdu.activities = [...(curEdu.activities ?? []), part]
       }
     } else if (specMatch && curEdu) {
       // Capture specialization
       curEdu.specialization = specMatch[1].trim()
     } else if (isActivity && curEdu) {
-      // Capture educational activities
-      const activity = lineClean.length > 3 ? lineClean : line.replace(/\s*\d{4}.*$/, '').trim()
-      if (activity.length > 3 && !isLocation) {
-        curEdu.activities = [...(curEdu.activities ?? []), activity]
+      // Keep activity text intact (years, cities and parentheses are part of the content)
+      if (!isLocation) {
+        for (const part of splitTopLevel(line)) {
+          if (part.length > 3) curEdu.activities = [...(curEdu.activities ?? []), part]
+        }
       }
     } else if (period && curEdu && !curEdu.period) {
       curEdu.period = period
@@ -859,6 +991,7 @@ export default function ResumeBuilder() {
   const [analysisError, setAnalysisError] = useState('')
   const [showExportModal, setShowExportModal] = useState(false)
   const [appliedImprovements, setAppliedImprovements] = useState<Set<number>>(new Set())
+  const [applyNotice, setApplyNotice] = useState<Record<number, string>>({})
   const [preApplySnapshots, setPreApplySnapshots] = useState<Record<number, {
     workExp: WorkExp[]; skills: string[]; skillCategories: SkillCategory[]
     summary: string; education: EduEntry[]; certifications: string[]
@@ -2789,6 +2922,16 @@ body { margin: 0; padding: 0; background: #fff; }
                                   <button
                                     onClick={() => {
                                       if (analysisReport && issue.example) {
+                                        const res = applySuggestion(
+                                          { workExp, skills, skillCategories, summary, education, certifications },
+                                          issue.example.before,
+                                          issue.example.after,
+                                        )
+                                        if (!res.ok) {
+                                          setApplyNotice(prev => ({ ...prev, [idx]: res.message }))
+                                          return
+                                        }
+                                        setApplyNotice(prev => { const n = { ...prev }; delete n[idx]; return n })
                                         // Save snapshot before applying
                                         setPreApplySnapshots(prev => ({ ...prev, [idx]: {
                                           workExp: JSON.parse(JSON.stringify(workExp)),
@@ -2798,68 +2941,12 @@ body { margin: 0; padding: 0; background: #fff; }
                                           education: JSON.parse(JSON.stringify(education)),
                                           certifications: [...certifications],
                                         }}))
-
-                                        const rawBefore = issue.example.before
-                                          .replace(/^["']|["']$/g, '')
-                                          .replace(/^[•\-*]\s*/, '')
-                                          .replace(/^[A-Z\s&]+:\s*/i, '')
-                                          .trim()
-                                        const after = issue.example.after
-                                          .replace(/^["']|["']$/g, '')
-                                          .replace(/^[•\-*]\s*/, '')
-                                          .replace(/^[A-Z\s&]+:\s*/i, '')
-                                          .trim()
-
-                                        const toWords = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 2)
-                                        const beforeWords = toWords(rawBefore)
-
-                                        const matchText = (text: string) => {
-                                          if (!text) return false
-                                          const t = text.toLowerCase()
-                                          const b = rawBefore.toLowerCase()
-                                          if (t.includes(b) || b.includes(t)) return true
-                                          if (b.length > 10 && t.includes(b.slice(0, 40))) return true
-                                          if (beforeWords.length >= 2) {
-                                            const hits = beforeWords.filter(w => t.includes(w)).length
-                                            const threshold = beforeWords.length <= 4 ? 0.4 : 0.5
-                                            return hits / beforeWords.length >= threshold
-                                          }
-                                          return false
-                                        }
-
-                                        setWorkExp(prev => prev.map(exp => {
-                                          const newBullets = (exp.bullets || []).map(bullet =>
-                                            matchText(bullet) ? after : bullet
-                                          )
-                                          const newTitle = exp.title && matchText(exp.title) ? after : exp.title
-                                          return { ...exp, bullets: newBullets, title: newTitle }
-                                        }))
-
-                                        setSummary(prev => matchText(prev) ? after : prev)
-
-                                        const afterSkill = after.replace(/^[A-Z\s&]+:\s*/i, '').trim()
-                                        setSkills(prev =>
-                                          prev.map(skill => matchText(skill) ? afterSkill : skill)
-                                        )
-
-                                        setSkillCategories(prev =>
-                                          prev.map(cat => ({
-                                            ...cat,
-                                            skills: cat.skills.map(s => matchText(s) ? afterSkill : s),
-                                          }))
-                                        )
-
-                                        setEducation(prev => prev.map(edu => {
-                                          const newActivities = (edu.activities || []).map(b =>
-                                            matchText(b) ? after : b
-                                          )
-                                          const newDegree = matchText(edu.degree) ? after : edu.degree
-                                          return { ...edu, activities: newActivities, degree: newDegree }
-                                        }))
-
-                                        setCertifications(prev =>
-                                          prev.map(cert => matchText(cert) ? after : cert)
-                                        )
+                                        setWorkExp(res.next.workExp)
+                                        setSummary(res.next.summary)
+                                        setSkills(res.next.skills)
+                                        setSkillCategories(res.next.skillCategories)
+                                        setEducation(res.next.education)
+                                        setCertifications(res.next.certifications)
 
                                         setAppliedImprovements(prev => new Set([...prev, idx]))
                                       }
@@ -2917,6 +3004,9 @@ body { margin: 0; padding: 0; background: #fff; }
                                     </button>
                                   )}
                                 </div>
+                                {applyNotice[idx] && (
+                                  <div style={{ marginTop: 6, fontSize: 11, color: '#b45309' }}>{applyNotice[idx]}</div>
+                                )}
                               </div>
                             </div>
                           )}

@@ -48,6 +48,18 @@ function repairJson(raw: string): string {
   return result
 }
 
+const ELLIPSIS_EDGE = /^\s*["'“]?\s*(\.\.\.|…)|(\.\.\.|…)\s*["'”]?\s*$/
+
+// A suggestion that starts or ends with an ellipsis is a cut-off fragment and cannot
+// replace a resume bullet, so drop it instead of showing something the user would apply.
+function sanitizeExample(example: any): { before: string; after: string } | undefined {
+  if (!example) return undefined
+  const before = String(example.before || '').trim().slice(0, 600)
+  const after = String(example.after || '').trim().slice(0, 600)
+  if (!before || !after || ELLIPSIS_EDGE.test(after) || ELLIPSIS_EDGE.test(before)) return undefined
+  return { before, after }
+}
+
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
@@ -78,7 +90,8 @@ ${resumeText.slice(0, 6000)}
 Job Description:
 ${jobDescription.slice(0, 2000)}
 
-Return ONLY valid JSON with no markdown, no code blocks, no explanation. Keep "before" and "after" values SHORT (under 100 chars each) and escape any quotes inside them:
+Return ONLY valid JSON with no markdown, no code blocks, no explanation. Escape any quotes inside string values.
+Rules for "example": "before" must be ONE complete bullet or line copied word-for-word from the resume. "after" must be the complete rewritten version of that same bullet, starting with a capital letter or action verb, that can directly replace it. Never use "..." or "…" at the start or end of either value, and never abbreviate or truncate them.
 {
   "grade": "B",
   "status": "GOOD",
@@ -93,8 +106,8 @@ Return ONLY valid JSON with no markdown, no code blocks, no explanation. Keep "b
       "whyImportant": "Why this matters",
       "howToImprove": "Specific actionable fix",
       "example": {
-        "before": "Short excerpt from resume (under 100 chars)",
-        "after": "Improved version (under 100 chars)"
+        "before": "One complete bullet copied verbatim from the resume",
+        "after": "The complete improved version of that bullet"
       }
     }
   ],
@@ -105,7 +118,7 @@ Return ONLY valid JSON with no markdown, no code blocks, no explanation. Keep "b
 
     const message = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 4096,
+      max_tokens: 6000,
       messages: [{ role: 'user', content: prompt }],
     })
 
@@ -134,10 +147,7 @@ Return ONLY valid JSON with no markdown, no code blocks, no explanation. Keep "b
     report.summary = report.summary || 'Analysis complete.'
     report.issues = (report.issues || []).map((issue: any) => ({
       ...issue,
-      example: issue.example ? {
-        before: String(issue.example.before || '').slice(0, 200),
-        after:  String(issue.example.after  || '').slice(0, 200),
-      } : undefined,
+      example: sanitizeExample(issue.example),
     }))
     report.urgentCount   = report.urgentCount   ?? report.issues.filter((i: any) => i.category === 'urgent').length
     report.criticalCount = report.criticalCount ?? report.issues.filter((i: any) => i.category === 'critical').length
