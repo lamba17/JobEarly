@@ -38,7 +38,7 @@ async function loadUser(session: Session | null): Promise<User | null> {
     .from('profiles')
     .select('name, job_title, claude_api_key')
     .eq('id', session.user.id)
-    .single()
+    .maybeSingle()
 
   return {
     id: session.user.id,

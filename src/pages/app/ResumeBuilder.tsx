@@ -234,14 +234,50 @@ function computeScore(found: number, total: number, hasJD: boolean, resumeText?:
   return Math.min(98, Math.round(score))
 }
 
-const FORMAT_CHECKS = [
-  { label: 'Standard section headings', pass: true },
-  { label: 'Contact info readable by ATS', pass: true },
-  { label: 'Quantified achievements present', pass: true },
-  { label: 'Action verbs lead each bullet', pass: true },
-  { label: 'No graphics in text areas', pass: true },
-  { label: 'Date ranges consistently formatted', pass: true },
+const ACTION_VERBS = [
+  'led','managed','built','developed','created','designed','launched','drove','delivered',
+  'improved','increased','decreased','reduced','implemented','architected','optimized',
+  'automated','analyzed','coordinated','established','executed','generated','grew',
+  'identified','initiated','introduced','maintained','migrated','mentored','negotiated',
+  'organized','oversaw','pioneered','planned','presented','produced','proposed','published',
+  'redesigned','resolved','spearheaded','streamlined','supervised','trained','transformed',
+  'utilized', 'wrote', 'shared', 'contributed', 'demonstrated', 'trained', 'participated',
+  'successfully', 'proposed',
 ]
+
+interface FormatCheck { label: string; pass: boolean }
+
+function computeFormatChecks(resumeText: string, email: string, phone: string, workExp: WorkExp[]): FormatCheck[] {
+  const upper = resumeText.toUpperCase()
+  const hasHeadings = ['EXPERIENCE', 'EDUCATION', 'SKILLS'].filter(h => upper.includes(h)).length >= 2
+
+  const emailOk = !!email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  const phoneOk = !!phone && (phone.match(/\d/g) || []).length >= 7
+
+  const bullets = workExp.flatMap(w => w.bullets).filter(b => b.trim().length > 0)
+  const hasQuantified = bullets.some(b => /\d+[%+]|\d+x\b|[$€£¥]\s?\d/.test(b))
+
+  const bulletsWithVerb = bullets.filter(b => {
+    const firstWord = b.trim().split(/\s+/)[0]?.toLowerCase().replace(/[^a-z]/g, '')
+    return ACTION_VERBS.includes(firstWord)
+  })
+  const actionVerbsLead = bullets.length > 0 && bulletsWithVerb.length / bullets.length >= 0.6
+
+  const hasGarbledText = /�|[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(resumeText)
+
+  const periods = workExp.map(w => w.period).filter(Boolean)
+  const datePattern = /^[A-Za-z]{3,9}\.?\s+\d{4}\s*[—–-]\s*([A-Za-z]{3,9}\.?\s+\d{4}|present)$/i
+  const datesConsistent = periods.length === 0 || periods.every(p => datePattern.test(p.trim()))
+
+  return [
+    { label: 'Standard section headings', pass: hasHeadings },
+    { label: 'Contact info readable by ATS', pass: emailOk && phoneOk },
+    { label: 'Quantified achievements present', pass: hasQuantified },
+    { label: 'Action verbs lead each bullet', pass: actionVerbsLead },
+    { label: 'No graphics in text areas', pass: !hasGarbledText },
+    { label: 'Date ranges consistently formatted', pass: datesConsistent },
+  ]
+}
 
 const IcoUpload = ({ size = 14 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -871,6 +907,7 @@ export default function ResumeBuilder() {
   const [keywords, setKeywords] = useState<{ found: string[]; missing: string[] }>({ found: [], missing: [] })
 
   const atsScore   = useMemo(() => computeScore(keywords.found.length, keywords.found.length + keywords.missing.length, analysed, resumeRawText), [keywords, analysed, resumeRawText])
+  const formatChecks = useMemo(() => computeFormatChecks(resumeRawText, email, phone, workExp), [resumeRawText, email, phone, workExp])
   const scoreColor = atsScore >= 85 ? '#10B981' : atsScore >= 65 ? '#F59E0B' : '#EF4444'
   const scorePct   = `${atsScore}%`
 
@@ -1435,7 +1472,7 @@ body { margin: 0; padding: 0; background: #fff; }
                 <div className="ats-kw-section">
                   <div className="ats-kw-head">FORMAT CHECKS</div>
                   <div className="ats-format-list">
-                    {FORMAT_CHECKS.map((fc, i) => (
+                    {formatChecks.map((fc, i) => (
                       <div key={i} className="ats-format-row">
                         <span className={`ats-format-ico ${fc.pass ? 'pass' : 'warn'}`}>
                           {fc.pass ? <IconCheck size={9} /> : <IcoWarn size={9} />}
