@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { IconCheck } from '../../icons'
 import UpgradeModal from '../../components/app/UpgradeModal'
@@ -6,6 +7,14 @@ import { useSubscription } from '../../hooks/useSubscription'
 
 export default function Settings() {
   const { user, updateProfile, changePassword } = useAuth()
+  const location = useLocation()
+
+  // "Manage plan" in the sidebar links to /app/settings#plan: bring the plan card into view,
+  // even when the user is already on this page (location.key changes on every navigation).
+  useEffect(() => {
+    if (location.hash !== '#plan') return
+    document.getElementById('plan')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [location.key, location.hash])
   const { subscription, isPro } = useSubscription(user?.id)
   const [showUpgrade, setShowUpgrade] = useState(false)
 
@@ -51,14 +60,14 @@ export default function Settings() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 560 }}>
         {/* Plan */}
-        <div className="perf-card">
+        <div className="perf-card" id="plan" style={{ scrollMarginTop: 90 }}>
           <div className="perf-card-title">Your Plan</div>
           <div style={{ fontSize: 14, color: 'var(--text)', marginBottom: 6 }}>
             <strong>{isPro ? 'JobEarly Pro' : 'Free'}</strong>
             {isPro && subscription && <span style={{ color: 'var(--text-mute)' }}> · {subscription.plan_interval === 'annual' ? '₹1,188 · 1 year' : '₹199 · 1 month'}</span>}
           </div>
           <div style={{ fontSize: 12.5, color: 'var(--text-mute)', marginBottom: 14, lineHeight: 1.5 }}>
-            {isPro && periodEnd && `Your ${planName} pass is active until ${periodEnd}. It won't renew automatically, so you won't be charged again.`}
+            {isPro && periodEnd && `Your ${planName} pass is active until ${periodEnd}. It won't renew automatically, so you won't be charged again — there's nothing to cancel. When it ends you simply go back to Free.`}
             {!isPro && subscription && periodEnd && `Your Pro access ended on ${periodEnd}. Upgrade to continue with unlimited tailoring.`}
             {!isPro && !subscription && '1 AI-tailored resume per month. Upgrade for unlimited tailoring, cover letters and outreach.'}
           </div>

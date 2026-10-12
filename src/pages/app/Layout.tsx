@@ -83,7 +83,7 @@ export default function AppLayout({ theme, toggleTheme }: { theme: string; toggl
             <div className="upg-label">{isPro ? 'PRO PLAN ✓' : 'PRO PLAN'}</div>
             <div className="upg-text">{isPro ? "You're on Pro — unlimited AI tailoring is unlocked." : 'Unlock unlimited AI resume tailoring.'}</div>
             {isPro
-              ? <button className="upg-btn" onClick={() => navigate('/app/settings')}>Manage plan</button>
+              ? <button className="upg-btn" onClick={() => navigate('/app/settings#plan')}>Manage plan</button>
               : <button className="upg-btn" onClick={() => setShowUpgrade(true)}>Upgrade to Pro</button>}
           </div>
         </div>
