@@ -15,11 +15,12 @@ const PRO_FEATURES = [
 
 export default function UpgradeModal({ onClose }: { onClose: () => void }) {
   const { user } = useAuth()
-  const { isPro } = useSubscription(user?.id)
+  const { isPro, subscription } = useSubscription(user?.id)
   const [annual, setAnnual] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
+  const [extended, setExtended] = useState(false)
   const price = annual ? '₹99' : '₹199'
 
   const handleUpgrade = async () => {
@@ -28,7 +29,7 @@ export default function UpgradeModal({ onClose }: { onClose: () => void }) {
     setBusy(true)
     try {
       const result = await startCheckout(annual ? 'annual' : 'monthly', { name: user.name, email: user.email })
-      if (result === 'paid') setDone(true)
+      if (result === 'paid') { setExtended(isPro); setDone(true) }
     } catch (e: any) {
       setError(e.message || 'Something went wrong. Please try again.')
     } finally {
@@ -52,7 +53,7 @@ export default function UpgradeModal({ onClose }: { onClose: () => void }) {
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', color: 'var(--accent)', marginBottom: 8 }}>
               <IconSparkle size={12} /> JOBEARLY PRO
             </div>
-            <div style={{ fontWeight: 800, fontSize: 20, color: 'var(--text)' }}>Unlock unlimited tailoring</div>
+            <div style={{ fontWeight: 800, fontSize: 20, color: 'var(--text)' }}>{isPro && !done ? 'Extend your Pro' : 'Unlock unlimited tailoring'}</div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-mute)', display: 'grid', placeItems: 'center', width: 28, height: 28, flexShrink: 0 }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -86,6 +87,12 @@ export default function UpgradeModal({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
+        {isPro && subscription && (
+          <div style={{ padding: '14px 24px 0', fontSize: 12.5, color: 'var(--text-mute)', lineHeight: 1.5 }}>
+            Your current Pro runs until <strong style={{ color: 'var(--text)' }}>{new Date(subscription.current_period_end).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>. The new period is added after it, so you lose nothing.
+          </div>
+        )}
+
         {/* Features */}
         <div style={{ padding: '20px 24px 0', display: 'flex', flexDirection: 'column', gap: 11 }}>
           {PRO_FEATURES.map(f => (
@@ -100,10 +107,10 @@ export default function UpgradeModal({ onClose }: { onClose: () => void }) {
 
         {/* CTA */}
         <div style={{ padding: '24px', marginTop: 4 }}>
-          {done || isPro ? (
+          {done ? (
             <>
               <div style={{ background: 'var(--blue-50)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px', fontSize: 13.5, color: 'var(--text)', marginBottom: 14, lineHeight: 1.5 }}>
-                {done ? "You're all set — welcome to JobEarly Pro!" : "You're already on JobEarly Pro."}
+                {extended ? 'Done — your Pro has been extended.' : "You're all set — welcome to JobEarly Pro!"}
               </div>
               <button onClick={onClose} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '11px 0', fontSize: 14 }}>
                 Done
@@ -117,7 +124,7 @@ export default function UpgradeModal({ onClose }: { onClose: () => void }) {
                 className="btn btn-primary"
                 style={{ width: '100%', justifyContent: 'center', padding: '11px 0', fontSize: 14, opacity: busy ? 0.7 : 1 }}
               >
-                {busy ? 'Opening secure checkout…' : annual ? 'Upgrade — ₹1,188 / year' : 'Upgrade — ₹199 / month'}
+                {busy ? 'Opening secure checkout…' : `${isPro ? 'Extend' : 'Upgrade'} — ${annual ? '₹1,188 / year' : '₹199 / month'}`}
               </button>
               {error && <div style={{ color: '#DC2626', fontSize: 12.5, marginTop: 10, lineHeight: 1.5 }}>{error}</div>}
               <div style={{ fontSize: 11.5, color: 'var(--text-mute)', marginTop: 10, textAlign: 'center', lineHeight: 1.5 }}>

@@ -179,6 +179,8 @@ export type Database = {
           plan_interval: string
           razorpay_order_id: string
           razorpay_payment_id: string
+          razorpay_refund_id: string | null
+          refunded_at: string | null
           user_id: string
         }
         Insert: {
@@ -191,6 +193,8 @@ export type Database = {
           plan_interval: string
           razorpay_order_id: string
           razorpay_payment_id: string
+          razorpay_refund_id?: string | null
+          refunded_at?: string | null
           user_id: string
         }
         Update: {
@@ -203,6 +207,8 @@ export type Database = {
           plan_interval?: string
           razorpay_order_id?: string
           razorpay_payment_id?: string
+          razorpay_refund_id?: string | null
+          refunded_at?: string | null
           user_id?: string
         }
         Relationships: []

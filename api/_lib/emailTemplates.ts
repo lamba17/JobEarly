@@ -255,3 +255,51 @@ export function ownerNoticeEmail(d: ReceiptData & { customerName: string; custom
     text: `${d.isRenewal ? 'Pro extended' : 'New Pro subscriber'}\nName: ${d.customerName}\nEmail: ${d.customerEmail}\nPlan: ${d.interval}\nAmount: ${amount}\nPayment ID: ${d.paymentId}\nOrder ID: ${d.orderId}`,
   }
 }
+
+// ── Refund confirmation (to the customer) ──────────────────────────────────
+export function refundEmail(d: { firstName: string; amountRupees: number; paymentId: string }): Email {
+  const first = esc(d.firstName)
+  const amount = formatRupees(d.amountRupees)
+  const body = `
+    <span style="display:inline-block;padding:5px 12px;border-radius:999px;background:#DBEAFE;color:#1E40AF;font-family:${FONT};font-size:11px;font-weight:800;letter-spacing:1px;">REFUND ON ITS WAY</span>
+    <h1 style="margin:16px 0 12px;font-family:${FONT};font-size:28px;line-height:1.2;font-weight:800;color:${INK};">Your refund of ${amount} is on its way</h1>
+    <p style="margin:0 0 22px;font-family:${FONT};font-size:16px;line-height:1.65;color:${MUTE};">
+      Hi ${first}, you cancelled JobEarly Pro, so we've refunded your payment in full. Your Pro access has ended and you're back on the Free plan.
+    </p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      ${detailRow('Refund amount', amount, true)}
+      ${detailRow('Refunded to', 'Your original payment method')}
+      ${detailRow('Expected in your account', '5–7 business days')}
+      ${detailRow('Payment ID', `<span style="font-family:Consolas,Menlo,monospace;font-size:12.5px;">${esc(d.paymentId)}</span>`)}
+    </table>
+    <p style="margin:22px 0 0;font-family:${FONT};font-size:14px;line-height:1.6;color:${MUTE};">
+      We're sorry it wasn't a fit. If something didn't work the way you expected, just reply and tell us — it genuinely helps. You're always welcome back.
+    </p>
+    ${button('Open your dashboard', `${SITE}/app/dashboard`)}
+    ${signOff()}`
+
+  return {
+    subject: `Your JobEarly refund of ${amount} is on its way`,
+    html: layout({ preheader: `We've refunded ${amount}. It should reach you in 5–7 business days.`, body }),
+    text: `Hi ${d.firstName},\n\nYou cancelled JobEarly Pro, so we've refunded ${amount} in full to your original payment method. It usually reaches your account in 5-7 business days. Your Pro access has ended.\n\nPayment ID: ${d.paymentId}\n\nRegards,\nJobEarly team`,
+  }
+}
+
+export function ownerRefundNoticeEmail(d: { firstName: string; amountRupees: number; paymentId: string; customerName: string; customerEmail: string }): Email {
+  const amount = formatRupees(d.amountRupees)
+  const body = `
+    <h1 style="margin:0 0 6px;font-family:${FONT};font-size:24px;font-weight:800;color:${INK};">↩️ Pro cancelled & refunded</h1>
+    <p style="margin:0 0 18px;font-family:${FONT};font-size:15px;color:${MUTE};">${esc(d.customerName || 'A customer')} cancelled within 7 days and was refunded <strong style="color:${INK};">${amount}</strong>.</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      ${detailRow('Name', esc(d.customerName || '—'))}
+      ${detailRow('Email', esc(d.customerEmail))}
+      ${detailRow('Refunded', amount, true)}
+      ${detailRow('Payment ID', esc(d.paymentId))}
+    </table>
+    <p style="margin:20px 0 0;font-family:${FONT};font-size:13px;color:${MUTE};">Internal notification — Razorpay does not return its processing fee on refunds.</p>`
+  return {
+    subject: `Refund issued: ${d.customerEmail} · ${amount}`,
+    html: layout({ preheader: `${d.customerEmail} was refunded ${amount}`, body }),
+    text: `Pro cancelled & refunded\nName: ${d.customerName}\nEmail: ${d.customerEmail}\nRefunded: ${amount}\nPayment ID: ${d.paymentId}`,
+  }
+}

@@ -63,3 +63,10 @@ export async function startCheckout(interval: Interval, user: { name: string; em
     rzp.open()
   })
 }
+
+/** Cancel within 7 days of the first payment: full refund, Pro ends now (enforced on the server). */
+export async function cancelAndRefund() {
+  const result = await authedPost<{ refunded: boolean; amountRupees: number }>('/api/cancel-and-refund')
+  notifySubscriptionChanged()
+  return result
+}

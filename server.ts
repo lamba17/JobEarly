@@ -3,7 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import 'dotenv/config'
 import { sendBrandedMail, mailerConfigured } from './api/_lib/mailer.js'
 import { welcomeEmail } from './api/_lib/emailTemplates.js'
-import { BillingError, createOrder, verifyPayment, handleWebhook } from './api/_lib/billing.js'
+import { BillingError, createOrder, verifyPayment, cancelAndRefund, handleWebhook } from './api/_lib/billing.js'
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -273,6 +273,7 @@ const billing = (run: (req: Request) => Promise<unknown>) => async (req: Request
 app.post('/api/create-order', billing(req =>
   createOrder(req.headers.authorization, req.body?.interval === 'annual' ? 'annual' : 'monthly')))
 app.post('/api/verify-payment', billing(req => verifyPayment(req.headers.authorization, req.body ?? {})))
+app.post('/api/cancel-and-refund', billing(req => cancelAndRefund(req.headers.authorization)))
 app.post('/api/razorpay-webhook', billing(req =>
   handleWebhook((req as any).rawBody ?? '', req.headers['x-razorpay-signature'] as string | undefined)))
 

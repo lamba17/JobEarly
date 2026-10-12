@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import { IconCheck } from '../../icons'
 import UpgradeModal from '../../components/app/UpgradeModal'
 import { useSubscription } from '../../hooks/useSubscription'
+import { cancelAndRefund } from '../../lib/billing'
 
 export default function Settings() {
   const { user, updateProfile, changePassword } = useAuth()
@@ -17,10 +18,30 @@ export default function Settings() {
   }, [location.key, location.hash])
   const { subscription, isPro } = useSubscription(user?.id)
   const [showUpgrade, setShowUpgrade] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+  const [planMsg, setPlanMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
   const periodEnd = subscription?.current_period_end
     ? new Date(subscription.current_period_end).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
     : null
+  const fmt = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+  const refundUntil = subscription?.refundableUntil ? fmt(subscription.refundableUntil) : null
+  const paidAmount = subscription?.plan_interval === 'annual' ? '₹1,188' : '₹199'
+
+  const handleCancel = async () => {
+    if (!window.confirm(`Cancel JobEarly Pro and get a full refund of ${paidAmount}?\n\nYour Pro access will end immediately.`)) return
+    setCancelling(true)
+    setPlanMsg(null)
+    try {
+      await cancelAndRefund()
+      setPlanMsg({ type: 'ok', text: `Cancelled. Your refund of ${paidAmount} is on its way — it usually reaches you in 5–7 business days.` })
+    } catch (e: any) {
+      setPlanMsg({ type: 'err', text: e.message || 'Could not cancel. Please try again.' })
+    } finally {
+      setCancelling(false)
+    }
+  }
+
   const planName = subscription?.plan_interval === 'annual' ? 'one-year' : 'one-month'
 
   const [name, setName] = useState(user?.name ?? '')
@@ -67,13 +88,31 @@ export default function Settings() {
             {isPro && subscription && <span style={{ color: 'var(--text-mute)' }}> · {subscription.plan_interval === 'annual' ? '₹1,188 · 1 year' : '₹199 · 1 month'}</span>}
           </div>
           <div style={{ fontSize: 12.5, color: 'var(--text-mute)', marginBottom: 14, lineHeight: 1.5 }}>
-            {isPro && periodEnd && `Your ${planName} pass is active until ${periodEnd}. It won't renew automatically, so you won't be charged again — there's nothing to cancel. When it ends you simply go back to Free.`}
+            {isPro && periodEnd && `Your ${planName} pass is active until ${periodEnd}. It won't renew automatically, so you won't be charged again. Extend any time to keep Pro going — the new period is added after this one.`}
             {!isPro && subscription && periodEnd && `Your Pro access ended on ${periodEnd}. Upgrade to continue with unlimited tailoring.`}
             {!isPro && !subscription && '1 AI-tailored resume per month. Upgrade for unlimited tailoring, cover letters and outreach.'}
           </div>
-          {!isPro && (
-            <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowUpgrade(true)}>Upgrade to Pro</button>
+          {isPro && refundUntil && (
+            <div style={{ fontSize: 12.5, color: 'var(--text-mute)', marginBottom: 14, lineHeight: 1.5 }}>
+              Changed your mind? Cancel before <strong>{refundUntil}</strong> for a full refund — your Pro access then ends right away.
+            </div>
           )}
+          {planMsg && (
+            <div style={{ fontSize: 12.5, marginBottom: 12, lineHeight: 1.5, color: planMsg.type === 'ok' ? '#16A34A' : '#DC2626' }}>{planMsg.text}</div>
+          )}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {isPro && (
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowUpgrade(true)}>Extend Pro</button>
+            )}
+            {isPro && refundUntil && (
+              <button type="button" className="btn btn-ghost btn-sm" onClick={handleCancel} disabled={cancelling}>
+                {cancelling ? 'Cancelling…' : 'Cancel & refund'}
+              </button>
+            )}
+            {!isPro && (
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowUpgrade(true)}>Upgrade to Pro</button>
+            )}
+          </div>
         </div>
 
         {/* Profile */}

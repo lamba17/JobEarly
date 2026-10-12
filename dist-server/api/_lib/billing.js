@@ -7,7 +7,7 @@
 import crypto from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { sendBrandedMail } from './mailer.js';
-import { receiptEmail, ownerNoticeEmail } from './emailTemplates.js';
+import { receiptEmail, ownerNoticeEmail, refundEmail, ownerRefundNoticeEmail } from './emailTemplates.js';
 export class BillingError extends Error {
     constructor(status, message) {
         super(message);
@@ -146,7 +146,7 @@ async function fulfilPayment(paymentId, expectedUserId) {
     const paidAt = new Date((payment.created_at ?? Date.now() / 1000) * 1000);
     // Buying again while still Pro stacks the new period after the current one ends.
     const { data: latest } = await db
-        .from('purchases').select('period_end').eq('user_id', userId).order('period_end', { ascending: false }).limit(1).maybeSingle();
+        .from('purchases').select('period_end').eq('user_id', userId).is('refunded_at', null).order('period_end', { ascending: false }).limit(1).maybeSingle();
     const latestEnd = latest ? new Date(latest.period_end) : null;
     const base = latestEnd && latestEnd > paidAt ? latestEnd : paidAt;
     const periodEnd = addPeriod(base, interval);
@@ -223,4 +223,66 @@ export async function handleWebhook(rawBody, signature) {
         throw e;
     }
     return { received: true };
+}
+const REFUND_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+/**
+ * "Cancel & refund": the Refund Policy promise, automated. Allowed once per customer, on their first
+ * payment only, within 7 days. The refund goes back to the original payment method and Pro ends now.
+ */
+export async function cancelAndRefund(authHeader) {
+    const user = await authenticate(authHeader);
+    const db = admin();
+    const { data: rows, error } = await db
+        .from('purchases')
+        .select('id, razorpay_payment_id, amount_paise, plan_interval, paid_at, refunded_at')
+        .eq('user_id', user.id)
+        .order('paid_at', { ascending: true });
+    if (error)
+        throw new BillingError(500, `Database error: ${error.message}`);
+    const purchases = rows ?? [];
+    if (!purchases.length)
+        throw new BillingError(404, 'You have no Pro purchase to cancel.');
+    if (purchases.length > 1 || purchases[0].refunded_at) {
+        throw new BillingError(400, 'Cancel & refund is only available for your first payment. Your pass will simply end on its date.');
+    }
+    const first = purchases[0];
+    if (Date.now() - new Date(first.paid_at).getTime() > REFUND_WINDOW_MS) {
+        throw new BillingError(400, 'The 7-day refund window has passed. Your pass will simply end on its date and will not renew.');
+    }
+    // Claim first, so a double click can never trigger two refunds.
+    const { data: claimed } = await db
+        .from('purchases').update({ refunded_at: new Date().toISOString() }).eq('id', first.id).is('refunded_at', null).select('id');
+    if (!claimed?.length)
+        throw new BillingError(409, 'This payment has already been cancelled.');
+    let refund;
+    try {
+        refund = await rzp(`/payments/${first.razorpay_payment_id}/refund`, {
+            method: 'POST',
+            body: { amount: first.amount_paise, speed: 'normal', notes: { reason: 'Customer cancelled within 7 days', user_id: user.id } },
+        });
+    }
+    catch (e) {
+        await db.from('purchases').update({ refunded_at: null }).eq('id', first.id); // nothing was refunded: restore access
+        throw e;
+    }
+    await db.from('purchases').update({ razorpay_refund_id: refund.id }).eq('id', first.id);
+    // Never fail a refund that already happened because of an email problem.
+    try {
+        const { data: userRes } = await db.auth.admin.getUserById(user.id);
+        const authUser = userRes?.user;
+        if (authUser?.email) {
+            const { data: profile } = await db.from('profiles').select('name').eq('id', user.id).maybeSingle();
+            const name = profile?.name || authUser.user_metadata?.name || '';
+            const data = { firstName: name.split(' ')[0] || 'there', amountRupees: first.amount_paise / 100, paymentId: first.razorpay_payment_id };
+            await sendBrandedMail(authUser.email, refundEmail(data));
+            if (process.env.GMAIL_USER) {
+                await sendBrandedMail(process.env.GMAIL_USER, ownerRefundNoticeEmail({ ...data, customerName: name, customerEmail: authUser.email }))
+                    .catch(e => console.error('Owner refund notice failed:', e));
+            }
+        }
+    }
+    catch (e) {
+        console.error('Refund email failed:', e);
+    }
+    return { refunded: true, amountRupees: first.amount_paise / 100 };
 }

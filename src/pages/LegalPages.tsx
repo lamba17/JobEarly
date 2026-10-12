@@ -134,7 +134,7 @@ export function Refund({ theme, toggleTheme }: PageProps) {
 
       <h2>Refunds</h2>
       <ul>
-        <li><strong>First-payment refund:</strong> if you are not satisfied, email us within 7 days of your first Pro payment and we will refund it in full.</li>
+        <li><strong>First-payment refund:</strong> if you are not satisfied, use <strong>Settings → Your Plan → Cancel &amp; refund</strong> within 7 days of your first Pro payment (or email us) and we will refund it in full. Your Pro access ends when you cancel. This applies once per customer, to your first payment.</li>
         <li><strong>After the first 7 days:</strong> payments are not refundable once that window has passed, as you keep Pro access for the period you paid for.</li>
         <li><strong>Duplicate or incorrect charges:</strong> if you were charged twice or charged the wrong amount, we will refund the difference in full.</li>
       </ul>
