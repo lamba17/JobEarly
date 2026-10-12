@@ -172,30 +172,3 @@ export async function handleWebhook(rawBody: string, signature: string | undefin
   if (sub) await applySubscription(sub, event.event === 'subscription.cancelled' ? { cancel_at_period_end: false } : {})
   return { received: true }
 }
-
-// Safe diagnostics: booleans plus the public key id (already sent to browsers at checkout). No secrets.
-export async function billingHealth() {
-  const keyId = process.env.RAZORPAY_KEY_ID ?? ''
-  const result: Record<string, unknown> = {
-    razorpayKeyId: keyId ? `${keyId.slice(0, 9)}…${keyId.slice(-4)}` : 'MISSING',
-    razorpaySecretSet: !!process.env.RAZORPAY_KEY_SECRET,
-    razorpayMode: keyId.startsWith('rzp_live_') ? 'live' : keyId.startsWith('rzp_test_') ? 'test' : 'unknown',
-    planMonthlySet: !!process.env.RAZORPAY_PLAN_MONTHLY,
-    planAnnualSet: !!process.env.RAZORPAY_PLAN_ANNUAL,
-    webhookSecretSet: !!process.env.RAZORPAY_WEBHOOK_SECRET,
-    serviceRoleKeySet: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-  }
-  try {
-    const plan = await rzp(`/plans/${process.env.RAZORPAY_PLAN_MONTHLY}`)
-    result.razorpayAuth = `ok (plan ${plan.id})`
-  } catch (e: any) {
-    result.razorpayAuth = `FAILED: ${e.message}`
-  }
-  try {
-    const { error } = await admin().from('subscriptions').select('user_id').limit(1)
-    result.supabaseAdmin = error ? `FAILED: ${error.message}` : 'ok'
-  } catch (e: any) {
-    result.supabaseAdmin = `FAILED: ${e.message}`
-  }
-  return result
-}
