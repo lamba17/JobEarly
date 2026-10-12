@@ -8,6 +8,7 @@ const PRO_FEATURES = [
   'Unlimited AI-tailored resumes',
   'Advanced ATS readiness audits',
   'Unlimited cover letters',
+  'Job application tracker',
   'Smart Outreach with reply tracking',
   'Performance analytics + insights',
   'Priority human + AI support',

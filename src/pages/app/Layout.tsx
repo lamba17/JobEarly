@@ -1,14 +1,28 @@
 import { useEffect, useRef, useState } from 'react'
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import UpgradeModal from '../../components/app/UpgradeModal'
+import ProLockedModal from '../../components/app/ProLockedModal'
 import { useSubscription } from '../../hooks/useSubscription'
 import {
   IconRocket, IconDoc, IconFeather, IconBriefcase, IconChart, IconSend,
   IconHelp, IconSettings, IconLogOut, IconSun, IconMoon, IconArrowRight,
 } from '../../icons'
 
-function SidebarItem({ to, icon, label }: { to: string; icon: React.ReactNode; label: string }) {
+function SidebarItem({ to, icon, label, locked, onLocked }: {
+  to: string; icon: React.ReactNode; label: string; locked?: boolean; onLocked?: () => void
+}) {
+  // Pro-only screens stay visible to free users; clicking one explains what Pro unlocks.
+  if (locked) {
+    return (
+      <button type="button" className="sidebar-nav-item sidebar-nav-locked" onClick={onLocked}>
+        {icon}{label}
+        <svg style={{ marginLeft: 'auto', opacity: 0.6 }} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-label="Pro feature">
+          <rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" />
+        </svg>
+      </button>
+    )
+  }
   return (
     <NavLink to={to} className={({ isActive }) => `sidebar-nav-item${isActive ? ' active' : ''}`}>
       {icon}{label}
@@ -22,7 +36,18 @@ export default function AppLayout({ theme, toggleTheme }: { theme: string; toggl
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const [showUpgrade, setShowUpgrade] = useState(false)
-  const { isPro } = useSubscription(user?.id)
+  const { isPro, loading: planLoading } = useSubscription(user?.id)
+  const locked = !isPro && !planLoading
+  const [lockedFeature, setLockedFeature] = useState<string | null>(null)
+  const location = useLocation()
+
+  // A free user who typed a Pro-only URL is redirected here with the feature name in router state.
+  useEffect(() => {
+    const feature = (location.state as { proLocked?: string } | null)?.proLocked
+    if (!feature) return
+    setLockedFeature(feature)
+    navigate(location.pathname, { replace: true, state: null })
+  }, [location.state, location.pathname, navigate])
 
   const initials = user?.name
     ? user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
@@ -67,10 +92,10 @@ export default function AppLayout({ theme, toggleTheme }: { theme: string; toggl
         <nav className="sidebar-nav">
           <SidebarItem to="/app/dashboard"     icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>} label="Dashboard" />
           <SidebarItem to="/app/resume-builder" icon={<IconDoc size={15} />}       label="Resumes" />
-          <SidebarItem to="/app/cover-letter"   icon={<IconFeather size={15} />}   label="Cover Letters" />
-          <SidebarItem to="/app/job-match"      icon={<IconBriefcase size={15} />} label="Job Tracker" />
-          <SidebarItem to="/app/performance"    icon={<IconChart size={15} />}     label="Analytics" />
-          <SidebarItem to="/app/outreach"       icon={<IconSend size={15} />}      label="Outreach" />
+          <SidebarItem to="/app/cover-letter"   icon={<IconFeather size={15} />}   label="Cover Letters" locked={locked} onLocked={() => setLockedFeature('Cover Letters')} />
+          <SidebarItem to="/app/job-match"      icon={<IconBriefcase size={15} />} label="Job Tracker" locked={locked} onLocked={() => setLockedFeature('Job Tracker')} />
+          <SidebarItem to="/app/performance"    icon={<IconChart size={15} />}     label="Analytics" locked={locked} onLocked={() => setLockedFeature('Analytics')} />
+          <SidebarItem to="/app/outreach"       icon={<IconSend size={15} />}      label="Outreach" locked={locked} onLocked={() => setLockedFeature('Outreach')} />
 
           <div className="sidebar-divider" />
 
@@ -81,7 +106,7 @@ export default function AppLayout({ theme, toggleTheme }: { theme: string; toggl
         <div className="sidebar-footer">
           <div className="sidebar-upgrade">
             <div className="upg-label">{isPro ? 'PRO PLAN ✓' : 'PRO PLAN'}</div>
-            <div className="upg-text">{isPro ? "You're on Pro — unlimited AI tailoring is unlocked." : 'Unlock unlimited AI resume tailoring.'}</div>
+            <div className="upg-text">{isPro ? "You're on Pro — unlimited AI tailoring is unlocked." : 'Unlock cover letters, job tracker, analytics, outreach & unlimited tailoring.'}</div>
             {isPro
               ? <button className="upg-btn" onClick={() => navigate('/app/settings#plan')}>Manage plan</button>
               : <button className="upg-btn" onClick={() => setShowUpgrade(true)}>Upgrade to Pro</button>}
@@ -143,6 +168,13 @@ export default function AppLayout({ theme, toggleTheme }: { theme: string; toggl
       </div>
 
       {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} />}
+      {lockedFeature && (
+        <ProLockedModal
+          feature={lockedFeature}
+          onClose={() => setLockedFeature(null)}
+          onUpgrade={() => { setLockedFeature(null); setShowUpgrade(true) }}
+        />
+      )}
     </div>
   )
 }

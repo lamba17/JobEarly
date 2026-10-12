@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useResumes } from '../../hooks/useResumes'
 import { useJobApplications } from '../../hooks/useJobApplications'
+import { useSubscription } from '../../hooks/useSubscription'
 import { IconDoc, IconBriefcase, IconSend, IconArrowRight } from '../../icons'
 
 const greeting = () => {
@@ -25,14 +26,18 @@ export default function Dashboard() {
   const firstName = user?.name?.split(' ')[0] ?? 'there'
   const { resumes } = useResumes(user?.id)
   const { jobs } = useJobApplications(user?.id)
+  const { isPro } = useSubscription(user?.id)
   const jobsApplied = jobs.length
   const recentDocs = resumes.slice(0, 10)
 
-  const stats = [
+  const allStats = [
     { icon: <IconDoc size={16} />,       lbl: 'RESUMES CREATED', num: String(resumes.length), delta: resumes.length === 0 ? 'Create your first resume →' : `${recentDocs.length} saved` },
     { icon: <IconBriefcase size={16} />, lbl: 'JOBS APPLIED',    num: String(jobsApplied),  delta: jobsApplied === 0 ? 'Track your first application →' : 'In Job Tracker' },
     { icon: <IconSend size={16} />,      lbl: 'OUTREACH SENT',   num: '0', delta: 'Send your first outreach →' },
   ]
+
+  // Job tracking and outreach are Pro features, so free users only get the resume card.
+  const stats = isPro ? allStats : allStats.slice(0, 1)
 
   return (
     <>
@@ -40,7 +45,9 @@ export default function Dashboard() {
       <p className="page-greeting-sub">
         {resumes.length === 0
           ? 'Welcome to JobEarly! Start by building your first AI-tailored resume.'
-          : <>You've tracked <b>{jobsApplied} application{jobsApplied === 1 ? '' : 's'}</b> so far — keep tailoring, keep applying.</>
+          : isPro
+            ? <>You've tracked <b>{jobsApplied} application{jobsApplied === 1 ? '' : 's'}</b> so far — keep tailoring, keep applying.</>
+            : <>You've created <b>{resumes.length} resume{resumes.length === 1 ? '' : 's'}</b>. Upgrade to Pro to track applications, write cover letters and send outreach.</>
         }
       </p>
 

@@ -19,11 +19,22 @@ import Performance from './pages/app/Performance'
 import Outreach from './pages/app/Outreach'
 import Settings from './pages/app/Settings'
 import Support from './pages/app/Support'
+import { useSubscription } from './hooks/useSubscription'
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth()
   if (loading) return null
   if (!user) return <Navigate to="/signin" replace />
+  return <>{children}</>
+}
+
+// Cover Letters, Job Tracker, Analytics and Outreach are Pro features. A free user who opens one
+// (e.g. by typing the URL) is sent to the dashboard, where the layout shows the "Pro feature" pop-up.
+function ProRoute({ feature, children }: { feature: string; children: ReactNode }) {
+  const { user } = useAuth()
+  const { isPro, loading } = useSubscription(user?.id)
+  if (loading) return null
+  if (!isPro) return <Navigate to="/app/dashboard" replace state={{ proLocked: feature }} />
   return <>{children}</>
 }
 
@@ -71,10 +82,10 @@ export default function App() {
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="resume-builder" element={<ResumeBuilder />} />
-            <Route path="cover-letter" element={<CoverLetter />} />
-            <Route path="job-match" element={<JobTracker />} />
-            <Route path="performance" element={<Performance />} />
-            <Route path="outreach" element={<Outreach />} />
+            <Route path="cover-letter" element={<ProRoute feature="Cover Letters"><CoverLetter /></ProRoute>} />
+            <Route path="job-match" element={<ProRoute feature="Job Tracker"><JobTracker /></ProRoute>} />
+            <Route path="performance" element={<ProRoute feature="Analytics"><Performance /></ProRoute>} />
+            <Route path="outreach" element={<ProRoute feature="Outreach"><Outreach /></ProRoute>} />
             <Route path="settings" element={<Settings />} />
             <Route path="help" element={<Support />} />
           </Route>

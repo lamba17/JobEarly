@@ -997,6 +997,7 @@ a.eyebrow:hover { border-color: var(--border-strong); box-shadow: var(--shadow-m
   cursor: pointer; transition: all .15s; margin-bottom: 2px; text-decoration: none;
 }
 .sidebar-nav-item:hover { background: var(--bg-soft); color: var(--text); }
+.sidebar-nav-locked { width: 100%; background: none; border: none; text-align: left; font-family: inherit; }
 .sidebar-nav-item.active { background: var(--blue-50); color: var(--accent); font-weight: 600; }
 .sidebar-divider { height: 1px; background: var(--border); margin: 8px 10px; }
 .sidebar-footer { padding: 10px; }

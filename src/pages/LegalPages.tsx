@@ -33,7 +33,7 @@ export function Terms({ theme, toggleTheme }: PageProps) {
       <p>By creating an account you agree to use JobEarly for lawful job-search purposes only. You're responsible for the accuracy of the resume and application content you submit — JobEarly tailors and scores what you give it, but doesn't fabricate work history or credentials on your behalf.</p>
 
       <h2>Plans and billing</h2>
-      <p>Free plan limits (resumes, cover letters, and outreach sends) are described on the <a href="/#pricing">Pricing</a> page. Pro is sold as a one-month pass (₹199) or a one-year pass (₹1,188). Each is a single payment that does not renew automatically, so you will not be charged again unless you choose to buy again. You keep Pro access through the end of the period you paid for. See our <a href="/refund">Refund &amp; Cancellation Policy</a> for details.</p>
+      <p>What the Free plan and Pro include is described on the <a href="/#pricing">Pricing</a> page. Pro is sold as a one-month pass (₹199) or a one-year pass (₹1,188). Each is a single payment that does not renew automatically, so you will not be charged again unless you choose to buy again. You keep Pro access through the end of the period you paid for. See our <a href="/refund">Refund &amp; Cancellation Policy</a> for details.</p>
 
       <h2>Acceptable use</h2>
       <ul>
