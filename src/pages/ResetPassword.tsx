@@ -13,17 +13,21 @@ export default function ResetPassword() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
+  const [invalidLink, setInvalidLink] = useState(false)
 
   useEffect(() => {
     // supabase-js exchanges the recovery token in the URL for a session automatically.
     // Wait for that session before showing the form.
+    let cancelled = false
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setReady(true)
+      if (!cancelled && session) setReady(true)
     })
     const { data: listener } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') setReady(true)
     })
-    return () => listener.subscription.unsubscribe()
+    // No session after a few seconds means the link is expired, already used, or missing
+    const timer = setTimeout(() => { if (!cancelled) setInvalidLink(true) }, 5000)
+    return () => { cancelled = true; clearTimeout(timer); listener.subscription.unsubscribe() }
   }, [])
 
   const handleSubmit = async (e: FormEvent) => {
@@ -52,6 +56,12 @@ export default function ResetPassword() {
             <p className="sub">Your password has been changed.</p>
             <button className="auth-submit" onClick={() => navigate('/app/dashboard')}>Go to Dashboard</button>
           </>
+        ) : !ready && invalidLink ? (
+          <>
+            <h1>Link expired or invalid</h1>
+            <p className="sub">This password reset link has expired, was already used, or is incomplete. Request a new one and try again.</p>
+            <button className="auth-submit" onClick={() => navigate('/forgot-password')}>Request a new link</button>
+          </>
         ) : !ready ? (
           <>
             <h1>Reset your password</h1>
@@ -65,11 +75,11 @@ export default function ResetPassword() {
             <form onSubmit={handleSubmit}>
               <div className="form-group">
                 <label htmlFor="new-password">New password</label>
-                <input id="new-password" type="password" className="form-input" placeholder="Min. 6 characters" required value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+                <input id="new-password" autoComplete="new-password" type="password" className="form-input" placeholder="Min. 6 characters" required value={newPassword} onChange={e => setNewPassword(e.target.value)} />
               </div>
               <div className="form-group">
                 <label htmlFor="confirm-password">Confirm new password</label>
-                <input id="confirm-password" type="password" className="form-input" placeholder="Repeat password" required value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
+                <input id="confirm-password" autoComplete="new-password" type="password" className="form-input" placeholder="Repeat password" required value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
               </div>
               <button type="submit" className="auth-submit">
                 <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>Reset Password <IconArrowRight size={15} /></span>

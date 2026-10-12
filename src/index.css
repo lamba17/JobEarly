@@ -185,6 +185,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 }
 .nav-link:hover { color: var(--text); background: var(--card-tint); }
 .nav-actions { display: flex; align-items: center; gap: 8px; }
+.cta-short { display: none; }
 .theme-toggle {
   width: 36px; height: 36px; border-radius: 8px;
   display: grid; place-items: center;
@@ -900,10 +901,17 @@ a.eyebrow:hover { border-color: var(--border-strong); box-shadow: var(--shadow-m
   .cta-banner { padding: 40px 24px; }
 }
 @media (max-width: 540px) {
-  .nav-signin { display: none; }
+  .nav-actions { gap: 6px; }
+  .nav-signin { padding: 0 8px; font-size: 13px; }
   .nav-actions .btn-primary svg { display: none; }
-  .nav-actions .btn-primary { padding: 0 12px; }
+  .nav-actions .btn-primary { padding: 0 10px; font-size: 13px; }
+  .cta-full { display: none; }
+  .cta-short { display: inline; }
+  .brand { gap: 8px; font-size: 16px; }
   .showcase-row { gap: 12px; }
+}
+@media (max-width: 340px) {
+  .brand > span:last-child { display: none; }
 }
 
 /* ═══════════════════════════════════════════════

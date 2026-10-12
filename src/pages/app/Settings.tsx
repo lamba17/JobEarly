@@ -148,16 +148,16 @@ export default function Settings() {
           <div className="perf-card-title">Change Password</div>
           <div className="form-group">
             <label htmlFor="current-password">Current Password</label>
-            <input id="current-password" type="password" className="form-input" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} required />
+            <input id="current-password" autoComplete="current-password" type="password" className="form-input" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} required />
           </div>
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="new-password">New Password</label>
-              <input id="new-password" type="password" className="form-input" placeholder="Min. 6 characters" value={newPassword} onChange={e => setNewPassword(e.target.value)} required />
+              <input id="new-password" autoComplete="new-password" type="password" className="form-input" placeholder="Min. 6 characters" value={newPassword} onChange={e => setNewPassword(e.target.value)} required />
             </div>
             <div className="form-group">
               <label htmlFor="confirm-password">Confirm New Password</label>
-              <input id="confirm-password" type="password" className="form-input" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
+              <input id="confirm-password" autoComplete="new-password" type="password" className="form-input" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
             </div>
           </div>
 

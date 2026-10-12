@@ -61,25 +61,25 @@ export default function SignUp() {
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="name">Full name</label>
-              <input id="name" type="text" className="form-input" placeholder="Alex Thorne" required value={form.name} onChange={set('name')} />
+              <input id="name" autoComplete="name" type="text" className="form-input" placeholder="Alex Thorne" required value={form.name} onChange={set('name')} />
             </div>
             <div className="form-group">
               <label htmlFor="jobTitle">Current / target role</label>
-              <input id="jobTitle" type="text" className="form-input" placeholder="Product Designer" required value={form.jobTitle} onChange={set('jobTitle')} />
+              <input id="jobTitle" autoComplete="organization-title" type="text" className="form-input" placeholder="Product Designer" required value={form.jobTitle} onChange={set('jobTitle')} />
             </div>
           </div>
           <div className="form-group">
             <label htmlFor="email">Email address</label>
-            <input id="email" type="email" className="form-input" placeholder="you@example.com" required value={form.email} onChange={set('email')} />
+            <input id="email" autoComplete="email" type="email" className="form-input" placeholder="you@example.com" required value={form.email} onChange={set('email')} />
           </div>
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="password">Password</label>
-              <input id="password" type="password" className="form-input" placeholder="Min. 6 characters" required value={form.password} onChange={set('password')} />
+              <input id="password" autoComplete="new-password" type="password" className="form-input" placeholder="Min. 6 characters" required value={form.password} onChange={set('password')} />
             </div>
             <div className="form-group">
               <label htmlFor="confirm">Confirm password</label>
-              <input id="confirm" type="password" className="form-input" placeholder="Repeat password" required value={form.confirm} onChange={set('confirm')} />
+              <input id="confirm" autoComplete="new-password" type="password" className="form-input" placeholder="Repeat password" required value={form.confirm} onChange={set('confirm')} />
             </div>
           </div>
           <button type="submit" className="auth-submit" disabled={loading}>

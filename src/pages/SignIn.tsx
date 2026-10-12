@@ -37,7 +37,7 @@ export default function SignIn() {
           <div className="form-group">
             <label htmlFor="email">Email address</label>
             <input
-              id="email" type="email" className="form-input"
+              id="email" autoComplete="email" type="email" className="form-input"
               placeholder="you@example.com" required
               value={email} onChange={e => setEmail(e.target.value)}
             />
@@ -48,7 +48,7 @@ export default function SignIn() {
               <Link to="/forgot-password" style={{ fontSize: 12.5, color: 'var(--accent)', fontWeight: 500 }}>Forgot password?</Link>
             </div>
             <input
-              id="password" type="password" className="form-input"
+              id="password" autoComplete="current-password" type="password" className="form-input"
               placeholder="••••••••" required
               value={password} onChange={e => setPassword(e.target.value)}
             />

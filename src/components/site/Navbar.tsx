@@ -26,7 +26,9 @@ export default function Navbar({ theme, toggleTheme }: { theme: string; toggleTh
           </button>
           <Link to="/signin" className="btn btn-ghost btn-sm nav-signin">Sign in</Link>
           <Link to="/signup" className="btn btn-primary btn-sm">
-            Get Early Access <IconArrowRight size={14} />
+            <span className="cta-full">Get Early Access</span>
+            <span className="cta-short">Start free</span>
+            <IconArrowRight size={14} />
           </Link>
         </div>
       </div>

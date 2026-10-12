@@ -33,7 +33,7 @@ export default function ForgotPassword() {
             <form onSubmit={handleSubmit}>
               <div className="form-group">
                 <label htmlFor="email">Email address</label>
-                <input id="email" type="email" className="form-input" placeholder="you@example.com" required value={email} onChange={e => setEmail(e.target.value)} />
+                <input id="email" autoComplete="email" type="email" className="form-input" placeholder="you@example.com" required value={email} onChange={e => setEmail(e.target.value)} />
               </div>
               <button type="submit" className="auth-submit" disabled={loading}>
                 {loading ? 'Sending…' : <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>Send Reset Link <IconArrowRight size={15} /></span>}
