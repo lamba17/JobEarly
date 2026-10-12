@@ -168,6 +168,45 @@ export type Database = {
         }
         Relationships: []
       }
+      purchases: {
+        Row: {
+          amount_paise: number
+          created_at: string
+          id: string
+          paid_at: string
+          payment_method: string | null
+          period_end: string
+          plan_interval: string
+          razorpay_order_id: string
+          razorpay_payment_id: string
+          user_id: string
+        }
+        Insert: {
+          amount_paise: number
+          created_at?: string
+          id?: string
+          paid_at?: string
+          payment_method?: string | null
+          period_end: string
+          plan_interval: string
+          razorpay_order_id: string
+          razorpay_payment_id: string
+          user_id: string
+        }
+        Update: {
+          amount_paise?: number
+          created_at?: string
+          id?: string
+          paid_at?: string
+          payment_method?: string | null
+          period_end?: string
+          plan_interval?: string
+          razorpay_order_id?: string
+          razorpay_payment_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           cancel_at_period_end: boolean

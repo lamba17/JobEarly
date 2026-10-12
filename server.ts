@@ -3,7 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import 'dotenv/config'
 import { sendBrandedMail, mailerConfigured } from './api/_lib/mailer.js'
 import { welcomeEmail } from './api/_lib/emailTemplates.js'
-import { BillingError, createSubscription, verifyPayment, cancelSubscription, handleWebhook } from './api/_lib/billing.js'
+import { BillingError, createOrder, verifyPayment, handleWebhook } from './api/_lib/billing.js'
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -260,7 +260,7 @@ app.post('/api/send-welcome-email', async (req: Request, res: Response) => {
   }
 })
 
-// ── Razorpay subscription billing (logic lives in api/_lib/billing.ts) ──────────
+// ── Razorpay one-time Pro payments (logic lives in api/_lib/billing.ts) ──────────
 const billing = (run: (req: Request) => Promise<unknown>) => async (req: Request, res: Response) => {
   try {
     res.json(await run(req))
@@ -270,10 +270,9 @@ const billing = (run: (req: Request) => Promise<unknown>) => async (req: Request
   }
 }
 
-app.post('/api/create-subscription', billing(req =>
-  createSubscription(req.headers.authorization, req.body?.interval === 'annual' ? 'annual' : 'monthly')))
+app.post('/api/create-order', billing(req =>
+  createOrder(req.headers.authorization, req.body?.interval === 'annual' ? 'annual' : 'monthly')))
 app.post('/api/verify-payment', billing(req => verifyPayment(req.headers.authorization, req.body ?? {})))
-app.post('/api/cancel-subscription', billing(req => cancelSubscription(req.headers.authorization)))
 app.post('/api/razorpay-webhook', billing(req =>
   handleWebhook((req as any).rawBody ?? '', req.headers['x-razorpay-signature'] as string | undefined)))
 

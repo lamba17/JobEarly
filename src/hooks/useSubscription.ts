@@ -1,29 +1,32 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { SUBSCRIPTION_CHANGED } from '../lib/billing'
-import type { Database } from '../lib/database.types'
 
-export type Subscription = Database['public']['Tables']['subscriptions']['Row']
+/** The user's most recent one-time Pro purchase (a 1-month or 1-year pass). */
+export interface ProAccess {
+  plan_interval: 'monthly' | 'annual'
+  current_period_end: string
+}
 
-/** Pro while the subscription is live, or (if cancelled) until the period already paid for ends. */
-export function hasProAccess(sub: Subscription | null): boolean {
-  if (!sub) return false
-  const endsAt = sub.current_period_end ? new Date(sub.current_period_end).getTime() : 0
-  // Each plan is a single 1-month / 1-year pass: the end date decides access, even if the
-  // 'completed' webhook never reached us and the status still says 'active'.
-  if (endsAt > 0 && endsAt < Date.now()) return false
-  if (sub.status === 'active' || sub.status === 'pending') return true
-  return (sub.status === 'cancelled' || sub.status === 'completed' || sub.cancel_at_period_end) && endsAt > Date.now()
+/** Pro until the end of the latest paid period. Nothing renews, so the end date is the whole story. */
+export function hasProAccess(access: ProAccess | null): boolean {
+  return !!access && new Date(access.current_period_end).getTime() > Date.now()
 }
 
 export function useSubscription(userId: string | undefined) {
-  const [subscription, setSubscription] = useState<Subscription | null>(null)
+  const [subscription, setSubscription] = useState<ProAccess | null>(null)
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
     if (!userId) { setSubscription(null); setLoading(false); return }
-    const { data } = await supabase.from('subscriptions').select('*').eq('user_id', userId).maybeSingle()
-    setSubscription(data ?? null)
+    const { data } = await supabase
+      .from('purchases')
+      .select('plan_interval, period_end')
+      .eq('user_id', userId)
+      .order('period_end', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    setSubscription(data ? { plan_interval: data.plan_interval as ProAccess['plan_interval'], current_period_end: data.period_end } : null)
     setLoading(false)
   }, [userId])
 

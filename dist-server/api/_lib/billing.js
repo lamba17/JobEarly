@@ -1,6 +1,9 @@
-// Razorpay subscription billing, shared by server.ts (local dev) and the
-// Vercel functions in api/*. Framework-agnostic: callers pass plain values and
-// map BillingError to an HTTP status.
+// One-time Pro payments through Razorpay Orders, shared by server.ts (local dev) and the
+// Vercel functions in api/*. Framework-agnostic: callers pass plain values and map
+// BillingError to an HTTP status.
+//
+// Flow: create-order -> Razorpay Checkout -> verify-payment (signature + server-side lookup)
+//       -> a row in `purchases` -> receipt emails. The webhook is a safety net for the same step.
 import crypto from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { sendBrandedMail } from './mailer.js';
@@ -11,6 +14,8 @@ export class BillingError extends Error {
         this.status = status;
     }
 }
+// Prices live on the server so a browser can never choose its own amount (paise).
+const PRICES_PAISE = { monthly: 19900, annual: 118800 };
 const RZP_API = 'https://api.razorpay.com/v1';
 function rzpCredentials() {
     const id = process.env.RAZORPAY_KEY_ID;
@@ -67,56 +72,22 @@ function safeEqual(a, b) {
     const y = Buffer.from(b);
     return x.length === y.length && crypto.timingSafeEqual(x, y);
 }
-// Mirror a Razorpay subscription entity into our table.
-async function applySubscription(sub, extra = {}) {
-    const userId = sub?.notes?.user_id;
-    if (!userId) {
-        console.warn('Subscription without user_id note, ignoring:', sub?.id);
-        return;
-    }
-    const interval = sub.notes?.interval === 'annual' ? 'annual' : 'monthly';
-    const { error } = await admin().from('subscriptions').upsert({
-        user_id: userId,
-        razorpay_subscription_id: sub.id,
-        razorpay_plan_id: sub.plan_id ?? null,
-        plan_interval: interval,
-        status: sub.status,
-        ...((sub.current_end ?? sub.end_at) ? { current_period_end: new Date((sub.current_end ?? sub.end_at) * 1000).toISOString() } : {}),
-        updated_at: new Date().toISOString(),
-        ...extra,
-    }, { onConflict: 'user_id' });
-    if (error) {
-        console.error('Supabase write failed:', error);
-        throw new BillingError(500, `Database error: ${error.message}`);
-    }
+/** Calendar-accurate: 12 Oct + 1 month = 12 Nov; 31 Jan + 1 month = 28/29 Feb (never spills into March). */
+export function addPeriod(from, interval) {
+    const months = interval === 'annual' ? 12 : 1;
+    const d = new Date(from);
+    const day = d.getUTCDate();
+    d.setUTCDate(1);
+    d.setUTCMonth(d.getUTCMonth() + months);
+    const lastDay = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+    d.setUTCDate(Math.min(day, lastDay));
+    return d;
 }
 // ── Payment emails ──────────────────────────────────────────────────────────
-// Returns true if this payment has not been emailed yet (and marks it), false if it already was,
-// null if we couldn't tell (e.g. migration 0003 not applied yet).
-async function claimReceipt(userId, paymentId) {
-    const { data, error } = await admin()
-        .from('subscriptions')
-        .update({ last_receipt_payment_id: paymentId })
-        .eq('user_id', userId)
-        .or(`last_receipt_payment_id.is.null,last_receipt_payment_id.neq.${paymentId}`)
-        .select('user_id');
-    if (error) {
-        console.error('Receipt dedupe failed (is migration 0003 applied?):', error.message);
-        return null;
-    }
-    return (data?.length ?? 0) > 0;
-}
 // Never throws: an email problem must not fail a payment that already went through.
 async function sendPaymentEmails(args) {
-    const { userId, sub, payment, source } = args;
+    const { userId, interval, payment, orderId, paidAt, periodEnd, isRenewal } = args;
     try {
-        if (!payment?.id || !['captured', 'authorized'].includes(payment.status))
-            return;
-        const claimed = await claimReceipt(userId, payment.id);
-        if (claimed === false)
-            return; // already sent by the other path
-        if (claimed === null && source === 'webhook')
-            return; // can't dedupe: leave it to the checkout path
         const db = admin();
         const { data: userRes } = await db.auth.admin.getUserById(userId);
         const authUser = userRes?.user;
@@ -127,14 +98,14 @@ async function sendPaymentEmails(args) {
         const name = profile?.name || authUser.user_metadata?.name || '';
         const receipt = {
             firstName: name.split(' ')[0] || 'there',
-            interval: (sub.notes?.interval === 'annual' ? 'annual' : 'monthly'),
+            interval,
             amountRupees: payment.amount / 100,
             method: payment.method,
             paymentId: payment.id,
-            subscriptionId: sub.id,
-            paidAt: new Date((payment.created_at ?? Date.now() / 1000) * 1000),
-            renewsAt: (sub.current_end ?? sub.end_at) ? new Date((sub.current_end ?? sub.end_at) * 1000) : null,
-            isRenewal: (sub.paid_count ?? 1) > 1,
+            orderId,
+            paidAt,
+            periodEnd,
+            isRenewal,
         };
         await sendBrandedMail(email, receiptEmail(receipt));
         const owner = process.env.GMAIL_USER;
@@ -147,66 +118,88 @@ async function sendPaymentEmails(args) {
         console.error('Payment email failed:', e);
     }
 }
-export async function createSubscription(authHeader, interval) {
-    const user = await authenticate(authHeader);
-    const planId = interval === 'annual' ? process.env.RAZORPAY_PLAN_ANNUAL : process.env.RAZORPAY_PLAN_MONTHLY;
-    if (!planId)
-        throw new BillingError(503, 'Payments are not configured yet.');
-    const { data: existing } = await admin()
-        .from('subscriptions').select('status, cancel_at_period_end').eq('user_id', user.id).maybeSingle();
-    if (existing && ['active', 'pending'].includes(existing.status) && !existing.cancel_at_period_end) {
-        throw new BillingError(409, 'You already have an active Pro subscription.');
+// ── Fulfilment ──────────────────────────────────────────────────────────────
+// Turns a Razorpay payment id into a purchase row (idempotent). Everything is read back from
+// Razorpay itself, never trusted from the browser.
+async function fulfilPayment(paymentId, expectedUserId) {
+    const payment = await rzp(`/payments/${paymentId}`);
+    if (!payment.order_id)
+        throw new BillingError(400, 'This payment is not linked to a JobEarly order.');
+    const order = await rzp(`/orders/${payment.order_id}`);
+    const userId = order.notes?.user_id;
+    const interval = order.notes?.interval === 'annual' ? 'annual' : order.notes?.interval === 'monthly' ? 'monthly' : undefined;
+    if (!userId || !interval)
+        throw new BillingError(400, 'Unrecognised order.');
+    if (expectedUserId && userId !== expectedUserId)
+        throw new BillingError(403, 'This payment belongs to a different account.');
+    if (order.amount !== PRICES_PAISE[interval] || payment.amount !== order.amount) {
+        throw new BillingError(400, 'Payment amount does not match the plan price.');
     }
-    const sub = await rzp('/subscriptions', {
+    let status = payment.status;
+    if (status === 'authorized') {
+        await rzp(`/payments/${paymentId}/capture`, { method: 'POST', body: { amount: payment.amount, currency: 'INR' } });
+        status = 'captured';
+    }
+    if (status !== 'captured')
+        throw new BillingError(402, 'Payment has not been completed.');
+    const db = admin();
+    const paidAt = new Date((payment.created_at ?? Date.now() / 1000) * 1000);
+    // Buying again while still Pro stacks the new period after the current one ends.
+    const { data: latest } = await db
+        .from('purchases').select('period_end').eq('user_id', userId).order('period_end', { ascending: false }).limit(1).maybeSingle();
+    const latestEnd = latest ? new Date(latest.period_end) : null;
+    const base = latestEnd && latestEnd > paidAt ? latestEnd : paidAt;
+    const periodEnd = addPeriod(base, interval);
+    // ON CONFLICT DO NOTHING on payment id: if checkout-verify and the webhook race, exactly one wins.
+    const { data: inserted, error } = await db
+        .from('purchases')
+        .upsert({
+        user_id: userId,
+        razorpay_order_id: payment.order_id,
+        razorpay_payment_id: payment.id,
+        plan_interval: interval,
+        amount_paise: payment.amount,
+        payment_method: payment.method ?? null,
+        paid_at: paidAt.toISOString(),
+        period_end: periodEnd.toISOString(),
+    }, { onConflict: 'razorpay_payment_id', ignoreDuplicates: true })
+        .select('id');
+    if (error) {
+        console.error('Supabase write failed:', error);
+        throw new BillingError(500, `Database error: ${error.message}`);
+    }
+    const isNew = (inserted?.length ?? 0) > 0;
+    if (isNew) {
+        // Emails go out before we respond: serverless functions may be frozen once the response is sent.
+        await sendPaymentEmails({ userId, interval, payment, orderId: payment.order_id, paidAt, periodEnd, isRenewal: !!latest });
+    }
+    return { periodEnd: periodEnd.toISOString(), interval, alreadyRecorded: !isNew };
+}
+// ── Public API ──────────────────────────────────────────────────────────────
+export async function createOrder(authHeader, requested) {
+    const interval = requested === 'annual' ? 'annual' : 'monthly';
+    const user = await authenticate(authHeader);
+    const order = await rzp('/orders', {
         method: 'POST',
         body: {
-            plan_id: planId,
-            // One charge per purchase: the plan is a single 1-month / 1-year pass with no auto-renewal.
-            // Razorpay derives the "charged until <date>" line in checkout from this number.
-            total_count: 1,
-            customer_notify: 1,
+            amount: PRICES_PAISE[interval],
+            currency: 'INR',
+            receipt: `je_${user.id.slice(0, 8)}_${Date.now()}`,
             notes: { user_id: user.id, interval },
         },
     });
-    await applySubscription(sub, { cancel_at_period_end: false });
-    return { subscriptionId: sub.id, keyId: rzpCredentials().id, email: user.email };
+    return { orderId: order.id, keyId: rzpCredentials().id, email: user.email };
 }
 export async function verifyPayment(authHeader, body) {
     const user = await authenticate(authHeader);
-    const { razorpay_payment_id: paymentId, razorpay_subscription_id: subId, razorpay_signature: signature } = body;
-    if (!paymentId || !subId || !signature)
+    const { razorpay_payment_id: paymentId, razorpay_order_id: orderId, razorpay_signature: signature } = body;
+    if (!paymentId || !orderId || !signature)
         throw new BillingError(400, 'Missing payment details.');
-    const expected = hmac(rzpCredentials().secret, `${paymentId}|${subId}`);
+    const expected = hmac(rzpCredentials().secret, `${orderId}|${paymentId}`);
     if (!safeEqual(expected, signature))
         throw new BillingError(400, 'Payment verification failed.');
-    const { data: row } = await admin()
-        .from('subscriptions').select('razorpay_subscription_id').eq('user_id', user.id).maybeSingle();
-    if (!row || row.razorpay_subscription_id !== subId)
-        throw new BillingError(403, 'Subscription does not belong to this account.');
-    // Take the status from Razorpay itself rather than trusting the client.
-    const sub = await rzp(`/subscriptions/${subId}`);
-    await applySubscription(sub);
-    // Receipt goes out before we respond: serverless functions may be frozen once the response is sent.
-    const payment = await rzp(`/payments/${paymentId}`).catch(() => null);
-    await sendPaymentEmails({ userId: user.id, sub, payment, source: 'verify' });
-    return { status: sub.status };
-}
-export async function cancelSubscription(authHeader) {
-    const user = await authenticate(authHeader);
-    const { data: row } = await admin()
-        .from('subscriptions').select('razorpay_subscription_id, status').eq('user_id', user.id).maybeSingle();
-    if (!row)
-        throw new BillingError(404, 'No subscription found.');
-    if (!['active', 'authenticated', 'pending'].includes(row.status))
-        throw new BillingError(400, 'This subscription is not active.');
-    // Keep access until the period they already paid for ends (only possible once charged).
-    const atCycleEnd = row.status === 'active';
-    const sub = await rzp(`/subscriptions/${row.razorpay_subscription_id}/cancel`, {
-        method: 'POST',
-        body: { cancel_at_cycle_end: atCycleEnd ? 1 : 0 },
-    });
-    await applySubscription(sub, { cancel_at_period_end: atCycleEnd });
-    return { status: sub.status, cancelAtPeriodEnd: atCycleEnd };
+    const result = await fulfilPayment(paymentId, user.id);
+    return { status: 'paid', periodEnd: result.periodEnd };
 }
 export async function handleWebhook(rawBody, signature) {
     const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
@@ -215,12 +208,19 @@ export async function handleWebhook(rawBody, signature) {
     if (!signature || !safeEqual(hmac(secret, rawBody), signature))
         throw new BillingError(400, 'Invalid signature.');
     const event = JSON.parse(rawBody);
-    const sub = event?.payload?.subscription?.entity;
-    if (sub)
-        await applySubscription(sub, event.event === 'subscription.cancelled' ? { cancel_at_period_end: false } : {});
-    // Covers renewals (and first payments if the browser never reached verify-payment).
-    if (sub && event.event === 'subscription.charged' && sub.notes?.user_id) {
-        await sendPaymentEmails({ userId: sub.notes.user_id, sub, payment: event.payload?.payment?.entity, source: 'webhook' });
+    const paymentId = event?.payload?.payment?.entity?.id;
+    if (event.event !== 'payment.captured' || !paymentId)
+        return { received: true, ignored: true };
+    try {
+        await fulfilPayment(paymentId);
+    }
+    catch (e) {
+        // A payment that isn't ours (or is malformed) will never succeed on retry: acknowledge it.
+        if (e instanceof BillingError && e.status < 500) {
+            console.warn('Webhook payment ignored:', paymentId, e.message);
+            return { received: true, ignored: true };
+        }
+        throw e;
     }
     return { received: true };
 }

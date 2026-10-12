@@ -34,18 +34,18 @@ export function notifySubscriptionChanged() {
   window.dispatchEvent(new Event(SUBSCRIPTION_CHANGED))
 }
 
-/** Opens Razorpay Checkout. Resolves 'paid' or 'dismissed'; rejects with a readable message on failure. */
+/** Opens Razorpay Checkout for a one-time Pro pass. Resolves 'paid' or 'dismissed'; rejects with a readable message on failure. */
 export async function startCheckout(interval: Interval, user: { name: string; email: string }): Promise<'paid' | 'dismissed'> {
-  const created = await authedPost<{ subscriptionId: string; keyId: string; email: string }>('/api/create-subscription', { interval })
+  const created = await authedPost<{ orderId: string; keyId: string; email: string }>('/api/create-order', { interval })
   await loadCheckoutScript()
 
   return new Promise((resolve, reject) => {
     const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()
     const rzp = new (window as any).Razorpay({
       key: created.keyId,
-      subscription_id: created.subscriptionId,
+      order_id: created.orderId,
       name: 'JobEarly',
-      description: interval === 'annual' ? 'Pro — Annual' : 'Pro — Monthly',
+      description: interval === 'annual' ? 'JobEarly Pro — 1 year' : 'JobEarly Pro — 1 month',
       prefill: { name: user.name, email: created.email || user.email },
       theme: accent ? { color: accent } : undefined,
       handler: async (response: Record<string, string>) => {
@@ -62,10 +62,4 @@ export async function startCheckout(interval: Interval, user: { name: string; em
     rzp.on('payment.failed', (r: any) => reject(new Error(r?.error?.description || 'Payment failed. You have not been charged.')))
     rzp.open()
   })
-}
-
-export async function cancelSubscription() {
-  const result = await authedPost<{ status: string; cancelAtPeriodEnd: boolean }>('/api/cancel-subscription')
-  notifySubscriptionChanged()
-  return result
 }

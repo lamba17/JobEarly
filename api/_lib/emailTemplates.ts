@@ -134,9 +134,10 @@ export interface ReceiptData {
   amountRupees: number
   method?: string
   paymentId: string
-  subscriptionId: string
+  orderId: string
   paidAt: Date
-  renewsAt: Date | null
+  periodEnd: Date
+  /** true when the customer already had Pro and this payment extends it */
   isRenewal: boolean
 }
 
@@ -162,11 +163,11 @@ export function receiptEmail(d: ReceiptData): Email {
   const planLabel = d.interval === 'annual' ? 'JobEarly Pro — 1 year' : 'JobEarly Pro — 1 month'
   const amount = formatRupees(d.amountRupees)
   const method = d.method ? METHOD_LABELS[d.method] ?? d.method : null
-  const renews = d.renewsAt ? formatDate(d.renewsAt) : null
+  const renews = formatDate(d.periodEnd)
 
-  const heading = d.isRenewal ? 'Your JobEarly Pro has renewed ✅' : "You're on JobEarly Pro! 🚀"
+  const heading = d.isRenewal ? 'Your JobEarly Pro has been extended ✅' : "You're on JobEarly Pro! 🚀"
   const intro = d.isRenewal
-    ? `Hi ${first}, your subscription renewed successfully. Thank you for staying with us — here's your receipt.`
+    ? `Hi ${first}, thank you for staying with us! Your payment went through and your Pro access has been extended. Here's your receipt.`
     : `Hi ${first}, thank you for subscribing! Your payment went through and Pro is now active on your account. Here's your receipt.`
 
   const features = PRO_FEATURES.map(f => `
@@ -192,9 +193,9 @@ export function receiptEmail(d: ReceiptData): Email {
       ${detailRow('Plan', planLabel, true)}
       ${detailRow('Amount', amount)}
       ${method ? detailRow('Payment method', esc(method)) : ''}
-      ${renews ? detailRow('Pro active until', renews) : ''}
+      ${detailRow('Pro active until', renews)}
       ${detailRow('Payment ID', `<span style="font-family:Consolas,Menlo,monospace;font-size:12.5px;">${esc(d.paymentId)}</span>`)}
-      ${detailRow('Subscription ID', `<span style="font-family:Consolas,Menlo,monospace;font-size:12.5px;">${esc(d.subscriptionId)}</span>`)}
+      ${detailRow('Order ID', `<span style="font-family:Consolas,Menlo,monospace;font-size:12.5px;">${esc(d.orderId)}</span>`)}
     </table>
 
     <h2 style="margin:28px 0 8px;font-family:${FONT};font-size:17px;font-weight:800;color:${INK};">What you've unlocked</h2>
@@ -210,22 +211,22 @@ export function receiptEmail(d: ReceiptData): Email {
 
   const text = [
     `Hi ${d.firstName},`, '',
-    d.isRenewal ? 'Your JobEarly Pro subscription has renewed.' : "Thank you for subscribing — you're now on JobEarly Pro!", '',
+    d.isRenewal ? 'Your JobEarly Pro access has been extended.' : "Thank you for subscribing — you're now on JobEarly Pro!", '',
     'PAYMENT RECEIPT',
     `Plan: ${planLabel}`,
     `Amount: ${amount}`,
     `Paid on: ${formatDate(d.paidAt)}`,
     ...(method ? [`Payment method: ${method}`] : []),
-    ...(renews ? [`Pro active until: ${renews}`] : []),
+    `Pro active until: ${renews}`,
     `Payment ID: ${d.paymentId}`,
-    `Subscription ID: ${d.subscriptionId}`, '',
+    `Order ID: ${d.orderId}`, '',
     `Open your dashboard: ${SITE}/app/dashboard`,
     `Cancel any time: ${SITE}/app/settings`, '',
     'Regards,', 'JobEarly team',
   ].join('\n')
 
   return {
-    subject: d.isRenewal ? `Payment received: JobEarly Pro renewed (${amount})` : `Payment received — welcome to JobEarly Pro! (${amount})`,
+    subject: d.isRenewal ? `Payment received: JobEarly Pro extended (${amount})` : `Payment received — welcome to JobEarly Pro! (${amount})`,
     html: layout({ preheader: `We received your payment of ${amount}. You're on JobEarly Pro.`, body }),
     text,
   }
@@ -235,7 +236,7 @@ export function receiptEmail(d: ReceiptData): Email {
 export function ownerNoticeEmail(d: ReceiptData & { customerName: string; customerEmail: string }): Email {
   const amount = formatRupees(d.amountRupees)
   const body = `
-    <h1 style="margin:0 0 6px;font-family:${FONT};font-size:24px;font-weight:800;color:${INK};">${d.isRenewal ? '🔁 Pro renewal' : '💰 New Pro subscriber'}</h1>
+    <h1 style="margin:0 0 6px;font-family:${FONT};font-size:24px;font-weight:800;color:${INK};">${d.isRenewal ? '🔁 Pro extended' : '💰 New Pro subscriber'}</h1>
     <p style="margin:0 0 18px;font-family:${FONT};font-size:15px;color:${MUTE};">${esc(d.customerName || 'A customer')} just paid <strong style="color:${INK};">${amount}</strong>.</p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
       ${detailRow('Name', esc(d.customerName || '—'))}
@@ -244,13 +245,13 @@ export function ownerNoticeEmail(d: ReceiptData & { customerName: string; custom
       ${detailRow('Amount', amount, true)}
       ${d.method ? detailRow('Method', esc(METHOD_LABELS[d.method] ?? d.method)) : ''}
       ${detailRow('Payment ID', esc(d.paymentId))}
-      ${detailRow('Subscription ID', esc(d.subscriptionId))}
+      ${detailRow('Order ID', esc(d.orderId))}
     </table>
     <p style="margin:20px 0 0;font-family:${FONT};font-size:13px;color:${MUTE};">Internal notification — the customer has been sent a receipt automatically.</p>`
 
   return {
-    subject: `${d.isRenewal ? 'Renewal' : 'New Pro subscriber'}: ${d.customerEmail} · ${amount}`,
+    subject: `${d.isRenewal ? 'Pro extended' : 'New Pro subscriber'}: ${d.customerEmail} · ${amount}`,
     html: layout({ preheader: `${d.customerEmail} paid ${amount}`, body }),
-    text: `${d.isRenewal ? 'Renewal' : 'New Pro subscriber'}\nName: ${d.customerName}\nEmail: ${d.customerEmail}\nPlan: ${d.interval}\nAmount: ${amount}\nPayment ID: ${d.paymentId}\nSubscription ID: ${d.subscriptionId}`,
+    text: `${d.isRenewal ? 'Pro extended' : 'New Pro subscriber'}\nName: ${d.customerName}\nEmail: ${d.customerEmail}\nPlan: ${d.interval}\nAmount: ${amount}\nPayment ID: ${d.paymentId}\nOrder ID: ${d.orderId}`,
   }
 }
