@@ -391,7 +391,8 @@ function applySuggestion(data: EditableResume, beforeRaw: string, afterRaw: stri
 }
 
 function parseResumeText(raw: string, linkMap: Record<string, string> = {}): ParsedResume {
-  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean)
+  // Unusual bullet glyphs (⮚ ➢ ▪ …) are normalised to "•" so every bullet check sees one marker
+  const lines = raw.split('\n').map(l => l.trim().replace(/^[⮚➢➤►▪■●○✓✔❖⦿▶➔➜⇨‣◦]\s*/, '• ')).filter(Boolean)
 
   // ── Email ─────────────────────────────────────────────────────────────────
   const email = raw.match(/[\w.+\-]+@[\w\-]+\.[\w.]+/)?.[0] ?? ''
@@ -424,7 +425,14 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
   for (const city of LOC_CITIES) {
     const re = new RegExp(`${city}[,\\s]+([A-Z]{2}|${LOC_COUNTRIES.join('|')})`, 'i')
     const m = headerLines.match(re)
-    if (m) { location = m[0].trim(); break }
+    if (m) {
+      // The regex is case-insensitive, so make sure the tail is a real state code or country
+      // ("Gurugram li" from "linkedin.com" must not become a location)
+      const tail = m[1]
+      const real = /^[A-Z]{2}$/.test(tail) || new RegExp(`^(?:${LOC_COUNTRIES.join('|')})$`, 'i').test(tail)
+      location = real ? m[0].trim() : city
+      break
+    }
   }
   // Fallback: just a city name in header
   if (!location) {
@@ -450,9 +458,13 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
   const nameSearchStart = Math.max(0, emailIndex - 3)
   const nameSearchEnd = Math.min(lines.length, emailIndex + 2)
 
+  // A section heading such as "WORK EXPERIENCE" has the same shape as an ALL-CAPS name
+  const HEADING_ONLY_RE = /^#?\s*(work\s+experience|professional\s+experience|experience|education|skills|technical\s+skills|summary|profile|objective|contact|projects?|achievements?|certifications?|declaration|key\s+highlights)\s*:?$/i
+
   if (emailIndex >= 0) {
     // Search near email for the actual name
     name = lines.slice(nameSearchStart, nameSearchEnd).find(l => {
+      if (HEADING_ONLY_RE.test(l)) return false
       if (l.includes('@') || l.includes('http') || l.includes('|') || l.includes('·') || l.includes('•')) return false
       if (/^\+?\d/.test(l)) return false
       if (/linkedin|resume|curriculum|vitae/i.test(l)) return false
@@ -465,6 +477,7 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
   // Fallback: search in first 10 lines only
   if (!name) {
     name = lines.slice(0, 10).find(l => {
+      if (HEADING_ONLY_RE.test(l)) return false
       if (l.includes('@') || l.includes('http') || l.includes('|') || l.includes('·') || l.includes('•')) return false
       if (/^\+?\d/.test(l)) return false
       if (/linkedin|resume|curriculum|vitae/i.test(l)) return false
@@ -476,23 +489,39 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
 
   // ── Section splitter ──────────────────────────────────────────────────────
   const SECTION_RE: Record<string, RegExp> = {
-    summary:        /^(summary|profile|about me|objective|professional summary|career objective|personal statement)/i,
-    skills:         /^(skills|core skills|technical skills|competencies|key skills|areas of expertise|tools & technologies)/i,
+    // Checked first so "Academic Achievements" isn't mistaken for the Education heading.
+    // These sections are recognised only so their text doesn't bleed into the section above.
+    other:          /^(achievements?|key highlights|highlights|projects?|declaration|interpersonal skills|academic achievements?|references)\s*:?$/i,
+    summary:        /^(summary|profile|about me|objective|professional summary|career objective|personal statement|profile synopsis|professional profile|executive summary|career summary|synopsis)/i,
+    skills:         /^(skills|core skills|technical skills|competencies|core competencies|key skills|skill\s*set|areas of expertise|tools & technologies)/i,
     experience:     /^(experience|work experience|employment|professional experience|career history|work history)/i,
-    education:      /^(education|academic|qualification|educational background)/i,
+    education:      /^(education|academic history|academic credentials|academic|qualification|educational background)/i,
     certifications: /^certifications?$/i,
     additional:     /^(additional information|additional|interests|awards|volunteer|community service)/i,
   }
+  // Headings that continue an existing section instead of replacing it
+  const APPEND_RE: Record<string, RegExp> = { experience: /^internships?\s*:?$/i }
   const sections: Record<string, string[]> = { preamble: [] }
+  const lastHeading: Record<string, string> = {}
   let cur = 'preamble'
   for (const line of lines) {
     let matched = false
+    const h = line.replace(/^#+\s*/, '')   // "# PROFESSIONAL EXPERIENCE"
+    for (const [key, re] of Object.entries(APPEND_RE)) {
+      if (re.test(h)) { cur = key; matched = true; break }
+    }
+    if (matched) continue
     for (const [key, re] of Object.entries(SECTION_RE)) {
-      if (re.test(line) && line.length < 70) {
-        // RESET section content when header seen again — handles two-column PDFs
-        // where a template column pollutes the same section (e.g. "TECHNICAL SKILLS" twice)
+      if (re.test(h) && h.length < 70) {
+        // "Interests" inside a skills block is a label for a group of skills, not a new section
+        if (key === 'additional' && cur === 'skills' && /^interests/i.test(h)) break
+        // RESET section content when the SAME header is seen again — handles two-column PDFs
+        // where a template column pollutes the same section (e.g. "TECHNICAL SKILLS" twice).
+        // A different header for the same section ("Core competencies" then "Technical skills") appends.
+        const norm = h.toLowerCase().replace(/[:\s]+$/, '')
+        if (lastHeading[key] === norm || !sections[key]) sections[key] = []
+        lastHeading[key] = norm
         cur = key
-        sections[key] = []
         matched = true
         break
       }
@@ -504,25 +533,65 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
   // ── Job title ─────────────────────────────────────────────────────────────
   const TITLE_RE = /\b(manager|designer|engineer|developer|analyst|consultant|lead|director|vp|head|architect|scientist|specialist|strategist|associate|intern|officer|coordinator|advisor|executive|president|founder|recruiter)\b/i
   const preamble = sec('preamble')
-  const jobTitle = preamble.find(l =>
+  // "Senior Data & Business Analyst | Driving Data-Driven Excellence | Deloitte USI" → first segment
+  const jobTitleLine = preamble.find(l =>
     l !== name && !l.includes('@') && !l.includes('http') && !l.match(/^\+?\d/) &&
-    TITLE_RE.test(l) && l.length < 80
+    TITLE_RE.test(l.split('|')[0]) && l.split('|')[0].length < 80 && l.length < 160 && !/^contact\b/i.test(l)
   ) ?? ''
+  const jobTitle = jobTitleLine.split('|')[0].trim()
 
   // ── Summary ───────────────────────────────────────────────────────────────
-  const summary = sec('summary').filter(l => l.length > 30).join(' ')
+  let summary = sec('summary').filter(l => l.length > 30).map(l => l.replace(/^•\s*/, '')).join(' ')
+  if (!summary) {
+    // No heading: an objective paragraph sitting under the name/contact lines
+    const prose = preamble.filter(l =>
+      l !== jobTitleLine && !l.includes('@') && !/^contact\b|linkedin|^\+?\d/i.test(l) &&
+      l.split(/\s+/).length >= 8 && !l.includes('|')
+    )
+    summary = prose.join(' ')
+  }
 
   // ── Skills — build both flat list and categorized groups ────────────────
   const skillSet: string[] = []
   const skillGroups: SkillCategory[] = []
 
-  const SKILL_CAT_RE = /^(primary\s+skills?|etl\s+tools?|cloud\s+technologies?|languages?|tools?|project\s+management|portfolio\s+links?|certifications?|technical\s+skills?|core\s+skills?|soft\s+skills?|hard\s+skills?|dev(?:elopment)?\s+tools?|methodology|frameworks?)\s*(?:[:：]|$)/i
-  const SKILL_CAT_INLINE = /^(primary\s+skills?|etl\s+tools?|cloud\s+technologies?|languages?|tools?|project\s+management|portfolio\s+links?|certifications?|technical\s+skills?|core\s+skills?|soft\s+skills?|hard\s+skills?|dev(?:elopment)?\s+tools?|methodology|frameworks?)\s*[:：]\s*/i
+  const SKILL_CAT_RE = /^(primary\s+skills?|etl\s+tools?|cloud\s+technologies?|languages?|tools?|project\s+management|portfolio\s+links?|certifications?|technical\s+skills?|core\s+skills?|soft\s+skills?|hard\s+skills?|dev(?:elopment)?\s+tools?|methodology|frameworks?|interests?)\s*(?:[:：]|$)/i
+  const SKILL_CAT_INLINE = /^(primary\s+skills?|etl\s+tools?|cloud\s+technologies?|languages?|tools?|project\s+management|portfolio\s+links?|certifications?|technical\s+skills?|core\s+skills?|soft\s+skills?|hard\s+skills?|dev(?:elopment)?\s+tools?|methodology|frameworks?|interests?)\s*[:：]\s*/i
 
   const linkAnchors = new Set(Object.keys(linkMap).map(k => k.toLowerCase()))
   const isLinkAnchor = (s: string) => {
     const lower = s.toLowerCase()
     return linkAnchors.has(lower) || /\b(portfolio|resume|website|github\.com|linkedin\.com|http)/i.test(lower)
+  }
+
+  // Skill "chips" extracted as one space-separated line ("Python Pyspark SAS SQL Excel Tableau Risk Management"):
+  // split into single-word skills plus a few well-known two-word skills. Only used when every token fits.
+  const SKILL_PHRASES = new Set([
+    'Business Insights', 'Business Analysis', 'Business Intelligence', 'Risk Management', 'Project Management',
+    'Data Analysis', 'Data Visualization', 'Data Science', 'Data Warehousing', 'Data Modeling', 'Machine Learning',
+    'Stakeholder Management', 'Product Management', 'Process Improvement',
+  ])
+  const ETL_RE = /Extract,\s*Transform,?\s*and Load \(ETL\)/i
+  const ETL_COMMA = '⁣'   // keeps the commas inside "Extract, Transform, and Load (ETL)" from splitting it
+  const splitSkillChips = (line: string): string => {
+    let etl = ''
+    const m = line.match(ETL_RE)
+    if (m) { etl = m[0].replace(/,/g, ETL_COMMA); line = line.replace(m[0], ' ').trim() }
+    let out: string[] | null = []
+    if (line) {
+      if (/[,;|•]/.test(line)) return (etl ? etl + ', ' : '') + line
+      const tokens = line.split(/\s+/)
+      out = []
+      for (let i = 0; i < tokens.length && out; i++) {
+        const two = tokens.slice(i, i + 2).join(' ')
+        if (SKILL_PHRASES.has(two)) { out.push(two); i++; continue }
+        if (!/^[A-Z][A-Za-z0-9+#.]{1,14}$/.test(tokens[i])) out = null
+        else out.push(tokens[i])
+      }
+      if (out && (out.length < 2 || new Set(out.map(x => x.toLowerCase())).size !== out.length)) out = null
+      if (!out) return (etl ? etl + ', ' : '') + line
+    }
+    return [etl, ...(out ?? [])].filter(Boolean).join(', ')
   }
 
   const parseSkillItems = (csv: string): string[] =>
@@ -535,7 +604,27 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
   }
 
   // 1. Skills section — detect category headers and group
-  const skillsLines = sec('skills')
+  // A bullet's wrapped second line ("Advance Data" / "Analytics") belongs to that bullet.
+  // Labels such as "Clients Handled: …" and category headers never merge.
+  const rawSkillLines = sec('skills')
+  const skillsLines: string[] = []
+  for (let i = 0; i < rawSkillLines.length; i++) {
+    let acc = rawSkillLines[i]
+    while (i + 1 < rawSkillLines.length) {
+      const next = rawSkillLines[i + 1]
+      const isLabel = /^[A-Z][A-Za-z\/ ]{2,30}:/.test(next) || SKILL_CAT_RE.test(next)
+      if (!(acc.startsWith('• ') && !next.startsWith('• ') && !isLabel)) break
+      acc += ' ' + next
+      i++
+    }
+    if (/^(?:clients?\s+handled|industry\/domain)\s*:/i.test(acc)) {
+      // also drop its wrapped second line ("Group North America")
+      const after = rawSkillLines[i + 1]
+      if (after && !after.startsWith('• ') && !/^[A-Z][A-Za-z\/ ]{2,30}:/.test(after) && !SKILL_CAT_RE.test(after)) i++
+      continue
+    }
+    skillsLines.push(acc)
+  }
   let currentCat = ''
   for (let i = 0; i < skillsLines.length; i++) {
     const line = skillsLines[i].trim()
@@ -566,7 +655,10 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
     if (/portfolio/i.test(currentCat)) continue
 
     // Plain skill line (possibly under a category header)
-    const items = parseSkillItems(line.replace(/^[•\-*▸◆→>]\s*/, '').replace(/[•▸◆]/g, ','))
+    const hadBullet = /^[•\-*▸◆→>]\s/.test(line)
+    const text = line.replace(/^[•\-*▸◆→>]\s*/, '').replace(/[•▸◆]/g, ',')
+    // Bulleted lines are one skill each; only unbulleted chip lines get split on spaces
+    const items = parseSkillItems(hadBullet ? text : splitSkillChips(text)).map(x => x.split(ETL_COMMA).join(','))
     if (items.length) {
       if (currentCat) {
         const existing = skillGroups.find(g => g.category.toLowerCase() === currentCat.toLowerCase())
@@ -605,14 +697,17 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
 
   const MONTH  = '(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?'
   const SEASON = '(?:summer|spring|fall|autumn|winter)'
+  // One date: "Jun 2018", "12/2021", "Summer 2020" or a bare year
+  const DATE_ATOM = `(?:${MONTH}\\s*\\d{4}|\\d{1,2}\\/\\d{4}|${SEASON}\\s+\\d{4}|\\d{4})`
   // A date/period sitting at the END of a line → marks a Title+Period anchor line
+  // (an optional closing ")" covers "Company (Title | Jul 2021 - Present)")
   const PERIOD_END_RE = new RegExp(
-    `((?:${MONTH}\\s*\\d{4}|${SEASON}\\s+\\d{4}|\\d{4})\\s*[-–—]\\s*(?:${MONTH}\\s*\\d{4}|${SEASON}\\s+\\d{4}|present|current|now|till\\s*date|\\d{4})|${SEASON}\\s+\\d{4}|${MONTH}\\s*\\d{4})\\s*$`,
+    `((?:${DATE_ATOM})\\s*[-–—]\\s*(?:${DATE_ATOM}|present|current|now|till\\s*date)|${SEASON}\\s+\\d{4}|${MONTH}\\s*\\d{4})\\s*\\)?\\s*$`,
     'i'
   )
   // A period anywhere in a line (some resumes append "(Client – X)" after the date)
   const PERIOD_ANY_RE = new RegExp(
-    `((?:${MONTH}\\s*\\d{4}|${SEASON}\\s+\\d{4}|\\d{4})\\s*[-–—]\\s*(?:${MONTH}\\s*\\d{4}|${SEASON}\\s+\\d{4}|present|current|now|till\\s*date|\\d{4})|${SEASON}\\s+\\d{4})`,
+    `((?:${DATE_ATOM})\\s*[-–—]\\s*(?:${DATE_ATOM}|present|current|now|till\\s*date)|${SEASON}\\s+\\d{4})`,
     'i'
   )
 
@@ -665,14 +760,33 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
   }
 
   const expLines = sec('experience')
-  for (let i = 0; i < expLines.length; i++) {
-    const line = expLines[i].trim()
-    if (!line || line.includes('@')) continue
+  const BULLET_PREFIX = /^[•\-*◆▸→>·]\s*|^\d+[.)]\s*|^[ivxlcdm]+\)\s*|^[a-z]\)\s*/i
+  // True when line idx is just a date range (optionally followed by ", City")
+  const periodOnlyAt = (idx: number) => {
+    const l = (expLines[idx] ?? '').trim()
+    if (!l || isBulletLine(l)) return false
+    const m = l.match(PERIOD_END_RE) || l.match(PERIOD_ANY_RE)
+    return !!m && m.index === 0
+  }
+  let pendingTitleLine = ''
+  let plainDesc = false   // the current role's text has no bullet markers
 
-    // 1. Bullet line → attach to current entry
+  for (let i = 0; i < expLines.length; i++) {
+    let line = expLines[i].trim()
+    if (!line || line.includes('@')) continue
+    // Stray labels some templates print under every role
+    if (/^(achievements?\s*\/\s*tasks?|key\s+responsibilities|responsibilities|description)\s*:?$/i.test(line)) continue
+
+    // 1. Bullet line → attach to current entry, unless it is a "Title | Company | dates" role line
+    //    (e.g. the bulleted roles listed under "Internships")
     if (isBulletLine(line)) {
-      if (curExp) curExp.bullets = [...(curExp.bullets ?? []), line.replace(/^[•\-*◆▸→>·]\s*|^\d+[.)]\s*|^[ivxlcdm]+\)\s*|^[a-z]\)\s*/i, '').trim()]
-      continue
+      const stripped = line.replace(BULLET_PREFIX, '').trim()
+      if (PERIOD_END_RE.test(stripped) && stripped.includes('|') && stripped.split(/\s+/).length <= 14) {
+        line = stripped
+      } else {
+        if (curExp) { curExp.bullets = [...(curExp.bullets ?? []), stripped]; plainDesc = false }
+        continue
+      }
     }
 
     // 2. Anchor line: ends with a date (Title + Period), or is period-only / period + client note
@@ -682,25 +796,46 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
 
     if (periodM) {
       const period = periodM[1].trim()
-      let title = line.slice(0, periodM.index).replace(/[,·\-–—\s]+$/, '').trim()
+      let title = line.slice(0, periodM.index).replace(/[,·|\-–—\s]+$/, '').trim()
+      // Text after a leading period ("12/2021 - Present, Gurugram") is the location
+      const trailingLoc = !endM ? line.slice(periodM[0].length).replace(/^[,·|\-–—\s]+/, '').trim() : ''
 
       // Resolve company + location for this entry
       let company = pendingCompany || lastCompany
       let location = pendingLocation || (pendingCompany ? '' : lastLocation)
+      // Only place-like text counts: not a "(Client – X)" note, not a sentence
+      if (trailingLoc && !/^[(\[]/.test(trailingLoc) && !/client|\d/i.test(trailingLoc) && trailingLoc.split(/\s+/).length <= 4) location = trailingLoc
+      let explicitCompany = ''
+
+      const paren = title.match(/^(.+?)\s*\(\s*(.+)$/)
+      if (paren && !title.includes(')')) {
+        // "Company (Title | Jul 2021 - Present)" — the period sits inside the parentheses
+        explicitCompany = paren[1].trim()
+        title = paren[2].replace(/[,·|\-–—\s]+$/, '').trim()
+      } else if (title.includes('|')) {
+        // "Title | Company | May 2022 - Present"
+        const parts = title.split('|').map(x => x.trim()).filter(Boolean)
+        title = parts[0] ?? ''
+        explicitCompany = parts[1] ?? ''
+        if (parts[2]) location = parts[2]
+      }
 
       // Akash-style: period-only line → the header line held "Company - Title"
-      if (!title && pendingCompany) {
+      if (!title && pendingCompany && !explicitCompany) {
         const dm = pendingCompany.match(/^(.+?)\s+[–—-]\s+(.+)$/)
         if (dm) { company = dm[1].trim(); title = dm[2].replace(/[,·\s]+$/, '').trim() }
-        else    { title = '' }
+        else    { title = pendingTitleLine }   // 3-line header: Title / Company / dates
       }
+      if (explicitCompany) company = explicitCompany
 
       flushExp()
       curExp = { title, company, location: location || undefined, period, bullets: [] }
+      plainDesc = false
       if (company)  lastCompany  = company
       if (location) lastLocation = location
       pendingCompany = ''
       pendingLocation = ''
+      pendingTitleLine = ''
       continue
     }
 
@@ -714,15 +849,25 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
       continue
     }
 
+    // 3-line header: "Title" / "Company" / "dates" — remember the title line
+    if (!isBulletLine(expLines[i + 1] ?? '') && periodOnlyAt(i + 2) && !periodOnlyAt(i + 1) &&
+        line.length < 90 && !/[.!?]$/.test(line)) {
+      pendingTitleLine = line
+      continue
+    }
+
     const sp = splitCompanyLocation(line)
     const looksLikeHeader = sp.location !== '' && sp.company.split(/\s+/).length <= 8 && /^[A-Z(]/.test(sp.company)
     // A line sitting directly above a date-only line is always the next role's header,
     // even when its location isn't one we recognise
-    const nextLine = (expLines[i + 1] ?? '').trim()
-    const nextPeriod = nextLine ? nextLine.match(PERIOD_END_RE) : null
-    const nextIsPeriodOnly = !!nextPeriod && nextPeriod.index === 0 && !isBulletLine(nextLine)
+    const nextIsPeriodOnly = periodOnlyAt(i + 1)
+    // A long sentence right after a role header is its description (the template has no bullet markers)
+    const isProse = line.length >= 45 || /[.;:]$/.test(line)
 
-    if (!inBulletZone) {
+    if (curExp && !inBulletZone && isProse && !looksLikeHeader && !nextIsPeriodOnly) {
+      curExp.bullets = [line]
+      plainDesc = true
+    } else if (!inBulletZone) {
       // Before any bullets → this is the company/location header for the upcoming entry
       pendingCompany = sp.company
       pendingLocation = sp.location
@@ -731,9 +876,13 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
       pendingCompany = sp.company
       pendingLocation = sp.location
     } else if (curExp) {
-      // Wrapped bullet continuation → append to the last bullet
       const b = curExp.bullets ?? []
-      if (b.length) curExp.bullets = [...b.slice(0, -1), (b[b.length - 1] + ' ' + line).trim()]
+      if (b.length) {
+        const prev = b[b.length - 1]
+        if (plainDesc && /[.;:!]$/.test(prev) && /^[A-Z]/.test(line)) curExp.bullets = [...b, line]
+        // Wrapped bullet continuation → append to the last bullet
+        else curExp.bullets = [...b.slice(0, -1), (prev + ' ' + line).trim()]
+      }
     }
   }
   flushExp()
@@ -762,6 +911,9 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
     // location at the end of the line, unless the word before it makes it part of the name
     const m = t.match(new RegExp(`^(.*)\\s+(?:${EDU_PLACE})(?:[\\s,]+(?:[A-Za-z]{2}|${EDU_PLACE}))*\\s*$`, 'i'))
     if (m && m[1].trim() && !/\b(at|of|in|the|and|for|de)$/i.test(m[1].trim())) t = m[1]
+    // "Thapar Institute of Technology, Patiala" → keep the institution, drop the city
+    const comma = t.indexOf(',')
+    if (comma > 0 && SCHOOL_RE.test(t.slice(0, comma)) && !SCHOOL_RE.test(t.slice(comma + 1)) && t.slice(comma + 1).trim().split(/\s+/).length <= 4) t = t.slice(0, comma)
     return t.replace(/[,·|\t]+$/, '').trim()
   }
 
@@ -800,22 +952,45 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
   const rawEduLines = sec('education')
   const mergedEduLines: string[] = []
   for (let i = 0; i < rawEduLines.length; i++) {
-    const l = rawEduLines[i]
-    const next = rawEduLines[i + 1] ?? ''
-    // A wrapped line ends mid-phrase: dangling conjunction, trailing dash, or an unclosed "("
-    const wraps = /\b(and|&|in|of|for|with)\s*$/i.test(l) || /[–—-]\s*$/.test(l) || l.split('(').length > l.split(')').length
-    if (
-      wraps &&
-      next && !/^\d{4}/.test(next) && !SCHOOL_RE.test(next) && !DEGREE_RE.test(next)
-    ) {
-      mergedEduLines.push(l + ' ' + next)
+    let acc = rawEduLines[i]
+    while (i + 1 < rawEduLines.length) {
+      const next = rawEduLines[i + 1]
+      // A wrapped line ends mid-phrase: dangling conjunction, trailing dash/pipe, or an unclosed "("
+      const dangling = /(?:\b(?:and|in|of|for|with)|&)\s*$/i.test(acc)
+      const otherWrap = /[–—|-]\s*$/.test(acc) || acc.split('(').length > acc.split(')').length
+      // Lines under a bullet that don't start a new bullet are its continuation
+      const bulletCont = acc.startsWith('• ') && !next.startsWith('• ')
+      const merge = bulletCont ||
+        (dangling && !/^\d{4}/.test(next)) ||
+        (otherWrap && !/^\d{4}/.test(next) && !SCHOOL_RE.test(next) && !DEGREE_RE.test(next))
+      if (!merge) break
+      acc += ' ' + next
       i++
-    } else {
-      mergedEduLines.push(l)
     }
+    mergedEduLines.push(acc)
   }
 
-  for (const line of mergedEduLines) {
+  for (const rawLine of mergedEduLines) {
+    const line = rawLine.replace(/^•\s*/, '')
+    // Grades on their own line ("7.5 CGPA", "74.33%") are not part of any entry
+    if (/^\d{1,3}(?:\.\d+)?\s*(?:%|cgpa|gpa|\/\s*10)?$/i.test(line) || /^(?:cgpa|gpa|grade)\b/i.test(line)) continue
+
+    // "B.E – MBA | Computer Engineering [CGPA: 7.86/10] | Thapar Institute of Technology, Patiala | 2020"
+    if (line.includes('|') && DEGREE_RE.test(line) && SCHOOL_RE.test(line)) {
+      const parts = line.split('|').map(x => x.replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim()).filter(Boolean)
+      const schoolIdx = parts.findIndex(x => SCHOOL_RE.test(x) && !/^\d{4}$/.test(x))
+      if (schoolIdx > 0) {
+        flushEdu()
+        curEdu = {
+          degree: parts.slice(0, schoolIdx).join(' — '),
+          school: cleanEduHeader(parts[schoolIdx], null),
+          period: periodOf(line),
+          activities: [],
+        }
+        continue
+      }
+    }
+
     // Accepts "2019-2021" and "Jun 2012 – May 2016"
     const periodFull = line.match(PERIOD_RE)
     const period = periodOf(line)
@@ -830,9 +1005,16 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
 
     // Degree takes priority over school when both match
     if (hasSchool && !hasDegree) {
-      flushEdu()
-      curEdu = { school: lineClean || line.replace(/\s*\d{4}.*$/, '').trim(), activities: [] }
-      if (period) curEdu.period = period
+      const schoolName = lineClean || line.replace(/\s*\d{4}.*$/, '').trim()
+      if (curEdu && curEdu.degree && !curEdu.school) {
+        // Degree listed first, school on the next line
+        curEdu.school = schoolName
+        if (period && !curEdu.period) curEdu.period = period
+      } else {
+        flushEdu()
+        curEdu = { school: schoolName, activities: [] }
+        if (period) curEdu.period = period
+      }
     } else if (hasDegree) {
       // "B.Tech Electrical & Tele-Communication: Placement team Lead; CSR club…" →
       // degree is the part before the colon, the rest is specialization / activities.
@@ -867,6 +1049,10 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
           if (part.length > 3) curEdu.activities = [...(curEdu.activities ?? []), part]
         }
       }
+    } else if (curEdu && curEdu.school && !curEdu.degree && /^[A-Za-z][A-Za-z &,.'()-]{3,80}?(?:\s+(?:19|20)\d{2})?$/.test(line) && line.split(/\s+/).length <= 9) {
+      // "Computer Science & Engineering 2018" under a school with no degree keyword
+      curEdu.degree = cleanEduHeader(line, periodFull)
+      if (period && !curEdu.period) curEdu.period = period
     } else if (period && curEdu && !curEdu.period) {
       curEdu.period = period
     }
