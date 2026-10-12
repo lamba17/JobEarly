@@ -83,8 +83,10 @@ async function applySubscription(sub, extra = {}) {
         updated_at: new Date().toISOString(),
         ...extra,
     }, { onConflict: 'user_id' });
-    if (error)
-        throw new BillingError(500, error.message);
+    if (error) {
+        console.error('Supabase write failed:', error);
+        throw new BillingError(500, `Database error: ${error.message}`);
+    }
 }
 export async function createSubscription(authHeader, interval) {
     const user = await authenticate(authHeader);
