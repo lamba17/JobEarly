@@ -543,12 +543,15 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
   // ── Summary ───────────────────────────────────────────────────────────────
   let summary = sec('summary').filter(l => l.length > 30).map(l => l.replace(/^•\s*/, '')).join(' ')
   if (!summary) {
-    // No heading: an objective paragraph sitting under the name/contact lines
-    const prose = preamble.filter(l =>
-      l !== jobTitleLine && !l.includes('@') && !/^contact\b|linkedin|^\+?\d/i.test(l) &&
-      l.split(/\s+/).length >= 8 && !l.includes('|')
-    )
-    summary = prose.join(' ')
+    // No heading: an objective paragraph sitting under the name/contact lines. It starts at the first
+    // sentence-like line and runs over its wrapped lines until contact info begins.
+    const isContact = (l: string) => l.includes('@') || /^contact\b|linkedin|^\+?\d/i.test(l) || l.includes('|')
+    const proseLines: string[] = []
+    for (const l of preamble) {
+      if (l === jobTitleLine || isContact(l)) { if (proseLines.length) break; continue }
+      if (proseLines.length || l.split(/\s+/).length >= 8) proseLines.push(l)
+    }
+    summary = proseLines.join(' ')
   }
 
   // ── Skills — build both flat list and categorized groups ────────────────
@@ -857,7 +860,10 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
     }
 
     const sp = splitCompanyLocation(line)
-    const looksLikeHeader = sp.location !== '' && sp.company.split(/\s+/).length <= 8 && /^[A-Z(]/.test(sp.company)
+    // Company names don't contain commas; "Analytical tools - SAS, SQL, Tableau, MS Excel" is a
+    // description whose tail merely looks like "City, ST"
+    const looksLikeHeader = sp.location !== '' && sp.company.split(/\s+/).length <= 8 && /^[A-Z(]/.test(sp.company) &&
+      !sp.company.includes(',') && !/[.]$/.test(line)
     // A line sitting directly above a date-only line is always the next role's header,
     // even when its location isn't one we recognise
     const nextIsPeriodOnly = periodOnlyAt(i + 1)
