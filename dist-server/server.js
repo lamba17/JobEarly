@@ -2,7 +2,7 @@ import express from 'express';
 import Anthropic from '@anthropic-ai/sdk';
 import nodemailer from 'nodemailer';
 import 'dotenv/config';
-import { BillingError, createSubscription, verifyPayment, cancelSubscription, handleWebhook } from './api/_lib/billing.js';
+import { BillingError, createSubscription, verifyPayment, cancelSubscription, handleWebhook, billingHealth } from './api/_lib/billing.js';
 const app = express();
 const PORT = process.env.PORT || 3001;
 // Keep the raw bytes: Razorpay's webhook signature is computed over them.
@@ -251,6 +251,7 @@ const billing = (run) => async (req, res) => {
         res.status(error instanceof BillingError ? error.status : 500).json({ error: error.message || 'Billing request failed' });
     }
 };
+app.get('/api/billing-health', billing(() => billingHealth()));
 app.post('/api/create-subscription', billing(req => createSubscription(req.headers.authorization, req.body?.interval === 'annual' ? 'annual' : 'monthly')));
 app.post('/api/verify-payment', billing(req => verifyPayment(req.headers.authorization, req.body ?? {})));
 app.post('/api/cancel-subscription', billing(req => cancelSubscription(req.headers.authorization)));
