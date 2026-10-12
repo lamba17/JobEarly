@@ -15,6 +15,7 @@ export default function Settings() {
   const periodEnd = subscription?.current_period_end
     ? new Date(subscription.current_period_end).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
     : null
+  const oneMonthPass = subscription?.plan_interval === 'monthly'
   const cancelScheduled = !!subscription && (subscription.cancel_at_period_end || subscription.status === 'cancelled')
 
   const handleCancel = async () => {
@@ -72,18 +73,19 @@ export default function Settings() {
           <div className="perf-card-title">Your Plan</div>
           <div style={{ fontSize: 14, color: 'var(--text)', marginBottom: 6 }}>
             <strong>{isPro ? 'JobEarly Pro' : 'Free'}</strong>
-            {isPro && subscription && <span style={{ color: 'var(--text-mute)' }}> · {subscription.plan_interval === 'annual' ? '₹1,188 / year' : '₹199 / month'}</span>}
+            {isPro && subscription && <span style={{ color: 'var(--text-mute)' }}> · {subscription.plan_interval === 'annual' ? '₹1,188 / year' : '₹199 · 1 month'}</span>}
           </div>
           <div style={{ fontSize: 12.5, color: 'var(--text-mute)', marginBottom: 14, lineHeight: 1.5 }}>
-            {isPro && cancelScheduled && periodEnd && `Cancelled — you keep Pro access until ${periodEnd}.`}
-            {isPro && !cancelScheduled && periodEnd && `Renews on ${periodEnd}.`}
+            {isPro && oneMonthPass && periodEnd && `One-month pass — Pro is active until ${periodEnd}. It won't renew automatically.`}
+            {isPro && !oneMonthPass && cancelScheduled && periodEnd && `Cancelled — you keep Pro access until ${periodEnd}.`}
+            {isPro && !oneMonthPass && !cancelScheduled && periodEnd && `Renews on ${periodEnd}.`}
             {!isPro && '1 AI-tailored resume per month. Upgrade for unlimited tailoring, cover letters and outreach.'}
           </div>
           {planMsg && (
             <div style={{ fontSize: 12.5, marginBottom: 12, color: planMsg.type === 'ok' ? '#16A34A' : '#DC2626' }}>{planMsg.text}</div>
           )}
           {isPro
-            ? !cancelScheduled && (
+            ? !cancelScheduled && !oneMonthPass && (
                 <button type="button" className="btn btn-ghost btn-sm" onClick={handleCancel} disabled={cancelling}>
                   {cancelling ? 'Cancelling…' : 'Cancel subscription'}
                 </button>

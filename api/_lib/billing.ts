@@ -90,7 +90,7 @@ async function applySubscription(sub: any, extra: { cancel_at_period_end?: boole
       razorpay_plan_id: sub.plan_id ?? null,
       plan_interval: interval,
       status: sub.status,
-      current_period_end: sub.current_end ? new Date(sub.current_end * 1000).toISOString() : null,
+      ...((sub.current_end ?? sub.end_at) ? { current_period_end: new Date((sub.current_end ?? sub.end_at) * 1000).toISOString() } : {}),
       updated_at: new Date().toISOString(),
       ...extra,
     },
@@ -145,7 +145,7 @@ async function sendPaymentEmails(args: { userId: string; sub: any; payment: any;
       paymentId: payment.id as string,
       subscriptionId: sub.id as string,
       paidAt: new Date((payment.created_at ?? Date.now() / 1000) * 1000),
-      renewsAt: sub.current_end ? new Date(sub.current_end * 1000) : null,
+      renewsAt: (sub.current_end ?? sub.end_at) ? new Date((sub.current_end ?? sub.end_at) * 1000) : null,
       isRenewal: (sub.paid_count ?? 1) > 1,
     }
 
@@ -176,7 +176,9 @@ export async function createSubscription(authHeader: string | undefined, interva
     method: 'POST',
     body: {
       plan_id: planId,
-      total_count: interval === 'annual' ? 5 : 60, // shown as the end date in Razorpay checkout
+      // Monthly is a one-month pass (a single charge, no auto-renewal); yearly renews up to 5 times.
+      // Razorpay derives the "until <date>" line in checkout from this number.
+      total_count: interval === 'annual' ? 5 : 1,
       customer_notify: 1,
       notes: { user_id: user.id, interval },
     },

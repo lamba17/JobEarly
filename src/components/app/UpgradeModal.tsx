@@ -63,7 +63,7 @@ export default function UpgradeModal({ onClose }: { onClose: () => void }) {
         <div style={{ padding: '18px 24px 0' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
             <span style={{ fontSize: 34, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.02em' }}>{price}</span>
-            <span style={{ fontSize: 13, color: 'var(--text-mute)' }}>/ month{annual ? ', billed yearly' : ''}</span>
+            <span style={{ fontSize: 13, color: 'var(--text-mute)' }}>/ month{annual ? ', billed yearly' : ' · one month, no auto-renewal'}</span>
           </div>
           <div style={{ display: 'inline-flex', border: '1px solid var(--border)', borderRadius: 20, padding: 3, gap: 2 }}>
             {(['annual', 'monthly'] as const).map(k => (

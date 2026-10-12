@@ -125,7 +125,7 @@ function detailRow(label, value, strong = false) {
 }
 export function receiptEmail(d) {
     const first = esc(d.firstName);
-    const planLabel = d.interval === 'annual' ? 'JobEarly Pro — Yearly' : 'JobEarly Pro — Monthly';
+    const planLabel = d.interval === 'annual' ? 'JobEarly Pro — Yearly' : 'JobEarly Pro — 1 month';
     const amount = formatRupees(d.amountRupees);
     const method = d.method ? METHOD_LABELS[d.method] ?? d.method : null;
     const renews = d.renewsAt ? formatDate(d.renewsAt) : null;
@@ -155,7 +155,7 @@ export function receiptEmail(d) {
       ${detailRow('Plan', planLabel, true)}
       ${detailRow('Amount', amount)}
       ${method ? detailRow('Payment method', esc(method)) : ''}
-      ${renews ? detailRow(d.interval === 'annual' ? 'Next charge (renewal)' : 'Next charge (renewal)', renews) : ''}
+      ${renews ? detailRow(d.interval === 'annual' ? 'Next charge (renewal)' : 'Pro active until', renews) : ''}
       ${detailRow('Payment ID', `<span style="font-family:Consolas,Menlo,monospace;font-size:12.5px;">${esc(d.paymentId)}</span>`)}
       ${detailRow('Subscription ID', `<span style="font-family:Consolas,Menlo,monospace;font-size:12.5px;">${esc(d.subscriptionId)}</span>`)}
     </table>
@@ -166,7 +166,9 @@ export function receiptEmail(d) {
     ${button('Open your dashboard', `${SITE}/app/dashboard`)}
 
     <p style="margin:20px 0 0;font-family:${FONT};font-size:13px;line-height:1.6;color:${MUTE};">
-      You can cancel any time from <a href="${SITE}/app/settings" style="color:${BRAND};">Settings → Your Plan</a> — you keep Pro until the end of the period you've paid for.
+      ${d.interval === 'annual'
+        ? `You can cancel any time from <a href="${SITE}/app/settings" style="color:${BRAND};">Settings → Your Plan</a> — you keep Pro until the end of the period you've paid for.`
+        : `This is a one-month pass, so it won't renew automatically — you won't be charged again. When it ends, you can get Pro again any time from your dashboard.`}
       See our <a href="${SITE}/refund" style="color:${BRAND};">Refund &amp; Cancellation Policy</a>.
     </p>
     ${signOff()}`;
@@ -178,7 +180,7 @@ export function receiptEmail(d) {
         `Amount: ${amount}`,
         `Paid on: ${formatDate(d.paidAt)}`,
         ...(method ? [`Payment method: ${method}`] : []),
-        ...(renews ? [`Next charge: ${renews}`] : []),
+        ...(renews ? [d.interval === 'annual' ? `Next charge: ${renews}` : `Pro active until: ${renews}`] : []),
         `Payment ID: ${d.paymentId}`,
         `Subscription ID: ${d.subscriptionId}`, '',
         `Open your dashboard: ${SITE}/app/dashboard`,
@@ -200,7 +202,7 @@ export function ownerNoticeEmail(d) {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
       ${detailRow('Name', esc(d.customerName || '—'))}
       ${detailRow('Email', esc(d.customerEmail))}
-      ${detailRow('Plan', d.interval === 'annual' ? 'Yearly (₹1,188)' : 'Monthly (₹199)')}
+      ${detailRow('Plan', d.interval === 'annual' ? 'Yearly (₹1,188)' : 'One-month pass (₹199)')}
       ${detailRow('Amount', amount, true)}
       ${d.method ? detailRow('Method', esc(METHOD_LABELS[d.method] ?? d.method)) : ''}
       ${detailRow('Payment ID', esc(d.paymentId))}
