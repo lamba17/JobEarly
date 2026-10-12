@@ -2,12 +2,14 @@ import express from 'express';
 import Anthropic from '@anthropic-ai/sdk';
 import nodemailer from 'nodemailer';
 import 'dotenv/config';
+import { BillingError, createSubscription, verifyPayment, cancelSubscription, handleWebhook } from './api/_lib/billing.js';
 const app = express();
 const PORT = process.env.PORT || 3001;
-app.use(express.json());
+// Keep the raw bytes: Razorpay's webhook signature is computed over them.
+app.use(express.json({ verify: (req, _res, buf) => { req.rawBody = buf.toString('utf8'); } }));
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     next();
 });
@@ -64,6 +66,7 @@ Guidelines:
 - Include at least 1 urgent, 1 critical, and 1 optional
 - Be specific and actionable
 - Include before/after examples for the most impactful issues
+- "before" must be ONE complete bullet or line copied word-for-word from the resume; "after" must be the complete rewritten version that can directly replace it. Never use "..." or "…" at the start or end of either value, and never truncate them.
 - Score should reflect overall quality (A=excellent, B=good, C=fair, D=poor, F=critical issues)`;
         const message = await client.messages.create({
             model: 'claude-haiku-4-5-20251001',
@@ -76,6 +79,13 @@ Guidelines:
             return res.status(500).json({ error: 'Invalid response from Claude' });
         }
         const report = JSON.parse(jsonMatch[0]);
+        // Cut-off suggestions (starting/ending with "...") can't replace a bullet, so drop them
+        const ellipsisEdge = /^\s*["'“]?\s*(\.\.\.|…)|(\.\.\.|…)\s*["'”]?\s*$/;
+        report.issues = (report.issues || []).map((i) => {
+            const ex = i.example;
+            const ok = ex && ex.before && ex.after && !ellipsisEdge.test(String(ex.before)) && !ellipsisEdge.test(String(ex.after));
+            return { ...i, example: ok ? { before: String(ex.before).trim(), after: String(ex.after).trim() } : undefined };
+        });
         const result = {
             ...report,
             urgentCount: report.issues.filter((i) => i.category === 'urgent').length,
@@ -230,8 +240,24 @@ app.post('/api/send-welcome-email', async (req, res) => {
         res.status(500).json({ error: error.message || 'Failed to send welcome email' });
     }
 });
+// ── Razorpay subscription billing (logic lives in api/_lib/billing.ts) ──────────
+const billing = (run) => async (req, res) => {
+    try {
+        res.json(await run(req));
+    }
+    catch (error) {
+        if (!(error instanceof BillingError))
+            console.error('Billing error:', error);
+        res.status(error instanceof BillingError ? error.status : 500).json({ error: error.message || 'Billing request failed' });
+    }
+};
+app.post('/api/create-subscription', billing(req => createSubscription(req.headers.authorization, req.body?.interval === 'annual' ? 'annual' : 'monthly')));
+app.post('/api/verify-payment', billing(req => verifyPayment(req.headers.authorization, req.body ?? {})));
+app.post('/api/cancel-subscription', billing(req => cancelSubscription(req.headers.authorization)));
+app.post('/api/razorpay-webhook', billing(req => handleWebhook(req.rawBody ?? '', req.headers['x-razorpay-signature'])));
 app.listen(PORT, () => {
     console.log(`🚀 Backend server running on http://localhost:${PORT}`);
     console.log(`CLAUDE_API_KEY: ${process.env.CLAUDE_API_KEY ? '✓ Set' : '✗ Not set'}`);
+    console.log(`Razorpay payments: ${process.env.RAZORPAY_KEY_ID && process.env.SUPABASE_SERVICE_ROLE_KEY ? '✓ Configured' : '✗ Not configured (needs RAZORPAY_KEY_* and SUPABASE_SERVICE_ROLE_KEY)'}`);
     console.log(`GMAIL welcome email: ${mailTransport ? '✓ Configured' : '✗ Not configured'}`);
 });

@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import { useAuth } from '../../context/AuthContext'
+import { useSubscription } from '../../hooks/useSubscription'
+import { startCheckout } from '../../lib/billing'
 import { IconCheck, IconSparkle } from '../../icons'
 
 const PRO_FEATURES = [
@@ -11,8 +14,27 @@ const PRO_FEATURES = [
 ]
 
 export default function UpgradeModal({ onClose }: { onClose: () => void }) {
+  const { user } = useAuth()
+  const { isPro } = useSubscription(user?.id)
   const [annual, setAnnual] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [done, setDone] = useState(false)
   const price = annual ? '₹99' : '₹199'
+
+  const handleUpgrade = async () => {
+    if (!user) return
+    setError(null)
+    setBusy(true)
+    try {
+      const result = await startCheckout(annual ? 'annual' : 'monthly', { name: user.name, email: user.email })
+      if (result === 'paid') setDone(true)
+    } catch (e: any) {
+      setError(e.message || 'Something went wrong. Please try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <div
@@ -75,19 +97,34 @@ export default function UpgradeModal({ onClose }: { onClose: () => void }) {
 
         {/* CTA */}
         <div style={{ padding: '24px', marginTop: 4 }}>
-          <div style={{ background: 'var(--bg-soft)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: 'var(--text-mute)', marginBottom: 14, lineHeight: 1.5 }}>
-            Pro billing isn't live yet — request early access below and we'll email you the moment it opens up.
-          </div>
-          <a
-            href="mailto:hello@jobearly.ai?subject=Pro%20upgrade%20request&body=Hi%20JobEarly%20team%2C%0A%0AI'd%20like%20to%20upgrade%20to%20Pro%20as%20soon%20as%20it's%20available."
-            className="btn btn-primary"
-            style={{ width: '100%', justifyContent: 'center', padding: '11px 0', fontSize: 14 }}
-          >
-            Request Early Access
-          </a>
-          <button onClick={onClose} style={{ width: '100%', marginTop: 8, padding: '10px 0', background: 'none', border: 'none', color: 'var(--text-mute)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
-            Maybe later
-          </button>
+          {done || isPro ? (
+            <>
+              <div style={{ background: 'var(--blue-50)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px', fontSize: 13.5, color: 'var(--text)', marginBottom: 14, lineHeight: 1.5 }}>
+                {done ? "You're all set — welcome to JobEarly Pro!" : "You're already on JobEarly Pro."}
+              </div>
+              <button onClick={onClose} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '11px 0', fontSize: 14 }}>
+                Done
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={handleUpgrade}
+                disabled={busy}
+                className="btn btn-primary"
+                style={{ width: '100%', justifyContent: 'center', padding: '11px 0', fontSize: 14, opacity: busy ? 0.7 : 1 }}
+              >
+                {busy ? 'Opening secure checkout…' : annual ? 'Upgrade — ₹1,188 / year' : 'Upgrade — ₹199 / month'}
+              </button>
+              {error && <div style={{ color: '#DC2626', fontSize: 12.5, marginTop: 10, lineHeight: 1.5 }}>{error}</div>}
+              <div style={{ fontSize: 11.5, color: 'var(--text-mute)', marginTop: 10, textAlign: 'center', lineHeight: 1.5 }}>
+                Secure payment by Razorpay (UPI, cards, netbanking). Cancel anytime from Settings.
+              </div>
+              <button onClick={onClose} style={{ width: '100%', marginTop: 8, padding: '10px 0', background: 'none', border: 'none', color: 'var(--text-mute)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Maybe later
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

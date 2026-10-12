@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import UpgradeModal from '../../components/app/UpgradeModal'
+import { useSubscription } from '../../hooks/useSubscription'
 import {
   IconRocket, IconDoc, IconFeather, IconBriefcase, IconChart, IconSend,
   IconHelp, IconSettings, IconLogOut, IconSun, IconMoon, IconArrowRight,
@@ -21,6 +22,7 @@ export default function AppLayout({ theme, toggleTheme }: { theme: string; toggl
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const [showUpgrade, setShowUpgrade] = useState(false)
+  const { isPro } = useSubscription(user?.id)
 
   const initials = user?.name
     ? user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
@@ -78,9 +80,11 @@ export default function AppLayout({ theme, toggleTheme }: { theme: string; toggl
 
         <div className="sidebar-footer">
           <div className="sidebar-upgrade">
-            <div className="upg-label">PRO PLAN</div>
-            <div className="upg-text">Unlock unlimited AI resume tailoring.</div>
-            <button className="upg-btn" onClick={() => setShowUpgrade(true)}>Upgrade to Pro</button>
+            <div className="upg-label">{isPro ? 'PRO PLAN ✓' : 'PRO PLAN'}</div>
+            <div className="upg-text">{isPro ? "You're on Pro — unlimited AI tailoring is unlocked." : 'Unlock unlimited AI resume tailoring.'}</div>
+            {isPro
+              ? <button className="upg-btn" onClick={() => navigate('/app/settings')}>Manage plan</button>
+              : <button className="upg-btn" onClick={() => setShowUpgrade(true)}>Upgrade to Pro</button>}
           </div>
         </div>
       </aside>

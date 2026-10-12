@@ -8,7 +8,7 @@ import SignUp from './pages/SignUp'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import Sitemap from './pages/Sitemap'
-import { Privacy, Terms, Security, Dpa, Cookies } from './pages/LegalPages'
+import { Privacy, Terms, Security, Dpa, Cookies, Refund } from './pages/LegalPages'
 import { About, Careers, Customers, Press, Contact } from './pages/CompanyPages'
 import AppLayout from './pages/app/Layout'
 import Dashboard from './pages/app/Dashboard'
@@ -57,6 +57,7 @@ export default function App() {
           <Route path="/security" element={<Security theme={theme} toggleTheme={toggleTheme} />} />
           <Route path="/dpa" element={<Dpa theme={theme} toggleTheme={toggleTheme} />} />
           <Route path="/cookies" element={<Cookies theme={theme} toggleTheme={toggleTheme} />} />
+          <Route path="/refund" element={<Refund theme={theme} toggleTheme={toggleTheme} />} />
           <Route path="/about" element={<About theme={theme} toggleTheme={toggleTheme} />} />
           <Route path="/careers" element={<Careers theme={theme} toggleTheme={toggleTheme} />} />
           <Route path="/customers" element={<Customers theme={theme} toggleTheme={toggleTheme} />} />

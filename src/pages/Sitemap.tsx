@@ -24,6 +24,7 @@ const GROUPS: { h: string; links: [string, string][] }[] = [
   { h: 'Legal', links: [
     ['Privacy', '/privacy'],
     ['Terms', '/terms'],
+    ['Refunds', '/refund'],
     ['Security', '/security'],
     ['DPA', '/dpa'],
     ['Cookies', '/cookies'],

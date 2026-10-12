@@ -33,7 +33,7 @@ export function Terms({ theme, toggleTheme }: PageProps) {
       <p>By creating an account you agree to use JobEarly for lawful job-search purposes only. You're responsible for the accuracy of the resume and application content you submit — JobEarly tailors and scores what you give it, but doesn't fabricate work history or credentials on your behalf.</p>
 
       <h2>Plans and billing</h2>
-      <p>Free plan limits (resumes, cover letters, and outreach sends) are described on the <a href="/#pricing">Pricing</a> page. Pro is billed monthly or annually and can be cancelled at any time from your account — you keep access through the end of the period you already paid for.</p>
+      <p>Free plan limits (resumes, cover letters, and outreach sends) are described on the <a href="/#pricing">Pricing</a> page. Pro is billed monthly or annually and can be cancelled at any time from your account — you keep access through the end of the period you already paid for. See our <a href="/refund">Refund &amp; Cancellation Policy</a> for details.</p>
 
       <h2>Acceptable use</h2>
       <ul>
@@ -122,6 +122,31 @@ export function Cookies({ theme, toggleTheme }: PageProps) {
 
       <h2>Contact</h2>
       <p>Questions? Email <a href="mailto:hello@jobearly.ai">hello@jobearly.ai</a>.</p>
+    </StaticPage>
+  )
+}
+
+export function Refund({ theme, toggleTheme }: PageProps) {
+  return (
+    <StaticPage theme={theme} toggleTheme={toggleTheme} eyebrow="Legal" title="Refund & Cancellation Policy" updated="October 2026">
+      <h2>Cancelling your subscription</h2>
+      <p>You can cancel JobEarly Pro at any time from <strong>Settings → Your Plan → Cancel subscription</strong>. Cancelling stops future renewals; you keep Pro access until the end of the billing period you have already paid for. We do not charge cancellation fees.</p>
+
+      <h2>Refunds</h2>
+      <ul>
+        <li><strong>First-payment refund:</strong> if you are not satisfied, email us within 7 days of your first Pro payment and we will refund it in full.</li>
+        <li><strong>Renewals:</strong> renewal charges are not refundable once the new period has started, so please cancel before your renewal date if you do not want to continue.</li>
+        <li><strong>Duplicate or incorrect charges:</strong> if you were charged twice or charged the wrong amount, we will refund the difference in full.</li>
+      </ul>
+
+      <h2>How refunds are processed</h2>
+      <p>Approved refunds are issued to the original payment method (UPI, card, or netbanking) through our payment partner, Razorpay. They typically reach your account within 5–7 business days, depending on your bank.</p>
+
+      <h2>Pricing and payments</h2>
+      <p>Pro costs ₹199 per month, or ₹1,188 per year (₹99 per month, billed yearly). Payments are processed securely by Razorpay; JobEarly never sees or stores your card or UPI details.</p>
+
+      <h2>Contact</h2>
+      <p>To request a refund or ask about a charge, email <a href="mailto:jobearlyteam@gmail.com">jobearlyteam@gmail.com</a> from your account email and include the date of the payment.</p>
     </StaticPage>
   )
 }

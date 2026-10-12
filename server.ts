@@ -2,14 +2,16 @@ import express, { Request, Response } from 'express'
 import Anthropic from '@anthropic-ai/sdk'
 import nodemailer from 'nodemailer'
 import 'dotenv/config'
+import { BillingError, createSubscription, verifyPayment, cancelSubscription, handleWebhook } from './api/_lib/billing.js'
 
 const app = express()
 const PORT = process.env.PORT || 3001
 
-app.use(express.json())
+// Keep the raw bytes: Razorpay's webhook signature is computed over them.
+app.use(express.json({ verify: (req, _res, buf) => { (req as any).rawBody = buf.toString('utf8') } }))
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*')
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept')
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
   next()
 })
@@ -271,8 +273,26 @@ app.post('/api/send-welcome-email', async (req: Request, res: Response) => {
   }
 })
 
+// ── Razorpay subscription billing (logic lives in api/_lib/billing.ts) ──────────
+const billing = (run: (req: Request) => Promise<unknown>) => async (req: Request, res: Response) => {
+  try {
+    res.json(await run(req))
+  } catch (error: any) {
+    if (!(error instanceof BillingError)) console.error('Billing error:', error)
+    res.status(error instanceof BillingError ? error.status : 500).json({ error: error.message || 'Billing request failed' })
+  }
+}
+
+app.post('/api/create-subscription', billing(req =>
+  createSubscription(req.headers.authorization, req.body?.interval === 'annual' ? 'annual' : 'monthly')))
+app.post('/api/verify-payment', billing(req => verifyPayment(req.headers.authorization, req.body ?? {})))
+app.post('/api/cancel-subscription', billing(req => cancelSubscription(req.headers.authorization)))
+app.post('/api/razorpay-webhook', billing(req =>
+  handleWebhook((req as any).rawBody ?? '', req.headers['x-razorpay-signature'] as string | undefined)))
+
 app.listen(PORT, () => {
   console.log(`🚀 Backend server running on http://localhost:${PORT}`)
   console.log(`CLAUDE_API_KEY: ${process.env.CLAUDE_API_KEY ? '✓ Set' : '✗ Not set'}`)
+  console.log(`Razorpay payments: ${process.env.RAZORPAY_KEY_ID && process.env.SUPABASE_SERVICE_ROLE_KEY ? '✓ Configured' : '✗ Not configured (needs RAZORPAY_KEY_* and SUPABASE_SERVICE_ROLE_KEY)'}`)
   console.log(`GMAIL welcome email: ${mailTransport ? '✓ Configured' : '✗ Not configured'}`)
 })

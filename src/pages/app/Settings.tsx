@@ -1,9 +1,35 @@
 import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { IconCheck } from '../../icons'
+import UpgradeModal from '../../components/app/UpgradeModal'
+import { useSubscription } from '../../hooks/useSubscription'
+import { cancelSubscription } from '../../lib/billing'
 
 export default function Settings() {
   const { user, updateProfile, changePassword } = useAuth()
+  const { subscription, isPro } = useSubscription(user?.id)
+  const [showUpgrade, setShowUpgrade] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+  const [planMsg, setPlanMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+
+  const periodEnd = subscription?.current_period_end
+    ? new Date(subscription.current_period_end).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+    : null
+  const cancelScheduled = !!subscription && (subscription.cancel_at_period_end || subscription.status === 'cancelled')
+
+  const handleCancel = async () => {
+    if (!window.confirm('Cancel your Pro subscription? You keep Pro access until the end of the period you already paid for.')) return
+    setCancelling(true)
+    setPlanMsg(null)
+    try {
+      await cancelSubscription()
+      setPlanMsg({ type: 'ok', text: 'Subscription cancelled.' })
+    } catch (e: any) {
+      setPlanMsg({ type: 'err', text: e.message || 'Could not cancel. Please try again.' })
+    } finally {
+      setCancelling(false)
+    }
+  }
 
   const [name, setName] = useState(user?.name ?? '')
   const [jobTitle, setJobTitle] = useState(user?.jobTitle ?? '')
@@ -37,10 +63,34 @@ export default function Settings() {
     <>
       <div className="jm-header">
         <h1>Account <em>Settings</em></h1>
-        <p>Manage your profile information and password.</p>
+        <p>Manage your plan, profile information and password.</p>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 560 }}>
+        {/* Plan */}
+        <div className="perf-card">
+          <div className="perf-card-title">Your Plan</div>
+          <div style={{ fontSize: 14, color: 'var(--text)', marginBottom: 6 }}>
+            <strong>{isPro ? 'JobEarly Pro' : 'Free'}</strong>
+            {isPro && subscription && <span style={{ color: 'var(--text-mute)' }}> · {subscription.plan_interval === 'annual' ? '₹1,188 / year' : '₹199 / month'}</span>}
+          </div>
+          <div style={{ fontSize: 12.5, color: 'var(--text-mute)', marginBottom: 14, lineHeight: 1.5 }}>
+            {isPro && cancelScheduled && periodEnd && `Cancelled — you keep Pro access until ${periodEnd}.`}
+            {isPro && !cancelScheduled && periodEnd && `Renews on ${periodEnd}.`}
+            {!isPro && '1 AI-tailored resume per month. Upgrade for unlimited tailoring, cover letters and outreach.'}
+          </div>
+          {planMsg && (
+            <div style={{ fontSize: 12.5, marginBottom: 12, color: planMsg.type === 'ok' ? '#16A34A' : '#DC2626' }}>{planMsg.text}</div>
+          )}
+          {isPro
+            ? !cancelScheduled && (
+                <button type="button" className="btn btn-ghost btn-sm" onClick={handleCancel} disabled={cancelling}>
+                  {cancelling ? 'Cancelling…' : 'Cancel subscription'}
+                </button>
+              )
+            : <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowUpgrade(true)}>Upgrade to Pro</button>}
+        </div>
+
         {/* Profile */}
         <form className="perf-card" onSubmit={handleSaveProfile}>
           <div className="perf-card-title">Profile Information</div>
@@ -99,6 +149,7 @@ export default function Settings() {
           <button type="submit" className="btn btn-primary btn-sm">Update Password</button>
         </form>
       </div>
+      {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} />}
     </>
   )
 }

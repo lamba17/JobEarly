@@ -17,6 +17,7 @@ const COMPANY_LINKS: [string, string][] = [
 const LEGAL_LINKS: [string, string][] = [
   ['Privacy', '/privacy'],
   ['Terms', '/terms'],
+  ['Refunds', '/refund'],
   ['Security', '/security'],
   ['DPA', '/dpa'],
   ['Cookies', '/cookies'],
