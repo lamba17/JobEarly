@@ -1091,6 +1091,7 @@ a.eyebrow:hover { border-color: var(--border-strong); box-shadow: var(--shadow-m
   .app-topnav-right .btn-primary { display: none; }
 }
 
+
 /* ═══════════════════════════════════════════════
    DASHBOARD
 ═══════════════════════════════════════════════ */
@@ -1428,6 +1429,11 @@ a.eyebrow:hover { border-color: var(--border-strong); box-shadow: var(--shadow-m
 .jm-stat-pill { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 18px; text-align: center; }
 .jm-stat-pill .jm-num { font-size: 22px; font-weight: 700; color: var(--accent); }
 .jm-stat-pill .jm-lbl { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; color: var(--text-mute); margin-top: 1px; }
+/* Phones: the six stat boxes wrap into a 3-column grid instead of running off-screen */
+@media (max-width: 720px) {
+  .jm-header-stats { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .jm-stat-pill { padding: 10px 6px; }
+}
 .jm-filter-bar { display: flex; align-items: center; gap: 6px; margin-bottom: 16px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; }
 .jm-filter-btn { height: 32px; padding: 0 12px; border-radius: 7px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid transparent; background: transparent; color: var(--text-soft); transition: all .15s; font-family: inherit; }
 .jm-filter-btn.active { background: var(--bg-soft); border-color: var(--border-strong); color: var(--text); }
@@ -2381,3 +2387,21 @@ a.eyebrow:hover { border-color: var(--border-strong); box-shadow: var(--shadow-m
   opacity: 0.7;
 }
 
+/* ═══════════════════════════════════════════════
+   PHONE LAYOUT — kept at the end so it overrides the base rules above
+═══════════════════════════════════════════════ */
+.split-380 { display: grid; grid-template-columns: 380px 1fr; gap: 16px; align-items: start; }
+@media (max-width: 900px) {
+  /* Two-column app pages (form on the left, results on the right) stack on phones */
+  .split-380 { grid-template-columns: minmax(0, 1fr); }
+  .jm-search-row { width: 100%; }
+  .jm-search-row .jm-search { flex: 1; min-width: 0; }
+  .jm-search-row .jm-search input { width: 100% !important; min-width: 0; }
+  /* Resume builder: stack the editor above the preview; negative margins mirror the mobile page padding */
+  .builder-layout { flex-direction: column; height: auto; overflow: visible; margin: -18px -16px; }
+  .builder-left { width: 100% !important; min-width: 0; border-right: none; border-bottom: 1px solid var(--border); }
+  .builder-right { min-height: 480px; overflow-x: auto; }
+  /* The tab bar scrolls sideways instead of forcing the whole editor wider than the screen */
+  .rb-tabs { min-width: 0; overflow-x: auto; }
+  .rb-tab { flex-shrink: 0; }
+}

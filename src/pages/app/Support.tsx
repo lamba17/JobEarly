@@ -42,7 +42,7 @@ export default function Support() {
         <p>Run into a bug or have a question? Submit a ticket and track it here.</p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: 16, alignItems: 'start' }}>
+      <div className="split-380">
         {/* Submit a ticket */}
         <div className="perf-card">
           <div className="perf-card-title" style={{ marginBottom: 12 }}>Submit a Ticket</div>
