@@ -16,18 +16,16 @@ const PRO_FEATURES = [
 export default function UpgradeModal({ onClose }: { onClose: () => void }) {
   const { user } = useAuth()
   const { isPro } = useSubscription(user?.id)
-  const [annual, setAnnual] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
-  const price = annual ? '₹99' : '₹199'
 
   const handleUpgrade = async () => {
     if (!user) return
     setError(null)
     setBusy(true)
     try {
-      const result = await startCheckout(annual ? 'annual' : 'monthly', { name: user.name, email: user.email })
+      const result = await startCheckout('annual', { name: user.name, email: user.email })
       if (result === 'paid') setDone(true)
     } catch (e: any) {
       setError(e.message || 'Something went wrong. Please try again.')
@@ -59,28 +57,13 @@ export default function UpgradeModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        {/* Price toggle */}
+        {/* Price */}
         <div style={{ padding: '18px 24px 0' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
-            <span style={{ fontSize: 34, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.02em' }}>{price}</span>
-            <span style={{ fontSize: 13, color: 'var(--text-mute)' }}>/ month{annual ? ', billed yearly' : ''}</span>
+            <span style={{ fontSize: 34, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.02em' }}>₹99</span>
+            <span style={{ fontSize: 13, color: 'var(--text-mute)' }}>/ month, billed yearly (₹1,188)</span>
           </div>
-          <div style={{ display: 'inline-flex', border: '1px solid var(--border)', borderRadius: 20, padding: 3, gap: 2 }}>
-            {(['annual', 'monthly'] as const).map(k => (
-              <button
-                key={k}
-                onClick={() => setAnnual(k === 'annual')}
-                style={{
-                  padding: '5px 12px', borderRadius: 16, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-                  fontSize: 12, fontWeight: 700,
-                  background: (annual ? k === 'annual' : k === 'monthly') ? 'var(--accent)' : 'transparent',
-                  color: (annual ? k === 'annual' : k === 'monthly') ? '#fff' : 'var(--text-mute)',
-                }}
-              >
-                {k === 'annual' ? 'Annual · Save 50%' : 'Monthly'}
-              </button>
-            ))}
-          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-mute)' }}>Save 50% vs. ₹199 month-to-month. Next charge in 12 months.</div>
         </div>
 
         {/* Features */}
@@ -114,7 +97,7 @@ export default function UpgradeModal({ onClose }: { onClose: () => void }) {
                 className="btn btn-primary"
                 style={{ width: '100%', justifyContent: 'center', padding: '11px 0', fontSize: 14, opacity: busy ? 0.7 : 1 }}
               >
-                {busy ? 'Opening secure checkout…' : annual ? 'Upgrade — ₹1,188 / year' : 'Upgrade — ₹199 / month'}
+                {busy ? 'Opening secure checkout…' : 'Upgrade — ₹1,188 / year'}
               </button>
               {error && <div style={{ color: '#DC2626', fontSize: 12.5, marginTop: 10, lineHeight: 1.5 }}>{error}</div>}
               <div style={{ fontSize: 11.5, color: 'var(--text-mute)', marginTop: 10, textAlign: 'center', lineHeight: 1.5 }}>

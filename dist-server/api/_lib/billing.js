@@ -88,7 +88,9 @@ async function applySubscription(sub, extra = {}) {
         throw new BillingError(500, `Database error: ${error.message}`);
     }
 }
-export async function createSubscription(authHeader, interval) {
+export async function createSubscription(authHeader, _requested) {
+    // Yearly billing only for now. Monthly plumbing (plan id, webhook handling) is kept so it can be re-enabled.
+    const interval = 'annual';
     const user = await authenticate(authHeader);
     const planId = interval === 'annual' ? process.env.RAZORPAY_PLAN_ANNUAL : process.env.RAZORPAY_PLAN_MONTHLY;
     if (!planId)
@@ -102,7 +104,7 @@ export async function createSubscription(authHeader, interval) {
         method: 'POST',
         body: {
             plan_id: planId,
-            total_count: interval === 'annual' ? 10 : 120,
+            total_count: 5, // 5 yearly charges; Razorpay shows this end date in checkout
             customer_notify: 1,
             notes: { user_id: user.id, interval },
         },

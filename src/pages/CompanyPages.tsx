@@ -22,7 +22,7 @@ export function About({ theme, toggleTheme }: PageProps) {
       </ul>
 
       <h2>Get in touch</h2>
-      <p>Questions, feedback, or partnership ideas — email <a href="mailto:hello@jobearly.ai">hello@jobearly.ai</a>.</p>
+      <p>Questions, feedback, or partnership ideas — email <a href="mailto:jobearlyteam@gmail.com">jobearlyteam@gmail.com</a>.</p>
     </StaticPage>
   )
 }
@@ -36,7 +36,7 @@ export function Careers({ theme, toggleTheme }: PageProps) {
         <div style={{ fontSize: 14, maxWidth: 420, margin: '0 auto', lineHeight: 1.6 }}>
           We're a small team today. If that changes, roles will be posted here first — in the meantime, feel free to introduce yourself.
         </div>
-        <a href="mailto:hello@jobearly.ai" className="btn btn-primary btn-sm" style={{ marginTop: 20, display: 'inline-flex' }}>
+        <a href="mailto:jobearlyteam@gmail.com" className="btn btn-primary btn-sm" style={{ marginTop: 20, display: 'inline-flex' }}>
           <IconMail size={14} /> Say hello
         </a>
       </div>
@@ -72,7 +72,7 @@ export function Press({ theme, toggleTheme }: PageProps) {
         <div style={{ fontSize: 14, maxWidth: 420, margin: '0 auto', lineHeight: 1.6 }}>
           Working on a story about JobEarly, or want a comment? We'd love to talk.
         </div>
-        <a href="mailto:hello@jobearly.ai" className="btn btn-primary btn-sm" style={{ marginTop: 20, display: 'inline-flex' }}>
+        <a href="mailto:jobearlyteam@gmail.com" className="btn btn-primary btn-sm" style={{ marginTop: 20, display: 'inline-flex' }}>
           <IconMail size={14} /> Contact press
         </a>
       </div>
@@ -89,7 +89,7 @@ export function Contact({ theme, toggleTheme }: PageProps) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 8 }}>
         <div className="static-card" style={{ margin: 0 }}>
           <h3>General & Support</h3>
-          <p><a href="mailto:hello@jobearly.ai">hello@jobearly.ai</a></p>
+          <p><a href="mailto:jobearlyteam@gmail.com">jobearlyteam@gmail.com</a></p>
         </div>
         <div className="static-card" style={{ margin: 0 }}>
           <h3>In the product</h3>

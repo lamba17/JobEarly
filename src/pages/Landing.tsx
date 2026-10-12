@@ -1,4 +1,4 @@
-import { useState, useLayoutEffect, useRef, type CSSProperties } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import Navbar from '../components/site/Navbar'
 import Footer from '../components/site/Footer'
@@ -392,18 +392,9 @@ function Testimonials() {
 
 /* ── Pricing ────────────────────────────────── */
 function Pricing() {
-  const [annual, setAnnual] = useState(true)
-  const toggleRef = useRef<HTMLDivElement>(null)
-  const [pillStyle, setPillStyle] = useState<CSSProperties>({})
-
-  useLayoutEffect(() => {
-    if (!toggleRef.current) return
-    const btn = toggleRef.current.querySelector<HTMLButtonElement>(`button[data-key="${annual ? 'a' : 'm'}"]`)
-    if (btn) setPillStyle({ left: btn.offsetLeft, width: btn.offsetWidth })
-  }, [annual])
-
-  const proPrice  = annual ? '₹99' : '₹199'
-  const proStrike = annual ? '₹199' : null
+  // Pro is billed yearly only (₹1,188 / year), shown as its per-month equivalent.
+  const proPrice  = '₹99'
+  const proStrike = '₹199'
   const freeFeatures = ['1 AI-tailored resume / month', 'Basic ATS scoring', '5 cover letter drafts', 'Unlimited job matching', 'Standard email support']
   const proFeatures  = ['Unlimited AI-tailored resumes', 'Advanced ATS readiness audits', 'Unlimited cover letters', 'Smart Outreach with reply tracking', 'Performance analytics + insights', 'Priority human + AI support']
 
@@ -414,13 +405,6 @@ function Pricing() {
           <div className="section-eyebrow"><IconSparkle size={12} /> Pricing</div>
           <h2>Simple plans. <span className="ital">Real</span> outcomes.</h2>
           <p className="sub">Start free. Upgrade when you're ready to send unlimited outreach and unlock advanced AI tailoring.</p>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-          <div className="pricing-toggle" ref={toggleRef}>
-            <div className="pill-bg" style={pillStyle} />
-            <button data-key="m" className={!annual ? 'active' : ''} onClick={() => setAnnual(false)}>Monthly</button>
-            <button data-key="a" className={annual ? 'active' : ''} onClick={() => setAnnual(true)}>Annual <span className="save-tag">SAVE 50%</span></button>
-          </div>
         </div>
         <div className="pricing-grid">
           <div className="price-card free">
@@ -434,13 +418,13 @@ function Pricing() {
             <div className="badge">★ MOST POPULAR</div>
             <div className="tier">Pro</div>
             <div className="price">
-              {proStrike && <span className="strike">{proStrike}</span>}
+              <span className="strike">{proStrike}</span>
               <div className="amt">{proPrice}</div>
-              <div className="per">/ month{annual && ', billed yearly'}</div>
+              <div className="per">/ month, billed yearly (₹1,188)</div>
             </div>
             <p className="desc">For serious job seekers. Unlimited everything, plus recruiter outreach + analytics.</p>
             <ul>{proFeatures.map(f => <li key={f}><span className="check"><IconCheck size={11} /></span>{f}</li>)}</ul>
-            <Link to="/signup" className="price-cta">Start 14-day Pro trial</Link>
+            <Link to="/signup" className="price-cta">Get Pro</Link>
           </div>
         </div>
       </div>
@@ -454,7 +438,7 @@ const FAQS = [
   { q: 'Will my resume sound like AI?',         a: 'No. Our models are tuned on hiring-manager-approved writing — concise, specific, quantitative. We preserve your voice and only edit for impact, clarity, and keyword alignment. You can review every change before accepting.' },
   { q: 'Do you support international roles?',   a: 'Yes. JobEarly works for English-language roles globally and includes filters for sponsorship-friendly companies, regional ATS systems, and salary band detection in 20+ markets including India, US, UK, and EU.' },
   { q: 'Is my data private?',                   a: 'Your resume, job search history, and outreach inbox are encrypted at rest and never used to train shared models. You can export or delete everything in one click. SOC 2 Type II audit completed Q1 2026.' },
-  { q: 'Can I cancel anytime?',                 a: "Yes. Pro is month-to-month or annual — cancel from your account any time, and you'll keep access until the end of the period. No questions asked." },
+  { q: 'Can I cancel anytime?',                 a: "Yes. Pro is billed yearly — cancel from your account any time, and you'll keep access until the end of the period you've paid for. No questions asked." },
   { q: "What's included in the free plan?",     a: '1 AI-tailored resume per month, basic ATS scoring, 5 cover letter drafts, and unlimited job matching. Plenty to land your next role — most free users land an interview within 3 weeks.' },
 ]
 function FAQ() {
@@ -465,7 +449,7 @@ function FAQ() {
         <div className="section-head">
           <div className="section-eyebrow"><IconSparkle size={12} /> FAQ</div>
           <h2>Questions, <span className="ital">answered</span>.</h2>
-          <p className="sub">Still curious? <a href="mailto:hello@jobearly.ai" style={{ color: 'var(--accent)', fontWeight: 600 }}>Talk to a human →</a></p>
+          <p className="sub">Still curious? <a href="mailto:jobearlyteam@gmail.com" style={{ color: 'var(--accent)', fontWeight: 600 }}>Talk to a human →</a></p>
         </div>
         <div className="faq-list">
           {FAQS.map((f, i) => (
@@ -491,7 +475,7 @@ function CtaBanner() {
         <p>Join 10,000+ candidates already using JobEarly to beat ATS filters and land interviews at the companies they actually want.</p>
         <div className="ctas">
           <Link to="/signup" className="btn btn-primary btn-lg">Start free <IconArrowRight size={16} /></Link>
-          <a href="mailto:hello@jobearly.ai?subject=Demo%20request" className="btn btn-ghost btn-lg">Book a 15-min demo</a>
+          <a href="mailto:jobearlyteam@gmail.com?subject=Demo%20request" className="btn btn-ghost btn-lg">Book a 15-min demo</a>
         </div>
       </div>
     </div>

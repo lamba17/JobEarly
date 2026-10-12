@@ -15,13 +15,13 @@ export function Privacy({ theme, toggleTheme }: PageProps) {
       <p>Application data is encrypted at rest and in transit. Access is restricted to the systems that need it to serve your requests. We completed a SOC 2 Type II audit in Q1 2026 covering our security controls.</p>
 
       <h2>Your rights</h2>
-      <p>You can export or permanently delete your account data at any time from Settings. If you'd rather we do it for you, email <a href="mailto:hello@jobearly.ai">hello@jobearly.ai</a> and we'll process the request within 30 days.</p>
+      <p>You can export or permanently delete your account data at any time from Settings. If you'd rather we do it for you, email <a href="mailto:jobearlyteam@gmail.com">jobearlyteam@gmail.com</a> and we'll process the request within 30 days.</p>
 
       <h2>Third parties</h2>
       <p>We share data with the minimum set of processors required to run the product — our AI model provider (to generate resume, cover letter, and analysis content) and, only if you connect it yourself, Google's Gmail API (to read and send outreach email on your behalf, under the scopes you explicitly grant).</p>
 
       <h2>Contact</h2>
-      <p>Questions about this policy? Email <a href="mailto:hello@jobearly.ai">hello@jobearly.ai</a>.</p>
+      <p>Questions about this policy? Email <a href="mailto:jobearlyteam@gmail.com">jobearlyteam@gmail.com</a>.</p>
     </StaticPage>
   )
 }
@@ -33,7 +33,7 @@ export function Terms({ theme, toggleTheme }: PageProps) {
       <p>By creating an account you agree to use JobEarly for lawful job-search purposes only. You're responsible for the accuracy of the resume and application content you submit — JobEarly tailors and scores what you give it, but doesn't fabricate work history or credentials on your behalf.</p>
 
       <h2>Plans and billing</h2>
-      <p>Free plan limits (resumes, cover letters, and outreach sends) are described on the <a href="/#pricing">Pricing</a> page. Pro is billed monthly or annually and can be cancelled at any time from your account — you keep access through the end of the period you already paid for. See our <a href="/refund">Refund &amp; Cancellation Policy</a> for details.</p>
+      <p>Free plan limits (resumes, cover letters, and outreach sends) are described on the <a href="/#pricing">Pricing</a> page. Pro is billed yearly (₹1,188 per year) and can be cancelled at any time from your account — you keep access through the end of the period you already paid for. See our <a href="/refund">Refund &amp; Cancellation Policy</a> for details.</p>
 
       <h2>Acceptable use</h2>
       <ul>
@@ -49,7 +49,7 @@ export function Terms({ theme, toggleTheme }: PageProps) {
       <p>You can delete your account at any time from Settings. We may suspend accounts that violate the acceptable use terms above.</p>
 
       <h2>Contact</h2>
-      <p>Questions about these terms? Email <a href="mailto:hello@jobearly.ai">hello@jobearly.ai</a>.</p>
+      <p>Questions about these terms? Email <a href="mailto:jobearlyteam@gmail.com">jobearlyteam@gmail.com</a>.</p>
     </StaticPage>
   )
 }
@@ -74,7 +74,7 @@ export function Security({ theme, toggleTheme }: PageProps) {
       </div>
 
       <h2>Reporting a vulnerability</h2>
-      <p>Found a security issue? Email <a href="mailto:hello@jobearly.ai">hello@jobearly.ai</a> with details — we take reports seriously and will respond as quickly as we can.</p>
+      <p>Found a security issue? Email <a href="mailto:jobearlyteam@gmail.com">jobearlyteam@gmail.com</a> with details — we take reports seriously and will respond as quickly as we can.</p>
     </StaticPage>
   )
 }
@@ -94,10 +94,10 @@ export function Dpa({ theme, toggleTheme }: PageProps) {
       </ul>
 
       <h2>Data retention and deletion</h2>
-      <p>Data is retained for as long as your account is active. You can export or delete your data at any time from Settings, or by emailing <a href="mailto:hello@jobearly.ai">hello@jobearly.ai</a>.</p>
+      <p>Data is retained for as long as your account is active. You can export or delete your data at any time from Settings, or by emailing <a href="mailto:jobearlyteam@gmail.com">jobearlyteam@gmail.com</a>.</p>
 
       <h2>Requesting a signed copy</h2>
-      <p>If your company's procurement process requires an executed DPA, email <a href="mailto:hello@jobearly.ai">hello@jobearly.ai</a> and we'll get one over to you.</p>
+      <p>If your company's procurement process requires an executed DPA, email <a href="mailto:jobearlyteam@gmail.com">jobearlyteam@gmail.com</a> and we'll get one over to you.</p>
     </StaticPage>
   )
 }
@@ -121,7 +121,7 @@ export function Cookies({ theme, toggleTheme }: PageProps) {
       <p>You can clear cookies and local storage from your browser settings at any time — note that this will sign you out and clear locally-stored drafts that haven't been otherwise saved.</p>
 
       <h2>Contact</h2>
-      <p>Questions? Email <a href="mailto:hello@jobearly.ai">hello@jobearly.ai</a>.</p>
+      <p>Questions? Email <a href="mailto:jobearlyteam@gmail.com">jobearlyteam@gmail.com</a>.</p>
     </StaticPage>
   )
 }
@@ -143,7 +143,7 @@ export function Refund({ theme, toggleTheme }: PageProps) {
       <p>Approved refunds are issued to the original payment method (UPI, card, or netbanking) through our payment partner, Razorpay. They typically reach your account within 5–7 business days, depending on your bank.</p>
 
       <h2>Pricing and payments</h2>
-      <p>Pro costs ₹199 per month, or ₹1,188 per year (₹99 per month, billed yearly). Payments are processed securely by Razorpay; JobEarly never sees or stores your card or UPI details.</p>
+      <p>Pro costs ₹1,188 per year (the equivalent of ₹99 per month), billed once a year. Payments are processed securely by Razorpay; JobEarly never sees or stores your card or UPI details.</p>
 
       <h2>Contact</h2>
       <p>To request a refund or ask about a charge, email <a href="mailto:jobearlyteam@gmail.com">jobearlyteam@gmail.com</a> from your account email and include the date of the payment.</p>
