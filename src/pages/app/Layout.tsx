@@ -36,6 +36,7 @@ export default function AppLayout({ theme, toggleTheme }: { theme: string; toggl
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const [showUpgrade, setShowUpgrade] = useState(false)
+  const [navOpen, setNavOpen] = useState(false)
   const { isPro, loading: planLoading } = useSubscription(user?.id)
   const locked = !isPro && !planLoading
   const [lockedFeature, setLockedFeature] = useState<string | null>(null)
@@ -48,6 +49,15 @@ export default function AppLayout({ theme, toggleTheme }: { theme: string; toggl
     setLockedFeature(feature)
     navigate(location.pathname, { replace: true, state: null })
   }, [location.state, location.pathname, navigate])
+
+  // On phones the sidebar is a slide-in drawer: close it after navigating or on Escape
+  useEffect(() => { setNavOpen(false) }, [location.pathname])
+  useEffect(() => {
+    if (!navOpen) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setNavOpen(false) }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [navOpen])
 
   const initials = user?.name
     ? user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
@@ -75,7 +85,8 @@ export default function AppLayout({ theme, toggleTheme }: { theme: string; toggl
   return (
     <div className="app-wrap">
       {/* ── Sidebar ─────────────────────────── */}
-      <aside className="app-sidebar">
+      {navOpen && <div className="sidebar-backdrop" onClick={() => setNavOpen(false)} aria-hidden="true" />}
+      <aside className={`app-sidebar${navOpen ? ' open' : ''}`}>
         <div className="sidebar-logo">
           <span className="brand-mark"><IconRocket size={14} stroke={2.4} /></span>
           <span>JobEarly</span>
@@ -119,6 +130,15 @@ export default function AppLayout({ theme, toggleTheme }: { theme: string; toggl
         {/* Top nav */}
         <header className="app-topnav">
           <div className="app-topnav-left">
+            <button
+              type="button"
+              className="app-menu-btn"
+              onClick={() => setNavOpen(v => !v)}
+              aria-label="Open menu"
+              aria-expanded={navOpen}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+            </button>
             <NavLink to="/app/dashboard"      className={({ isActive }) => `app-tab${isActive ? ' active' : ''}`}>Dashboard</NavLink>
             <NavLink to="/app/resume-builder" className={({ isActive }) => `app-tab${isActive ? ' active' : ''}`}>Resume Builder</NavLink>
             <NavLink to="/app/cover-letter"   className={({ isActive }) => `app-tab${isActive ? ' active' : ''}`}>Cover Letters</NavLink>

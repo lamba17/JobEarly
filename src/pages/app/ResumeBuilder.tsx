@@ -618,13 +618,15 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
 
   const STATE_CC = '[A-Z]{2}(?:\\/[A-Z]{2})?'
   const COUNTRY  = 'India|USA|U\\.S\\.A\\.|UK|Canada|Peru|Australia|Singapore|Germany|France|China'
-  const CITY     = 'new york|navi mumbai|new delhi|san francisco|los angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|vancouver|montreal|mumbai|bangalore|bengaluru|hyderabad|pune|delhi|noida|gurugram|gurgaon|chennai|kochi|baltimore|washington|lima'
+  const CITY     = 'new york|navi mumbai|new delhi|san francisco|los angeles|san jose|san diego|jersey city|chicago|seattle|boston|austin|atlanta|miami|denver|dallas|houston|phoenix|portland|philadelphia|minneapolis|pittsburgh|columbus|boise|toronto|vancouver|montreal|mumbai|bangalore|bengaluru|hyderabad|pune|delhi|noida|gurugram|gurgaon|chennai|kochi|indore|jaipur|ahmedabad|kolkata|chandigarh|lucknow|nagpur|surat|thane|bhopal|dehradun|london|dublin|sydney|melbourne|berlin|paris|dubai|baltimore|washington|lima'
   // Whole line is just a location (e.g. "New York, NY") → repeat role, same company
   const LOCATION_ONLY_RE = new RegExp(`^(?:${CITY})\\s*,?\\s*(?:${STATE_CC}|${COUNTRY})?\\.?\\s*$`, 'i')
   // Company followed by a trailing location anchored on a KNOWN city (most reliable)
   const LOCATION_END_CITY = new RegExp(`^(.+?)\\s+((?:${CITY})\\s*,?\\s*(?:${STATE_CC}|${COUNTRY})?\\.?)\\s*$`, 'i')
-  // Generic fallback: "City, ST" with a 1-2 word capitalized city + 2-letter state code
-  const LOCATION_END_GENERIC = new RegExp(`^(.+?)\\s+([A-Z][a-zA-Z.]+(?:\\s+[A-Z][a-zA-Z.]+)?,\\s*${STATE_CC})\\s*$`)
+  // Generic fallback: 1-2 word capitalized city + state code, with a comma ("Dallas, TX") or, for real
+  // US/Canadian state codes only, without one ("Dallas TX")
+  const US_ST = 'AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC|BC|ON|QC|AB'
+  const LOCATION_END_GENERIC = new RegExp(`^(.+?)[,\\s]+([A-Z][a-zA-Z.]+(?:\\s+[A-Z][a-zA-Z.]+)?(?:,\\s*${STATE_CC}|\\s+(?:${US_ST})))\\s*$`)
 
   const isBulletLine = (l: string) =>
     /^[•\-*◆▸→>·]\s/.test(l) || /^\d+[.)]\s/.test(l) || /^[ivxlcdm]+\)\s/i.test(l) || /^[a-z]\)\s/i.test(l)
@@ -636,10 +638,10 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
     if (paren) return { company: paren[1].trim(), location: paren[2].trim() }
     // Trailing "<known city>, ST/Country"
     const cityM = t.match(LOCATION_END_CITY)
-    if (cityM && cityM[1].trim().length > 1) return { company: cityM[1].trim(), location: cityM[2].trim() }
+    if (cityM && cityM[1].trim().length > 1) return { company: cityM[1].replace(/[,\s]+$/, ''), location: cityM[2].trim() }
     // Generic "City, ST"
     const genM = t.match(LOCATION_END_GENERIC)
-    if (genM && genM[1].trim().length > 1) return { company: genM[1].trim(), location: genM[2].trim() }
+    if (genM && genM[1].trim().length > 1) return { company: genM[1].replace(/[,\s]+$/, ''), location: genM[2].trim() }
     return { company: t, location: '' }
   }
 
@@ -689,7 +691,7 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
       // Akash-style: period-only line → the header line held "Company - Title"
       if (!title && pendingCompany) {
         const dm = pendingCompany.match(/^(.+?)\s+[–—-]\s+(.+)$/)
-        if (dm) { company = dm[1].trim(); title = dm[2].trim() }
+        if (dm) { company = dm[1].trim(); title = dm[2].replace(/[,·\s]+$/, '').trim() }
         else    { title = '' }
       }
 
@@ -714,12 +716,17 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
 
     const sp = splitCompanyLocation(line)
     const looksLikeHeader = sp.location !== '' && sp.company.split(/\s+/).length <= 8 && /^[A-Z(]/.test(sp.company)
+    // A line sitting directly above a date-only line is always the next role's header,
+    // even when its location isn't one we recognise
+    const nextLine = (expLines[i + 1] ?? '').trim()
+    const nextPeriod = nextLine ? nextLine.match(PERIOD_END_RE) : null
+    const nextIsPeriodOnly = !!nextPeriod && nextPeriod.index === 0 && !isBulletLine(nextLine)
 
     if (!inBulletZone) {
       // Before any bullets → this is the company/location header for the upcoming entry
       pendingCompany = sp.company
       pendingLocation = sp.location
-    } else if (looksLikeHeader) {
+    } else if (looksLikeHeader || nextIsPeriodOnly) {
       // Inside bullet zone but this is clearly a new company header
       pendingCompany = sp.company
       pendingLocation = sp.location
@@ -732,7 +739,7 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
   flushExp()
 
   // ── Education ─────────────────────────────────────────────────────────────
-  const DEGREE_RE   = /\b(b\.?tech|b\.?e\b|b\.?sc\b|m\.?tech|m\.?sc\b|mba|phd|ph\.d|bachelor|master|doctor|b\.des|m\.des|bca|mca|b\.com|m\.com|diploma|pgdm|bba|llb|llm|b\.arch|associate|honours|honors|certificate)\b/i
+  const DEGREE_RE   = /\b(b\.?tech|b\.?e\b|b\.?sc\b|m\.?tech|m\.?sc\b|mba|phd|ph\.d|bachelor|master|doctor|b\.des|m\.des|bca|mca|b\.com|m\.com|diploma|pgdm|bba|llb|llm|b\.arch|[bm]\.[sa]|associate|honours|honors|certificate)\b/i
   const SCHOOL_RE   = /\b(university|college|institute|school|academy|polytechnic|iit|iim|nit|bits|nmims|johns\s+hop|harvard|stanford|wharton|columbia|yale|princeton|cornell|lse|insead|carey|business\s+school|technology|management|mukesh)\b/i
   const SPEC_RE     = /(?:with\s+)?specialization\s+(?:in|on)\s+([^;:,]+)/i
   const ACTIVITY_RE = /\b(president|co-president|delegate|volunteer|club|initiative|competition|council|team\s+leader|merit\s+list|honor\s+roll|clean\s+india|ambulance|csr|scholarship|award)\b/i
@@ -745,12 +752,18 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
     return s.match(/\b(\d{4})\b/)?.[1] ?? ''
   }
 
-  // Strip the year range and any trailing "City, Country" fragment from a school/degree header line
-  const cleanEduHeader = (s: string, pf: RegExpMatchArray | null): string => s
-    .replace(pf ? pf[0] : /\b\d{4}\b/, '')
-    .replace(/\s+(?:,-?\s*)?(baltimore|new york|san francisco|los angeles|chicago|seattle|boston|austin|miami|denver|toronto|vancouver|montreal|mumbai|bengaluru|bangalore|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|washington|lima|peru|india|usa|canada|uk|singapore|bc|on|ny|ca|md|il|tx|wa|maryland|california|texas|washington|illinois)\b.*/i, '')
-    .replace(/[,·|\t]+$/, '')
-    .trim()
+  // Strip the year range and a trailing "City, Country" fragment from a school/degree header line,
+  // without cutting place words that belong to the name ("University of Texas at Austin")
+  const EDU_PLACE = 'baltimore|new york|san francisco|los angeles|chicago|seattle|boston|austin|miami|denver|toronto|vancouver|montreal|mumbai|bengaluru|bangalore|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|washington|lima|peru|india|usa|canada|uk|singapore'
+  const cleanEduHeader = (s: string, pf: RegExpMatchArray | null): string => {
+    let t = s.replace(pf ? pf[0] : /\b\d{4}\b/, '').trim()
+    // comma-led location: "NMIMS University, Mumbai"
+    t = t.replace(new RegExp(`\\s*,\\s*(?:${EDU_PLACE})\\b.*$`, 'i'), '')
+    // location at the end of the line, unless the word before it makes it part of the name
+    const m = t.match(new RegExp(`^(.*)\\s+(?:${EDU_PLACE})(?:[\\s,]+(?:[A-Za-z]{2}|${EDU_PLACE}))*\\s*$`, 'i'))
+    if (m && m[1].trim() && !/\b(at|of|in|the|and|for|de)$/i.test(m[1].trim())) t = m[1]
+    return t.replace(/[,·|\t]+$/, '').trim()
+  }
 
   // Split on ";" but not inside parentheses, so "(Lima, Peru Feb-Mar 2020)" stays in one piece
   const splitTopLevel = (s: string): string[] => {
@@ -2952,6 +2965,7 @@ body { margin: 0; padding: 0; background: #fff; }
                                       }
                                     }}
                                     disabled={appliedImprovements.has(idx)}
+                                    hidden={/\n/.test(issue.example.before)}
                                     style={{
                                       flex: 1,
                                       padding: '4px 8px',

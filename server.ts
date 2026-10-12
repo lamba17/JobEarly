@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express'
 import Anthropic from '@anthropic-ai/sdk'
 import 'dotenv/config'
 import { sendBrandedMail, mailerConfigured } from './api/_lib/mailer.js'
+import { EXAMPLE_RULES, sanitizeExample } from './api/_lib/suggestions.js'
 import { welcomeEmail } from './api/_lib/emailTemplates.js'
 import { BillingError, createOrder, verifyPayment, cancelAndRefund, handleWebhook } from './api/_lib/billing.js'
 
@@ -67,7 +68,7 @@ Guidelines:
 - Include at least 1 urgent, 1 critical, and 1 optional
 - Be specific and actionable
 - Include before/after examples for the most impactful issues
-- "before" must be ONE complete bullet or line copied word-for-word from the resume; "after" must be the complete rewritten version that can directly replace it. Never use "..." or "…" at the start or end of either value, and never truncate them.
+${EXAMPLE_RULES}
 - Score should reflect overall quality (A=excellent, B=good, C=fair, D=poor, F=critical issues)`
 
     const message = await client.messages.create({
@@ -84,13 +85,8 @@ Guidelines:
     }
 
     const report = JSON.parse(jsonMatch[0])
-    // Cut-off suggestions (starting/ending with "...") can't replace a bullet, so drop them
-    const ellipsisEdge = /^\s*["'“]?\s*(\.\.\.|…)|(\.\.\.|…)\s*["'”]?\s*$/
-    report.issues = (report.issues || []).map((i: any) => {
-      const ex = i.example
-      const ok = ex && ex.before && ex.after && !ellipsisEdge.test(String(ex.before)) && !ellipsisEdge.test(String(ex.after))
-      return { ...i, example: ok ? { before: String(ex.before).trim(), after: String(ex.after).trim() } : undefined }
-    })
+    // Drop cut-off suggestions and mask numbers that aren't in the resume
+    report.issues = (report.issues || []).map((i: any) => ({ ...i, example: sanitizeExample(i.example, resumeText) }))
     const result = {
       ...report,
       urgentCount: report.issues.filter((i: any) => i.category === 'urgent').length,

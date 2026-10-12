@@ -1068,6 +1068,29 @@ a.eyebrow:hover { border-color: var(--border-strong); box-shadow: var(--shadow-m
 [data-theme="dark"] .app-avatar-menu-item.danger:hover { background: rgba(239,68,68,.12); }
 .page-content { flex: 1; padding: 24px 28px; overflow-y: auto; }
 
+/* Mobile: the sidebar becomes a slide-in drawer opened from the hamburger button */
+.app-menu-btn {
+  display: none; width: 36px; height: 36px; margin-right: 6px; border-radius: 8px;
+  place-items: center; color: var(--text-soft); border: 1px solid var(--border);
+  background: none; cursor: pointer; flex-shrink: 0;
+}
+.sidebar-backdrop { display: none; }
+@media (max-width: 860px) {
+  .app-menu-btn { display: grid; }
+  .app-sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; height: 100dvh; width: 260px; z-index: 70;
+    transform: translateX(-100%); transition: transform .22s ease; box-shadow: none;
+  }
+  .app-sidebar.open { transform: none; box-shadow: 8px 0 32px rgba(0,0,0,.28); }
+  .sidebar-backdrop { display: block; position: fixed; inset: 0; z-index: 65; background: rgba(0,0,0,.45); }
+  .app-topnav { padding: 0 12px; }
+  .app-topnav-left .app-tab { display: none; }
+  .page-content { padding: 18px 16px; }
+}
+@media (max-width: 540px) {
+  .app-topnav-right .btn-primary { display: none; }
+}
+
 /* ═══════════════════════════════════════════════
    DASHBOARD
 ═══════════════════════════════════════════════ */

@@ -1,5 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node'
 import Anthropic from '@anthropic-ai/sdk'
+import { EXAMPLE_RULES, sanitizeExample } from './_lib/suggestions.js'
 
 function repairJson(raw: string): string {
   // 1. Extract the outermost JSON object
@@ -48,18 +49,6 @@ function repairJson(raw: string): string {
   return result
 }
 
-const ELLIPSIS_EDGE = /^\s*["'“]?\s*(\.\.\.|…)|(\.\.\.|…)\s*["'”]?\s*$/
-
-// A suggestion that starts or ends with an ellipsis is a cut-off fragment and cannot
-// replace a resume bullet, so drop it instead of showing something the user would apply.
-function sanitizeExample(example: any): { before: string; after: string } | undefined {
-  if (!example) return undefined
-  const before = String(example.before || '').trim().slice(0, 600)
-  const after = String(example.after || '').trim().slice(0, 600)
-  if (!before || !after || ELLIPSIS_EDGE.test(after) || ELLIPSIS_EDGE.test(before)) return undefined
-  return { before, after }
-}
-
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
@@ -91,7 +80,7 @@ Job Description:
 ${jobDescription.slice(0, 2000)}
 
 Return ONLY valid JSON with no markdown, no code blocks, no explanation. Escape any quotes inside string values.
-Rules for "example": "before" must be ONE complete bullet or line copied word-for-word from the resume. "after" must be the complete rewritten version of that same bullet, starting with a capital letter or action verb, that can directly replace it. Never use "..." or "…" at the start or end of either value, and never abbreviate or truncate them.
+${EXAMPLE_RULES}
 {
   "grade": "B",
   "status": "GOOD",
@@ -147,7 +136,7 @@ Rules for "example": "before" must be ONE complete bullet or line copied word-fo
     report.summary = report.summary || 'Analysis complete.'
     report.issues = (report.issues || []).map((issue: any) => ({
       ...issue,
-      example: sanitizeExample(issue.example),
+      example: sanitizeExample(issue.example, resumeText),
     }))
     report.urgentCount   = report.urgentCount   ?? report.issues.filter((i: any) => i.category === 'urgent').length
     report.criticalCount = report.criticalCount ?? report.issues.filter((i: any) => i.category === 'critical').length
