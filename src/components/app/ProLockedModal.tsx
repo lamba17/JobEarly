@@ -25,9 +25,9 @@ export default function ProLockedModal({ feature, onClose, onUpgrade }: {
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', color: 'var(--accent)', marginBottom: 8 }}>
           <IconSparkle size={12} /> PRO FEATURE
         </div>
-        <div style={{ fontWeight: 800, fontSize: 20, color: 'var(--text)', marginBottom: 8 }}>{feature} is part of Pro</div>
+        <div style={{ fontWeight: 800, fontSize: 20, color: 'var(--text)', marginBottom: 8 }}>{feature} is locked</div>
         <p style={{ margin: '0 0 6px', fontSize: 14, lineHeight: 1.6, color: 'var(--text-soft)' }}>
-          You can use this screen once you upgrade to the Pro version.
+          To unlock, please upgrade to the Pro version.
         </p>
         <p style={{ margin: '0 0 20px', fontSize: 12.5, lineHeight: 1.6, color: 'var(--text-mute)' }}>
           Pro unlocks {PRO_SCREENS.join(', ')} and unlimited AI tailoring.
