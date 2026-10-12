@@ -161,9 +161,9 @@ export async function createSubscription(authHeader, interval) {
         method: 'POST',
         body: {
             plan_id: planId,
-            // Monthly is a one-month pass (a single charge, no auto-renewal); yearly renews up to 5 times.
-            // Razorpay derives the "until <date>" line in checkout from this number.
-            total_count: interval === 'annual' ? 5 : 1,
+            // One charge per purchase: the plan is a single 1-month / 1-year pass with no auto-renewal.
+            // Razorpay derives the "charged until <date>" line in checkout from this number.
+            total_count: 1,
             customer_notify: 1,
             notes: { user_id: user.id, interval },
         },

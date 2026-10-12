@@ -33,7 +33,7 @@ export function Terms({ theme, toggleTheme }: PageProps) {
       <p>By creating an account you agree to use JobEarly for lawful job-search purposes only. You're responsible for the accuracy of the resume and application content you submit — JobEarly tailors and scores what you give it, but doesn't fabricate work history or credentials on your behalf.</p>
 
       <h2>Plans and billing</h2>
-      <p>Free plan limits (resumes, cover letters, and outreach sends) are described on the <a href="/#pricing">Pricing</a> page. Pro is available as a one-month pass (a single ₹199 payment that does not renew automatically) or as a yearly subscription (₹1,188 per year, renewing automatically until you cancel from your account). Either way you keep access through the end of the period you already paid for. See our <a href="/refund">Refund &amp; Cancellation Policy</a> for details.</p>
+      <p>Free plan limits (resumes, cover letters, and outreach sends) are described on the <a href="/#pricing">Pricing</a> page. Pro is sold as a one-month pass (₹199) or a one-year pass (₹1,188). Each is a single payment that does not renew automatically, so you will not be charged again unless you choose to buy again. You keep Pro access through the end of the period you paid for. See our <a href="/refund">Refund &amp; Cancellation Policy</a> for details.</p>
 
       <h2>Acceptable use</h2>
       <ul>
@@ -129,13 +129,13 @@ export function Cookies({ theme, toggleTheme }: PageProps) {
 export function Refund({ theme, toggleTheme }: PageProps) {
   return (
     <StaticPage theme={theme} toggleTheme={toggleTheme} eyebrow="Legal" title="Refund & Cancellation Policy" updated="October 2026">
-      <h2>Cancelling your subscription</h2>
-      <p>You can cancel JobEarly Pro at any time from <strong>Settings → Your Plan → Cancel subscription</strong>. Cancelling stops future renewals; you keep Pro access until the end of the billing period you have already paid for. We do not charge cancellation fees.</p>
+      <h2>No automatic renewal</h2>
+      <p>JobEarly Pro is a single payment for one month or one year. It does not renew on its own, so there is nothing to cancel and you will not be charged again unless you choose to buy again. Your Pro access runs until the end of the period you paid for.</p>
 
       <h2>Refunds</h2>
       <ul>
         <li><strong>First-payment refund:</strong> if you are not satisfied, email us within 7 days of your first Pro payment and we will refund it in full.</li>
-        <li><strong>Renewals:</strong> renewal charges are not refundable once the new period has started, so please cancel before your renewal date if you do not want to continue.</li>
+        <li><strong>After the first 7 days:</strong> payments are not refundable once that window has passed, as you keep Pro access for the period you paid for.</li>
         <li><strong>Duplicate or incorrect charges:</strong> if you were charged twice or charged the wrong amount, we will refund the difference in full.</li>
       </ul>
 
@@ -143,7 +143,7 @@ export function Refund({ theme, toggleTheme }: PageProps) {
       <p>Approved refunds are issued to the original payment method (UPI, card, or netbanking) through our payment partner, Razorpay. They typically reach your account within 5–7 business days, depending on your bank.</p>
 
       <h2>Pricing and payments</h2>
-      <p>Pro costs ₹199 for a one-month pass (no automatic renewal), or ₹1,188 per year (₹99 per month, billed yearly and renewing automatically). Payments are processed securely by Razorpay; JobEarly never sees or stores your card or UPI details.</p>
+      <p>Pro costs ₹199 for one month or ₹1,188 for one year (₹99 per month), each as a single payment with no automatic renewal. Payments are processed securely by Razorpay; JobEarly never sees or stores your card or UPI details.</p>
 
       <h2>Contact</h2>
       <p>To request a refund or ask about a charge, email <a href="mailto:jobearlyteam@gmail.com">jobearlyteam@gmail.com</a> from your account email and include the date of the payment.</p>

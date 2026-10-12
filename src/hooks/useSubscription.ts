@@ -9,9 +9,9 @@ export type Subscription = Database['public']['Tables']['subscriptions']['Row']
 export function hasProAccess(sub: Subscription | null): boolean {
   if (!sub) return false
   const endsAt = sub.current_period_end ? new Date(sub.current_period_end).getTime() : 0
-  // The monthly plan is a one-month pass: its end date decides access, even if the
+  // Each plan is a single 1-month / 1-year pass: the end date decides access, even if the
   // 'completed' webhook never reached us and the status still says 'active'.
-  if (sub.plan_interval === 'monthly' && endsAt > 0 && endsAt < Date.now()) return false
+  if (endsAt > 0 && endsAt < Date.now()) return false
   if (sub.status === 'active' || sub.status === 'pending') return true
   return (sub.status === 'cancelled' || sub.status === 'completed' || sub.cancel_at_period_end) && endsAt > Date.now()
 }

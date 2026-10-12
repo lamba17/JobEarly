@@ -63,7 +63,10 @@ export default function UpgradeModal({ onClose }: { onClose: () => void }) {
         <div style={{ padding: '18px 24px 0' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
             <span style={{ fontSize: 34, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.02em' }}>{price}</span>
-            <span style={{ fontSize: 13, color: 'var(--text-mute)' }}>/ month{annual ? ', billed yearly' : ' · one month, no auto-renewal'}</span>
+            <span style={{ fontSize: 13, color: 'var(--text-mute)' }}>/ month{annual ? ', billed yearly' : ''}</span>
+          </div>
+          <div style={{ fontSize: 12.5, color: 'var(--text-mute)', margin: '2px 0 10px' }}>
+            {annual ? 'One payment of ₹1,188 covers 12 months.' : 'One payment of ₹199 covers 1 month.'} No auto-renewal — you're never charged again unless you choose to.
           </div>
           <div style={{ display: 'inline-flex', border: '1px solid var(--border)', borderRadius: 20, padding: 3, gap: 2 }}>
             {(['annual', 'monthly'] as const).map(k => (
@@ -118,7 +121,7 @@ export default function UpgradeModal({ onClose }: { onClose: () => void }) {
               </button>
               {error && <div style={{ color: '#DC2626', fontSize: 12.5, marginTop: 10, lineHeight: 1.5 }}>{error}</div>}
               <div style={{ fontSize: 11.5, color: 'var(--text-mute)', marginTop: 10, textAlign: 'center', lineHeight: 1.5 }}>
-                Secure payment by Razorpay (UPI, cards, netbanking). Cancel anytime from Settings.
+                Secure payment by Razorpay (UPI, cards, netbanking). One payment, no auto-renewal.
               </div>
               <button onClick={onClose} style={{ width: '100%', marginTop: 8, padding: '10px 0', background: 'none', border: 'none', color: 'var(--text-mute)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
                 Maybe later
