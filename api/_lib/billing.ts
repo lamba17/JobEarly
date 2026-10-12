@@ -100,9 +100,7 @@ async function applySubscription(sub: any, extra: { cancel_at_period_end?: boole
   }
 }
 
-export async function createSubscription(authHeader: string | undefined, _requested: Interval) {
-  // Yearly billing only for now. Monthly plumbing (plan id, webhook handling) is kept so it can be re-enabled.
-  const interval: Interval = 'annual'
+export async function createSubscription(authHeader: string | undefined, interval: Interval) {
   const user = await authenticate(authHeader)
   const planId = interval === 'annual' ? process.env.RAZORPAY_PLAN_ANNUAL : process.env.RAZORPAY_PLAN_MONTHLY
   if (!planId) throw new BillingError(503, 'Payments are not configured yet.')
@@ -117,7 +115,7 @@ export async function createSubscription(authHeader: string | undefined, _reques
     method: 'POST',
     body: {
       plan_id: planId,
-      total_count: 5, // 5 yearly charges; Razorpay shows this end date in checkout
+      total_count: interval === 'annual' ? 5 : 60, // shown as the end date in Razorpay checkout
       customer_notify: 1,
       notes: { user_id: user.id, interval },
     },
