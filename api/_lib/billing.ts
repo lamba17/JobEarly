@@ -3,6 +3,8 @@
 // map BillingError to an HTTP status.
 import crypto from 'node:crypto'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { sendBrandedMail } from './mailer.js'
+import { receiptEmail, ownerNoticeEmail } from './emailTemplates.js'
 
 export class BillingError extends Error {
   status: number
@@ -100,6 +102,65 @@ async function applySubscription(sub: any, extra: { cancel_at_period_end?: boole
   }
 }
 
+// ── Payment emails ──────────────────────────────────────────────────────────
+// Returns true if this payment has not been emailed yet (and marks it), false if it already was,
+// null if we couldn't tell (e.g. migration 0003 not applied yet).
+async function claimReceipt(userId: string, paymentId: string): Promise<boolean | null> {
+  const { data, error } = await admin()
+    .from('subscriptions')
+    .update({ last_receipt_payment_id: paymentId })
+    .eq('user_id', userId)
+    .or(`last_receipt_payment_id.is.null,last_receipt_payment_id.neq.${paymentId}`)
+    .select('user_id')
+  if (error) {
+    console.error('Receipt dedupe failed (is migration 0003 applied?):', error.message)
+    return null
+  }
+  return (data?.length ?? 0) > 0
+}
+
+// Never throws: an email problem must not fail a payment that already went through.
+async function sendPaymentEmails(args: { userId: string; sub: any; payment: any; source: 'verify' | 'webhook' }) {
+  const { userId, sub, payment, source } = args
+  try {
+    if (!payment?.id || !['captured', 'authorized'].includes(payment.status)) return
+
+    const claimed = await claimReceipt(userId, payment.id)
+    if (claimed === false) return // already sent by the other path
+    if (claimed === null && source === 'webhook') return // can't dedupe: leave it to the checkout path
+
+    const db = admin()
+    const { data: userRes } = await db.auth.admin.getUserById(userId)
+    const authUser = userRes?.user
+    const email = authUser?.email
+    if (!authUser || !email) return
+    const { data: profile } = await db.from('profiles').select('name').eq('id', userId).maybeSingle()
+    const name: string = profile?.name || (authUser.user_metadata?.name as string) || ''
+
+    const receipt = {
+      firstName: name.split(' ')[0] || 'there',
+      interval: (sub.notes?.interval === 'annual' ? 'annual' : 'monthly') as Interval,
+      amountRupees: payment.amount / 100,
+      method: payment.method as string | undefined,
+      paymentId: payment.id as string,
+      subscriptionId: sub.id as string,
+      paidAt: new Date((payment.created_at ?? Date.now() / 1000) * 1000),
+      renewsAt: sub.current_end ? new Date(sub.current_end * 1000) : null,
+      isRenewal: (sub.paid_count ?? 1) > 1,
+    }
+
+    await sendBrandedMail(email, receiptEmail(receipt))
+
+    const owner = process.env.GMAIL_USER
+    if (owner) {
+      await sendBrandedMail(owner, ownerNoticeEmail({ ...receipt, customerName: name, customerEmail: email }))
+        .catch(e => console.error('Owner notice failed:', e))
+    }
+  } catch (e) {
+    console.error('Payment email failed:', e)
+  }
+}
+
 export async function createSubscription(authHeader: string | undefined, interval: Interval) {
   const user = await authenticate(authHeader)
   const planId = interval === 'annual' ? process.env.RAZORPAY_PLAN_ANNUAL : process.env.RAZORPAY_PLAN_MONTHLY
@@ -142,6 +203,11 @@ export async function verifyPayment(
   // Take the status from Razorpay itself rather than trusting the client.
   const sub = await rzp(`/subscriptions/${subId}`)
   await applySubscription(sub)
+
+  // Receipt goes out before we respond: serverless functions may be frozen once the response is sent.
+  const payment = await rzp(`/payments/${paymentId}`).catch(() => null)
+  await sendPaymentEmails({ userId: user.id, sub, payment, source: 'verify' })
+
   return { status: sub.status as string }
 }
 
@@ -170,5 +236,10 @@ export async function handleWebhook(rawBody: string, signature: string | undefin
   const event = JSON.parse(rawBody)
   const sub = event?.payload?.subscription?.entity
   if (sub) await applySubscription(sub, event.event === 'subscription.cancelled' ? { cancel_at_period_end: false } : {})
+
+  // Covers renewals (and first payments if the browser never reached verify-payment).
+  if (sub && event.event === 'subscription.charged' && sub.notes?.user_id) {
+    await sendPaymentEmails({ userId: sub.notes.user_id, sub, payment: event.payload?.payment?.entity, source: 'webhook' })
+  }
   return { received: true }
 }

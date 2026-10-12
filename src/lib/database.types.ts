@@ -173,6 +173,7 @@ export type Database = {
           cancel_at_period_end: boolean
           created_at: string
           current_period_end: string | null
+          last_receipt_payment_id: string | null
           plan_interval: string
           razorpay_plan_id: string | null
           razorpay_subscription_id: string
@@ -184,6 +185,7 @@ export type Database = {
           cancel_at_period_end?: boolean
           created_at?: string
           current_period_end?: string | null
+          last_receipt_payment_id?: string | null
           plan_interval?: string
           razorpay_plan_id?: string | null
           razorpay_subscription_id: string
@@ -195,6 +197,7 @@ export type Database = {
           cancel_at_period_end?: boolean
           created_at?: string
           current_period_end?: string | null
+          last_receipt_payment_id?: string | null
           plan_interval?: string
           razorpay_plan_id?: string | null
           razorpay_subscription_id?: string

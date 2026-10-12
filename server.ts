@@ -1,7 +1,8 @@
 import express, { Request, Response } from 'express'
 import Anthropic from '@anthropic-ai/sdk'
-import nodemailer from 'nodemailer'
 import 'dotenv/config'
+import { sendBrandedMail, mailerConfigured } from './api/_lib/mailer.js'
+import { welcomeEmail } from './api/_lib/emailTemplates.js'
 import { BillingError, createSubscription, verifyPayment, cancelSubscription, handleWebhook } from './api/_lib/billing.js'
 
 const app = express()
@@ -19,13 +20,6 @@ app.use((req, res, next) => {
 const client = new Anthropic({
   apiKey: process.env.CLAUDE_API_KEY,
 })
-
-const mailTransport = process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD
-  ? nodemailer.createTransport({
-      service: 'gmail',
-      auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
-    })
-  : null
 
 // Endpoint for generating analysis report
 app.post('/api/analyze-resume', async (req: Request, res: Response) => {
@@ -251,20 +245,13 @@ app.post('/api/send-welcome-email', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Email is required' })
     }
 
-    if (!mailTransport) {
+    if (!mailerConfigured()) {
       console.warn('Welcome email skipped: GMAIL_USER / GMAIL_APP_PASSWORD not configured')
       return res.json({ sent: false })
     }
 
     const firstName = (name || '').split(' ')[0] || 'there'
-
-    await mailTransport.sendMail({
-      from: `"JobEarly" <${process.env.GMAIL_USER}>`,
-      to: email,
-      subject: 'Welcome to JobEarly!',
-      text: `Hi ${firstName},\n\nThank you for signing up, and we look forward to you using JobEarly.\n\n— The JobEarly Team`,
-      html: `<p>Hi ${firstName},</p><p>Thank you for signing up, and we look forward to you using JobEarly.</p><p>— The JobEarly Team</p>`,
-    })
+    await sendBrandedMail(email, welcomeEmail({ firstName }))
 
     res.json({ sent: true })
   } catch (error: any) {
@@ -294,5 +281,5 @@ app.listen(PORT, () => {
   console.log(`🚀 Backend server running on http://localhost:${PORT}`)
   console.log(`CLAUDE_API_KEY: ${process.env.CLAUDE_API_KEY ? '✓ Set' : '✗ Not set'}`)
   console.log(`Razorpay payments: ${process.env.RAZORPAY_KEY_ID && process.env.SUPABASE_SERVICE_ROLE_KEY ? '✓ Configured' : '✗ Not configured (needs RAZORPAY_KEY_* and SUPABASE_SERVICE_ROLE_KEY)'}`)
-  console.log(`GMAIL welcome email: ${mailTransport ? '✓ Configured' : '✗ Not configured'}`)
+  console.log(`GMAIL welcome email: ${mailerConfigured() ? '✓ Configured' : '✗ Not configured'}`)
 })
