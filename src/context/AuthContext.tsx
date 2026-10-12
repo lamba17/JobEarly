@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from '../lib/supabaseClient'
+import { supabase, clearRecovery } from '../lib/supabaseClient'
 
 export interface User {
   id: string
@@ -78,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (email: string, password: string): Promise<string | null> => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) return authErrorMessage(error.message)
+    clearRecovery()
     return null
   }
 

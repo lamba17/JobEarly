@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabaseClient'
+import { supabase, recoveryPending, clearRecovery } from '../lib/supabaseClient'
 import { IconRocket, IconArrowRight, IconCheck } from '../icons'
 
 export default function ResetPassword() {
@@ -16,19 +16,24 @@ export default function ResetPassword() {
   const [invalidLink, setInvalidLink] = useState(false)
 
   useEffect(() => {
-    // supabase-js exchanges the recovery token in the URL for a session automatically.
-    // Wait for that session before showing the form.
+    // supabase-js exchanges the recovery token in the URL for a session during client start-up, and
+    // getSession() waits for that. Only a session that came from a recovery link may set a new
+    // password here. Any other signed-in visitor is sent to Settings, where changing the password
+    // requires the current one.
     let cancelled = false
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!cancelled && session) setReady(true)
+      if (cancelled) return
+      if (session && recoveryPending()) setReady(true)
+      else if (session) navigate('/app/settings', { replace: true })
+      else setInvalidLink(true)
     })
     const { data: listener } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') setReady(true)
     })
-    // No session after a few seconds means the link is expired, already used, or missing
+    // Safety net if getSession never settles
     const timer = setTimeout(() => { if (!cancelled) setInvalidLink(true) }, 5000)
     return () => { cancelled = true; clearTimeout(timer); listener.subscription.unsubscribe() }
-  }, [])
+  }, [navigate])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -36,6 +41,7 @@ export default function ResetPassword() {
     if (newPassword !== confirmPassword) { setError('Passwords do not match.'); return }
     const err = await updatePasswordFromRecovery(newPassword)
     if (err) { setError(err); return }
+    clearRecovery()
     setDone(true)
   }
 
