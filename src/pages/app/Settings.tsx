@@ -5,6 +5,7 @@ import { IconCheck } from '../../icons'
 import UpgradeModal from '../../components/app/UpgradeModal'
 import { useSubscription } from '../../hooks/useSubscription'
 import { cancelAndRefund } from '../../lib/billing'
+import { planInfo, rupees } from '../../lib/plans'
 
 export default function Settings() {
   const { user, updateProfile, changePassword } = useAuth()
@@ -26,7 +27,7 @@ export default function Settings() {
     : null
   const fmt = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
   const refundUntil = subscription?.refundableUntil ? fmt(subscription.refundableUntil) : null
-  const paidAmount = subscription?.plan_interval === 'annual' ? '₹1,188' : '₹199'
+  const paidAmount = rupees(planInfo(subscription?.plan_interval).price)
 
   const handleCancel = async () => {
     if (!window.confirm(`Cancel JobEarly Pro and get a full refund of ${paidAmount}?\n\nYour Pro access will end immediately.`)) return
@@ -42,7 +43,7 @@ export default function Settings() {
     }
   }
 
-  const planName = subscription?.plan_interval === 'annual' ? 'one-year' : 'one-month'
+  const planName = planInfo(subscription?.plan_interval).pass
 
   const [name, setName] = useState(user?.name ?? '')
   const [jobTitle, setJobTitle] = useState(user?.jobTitle ?? '')
@@ -85,7 +86,7 @@ export default function Settings() {
           <div className="perf-card-title">Your Plan</div>
           <div style={{ fontSize: 14, color: 'var(--text)', marginBottom: 6 }}>
             <strong>{isPro ? 'JobEarly Pro' : 'Free'}</strong>
-            {isPro && subscription && <span style={{ color: 'var(--text-mute)' }}> · {subscription.plan_interval === 'annual' ? '₹1,188 · 1 year' : '₹199 · 1 month'}</span>}
+            {isPro && subscription && <span style={{ color: 'var(--text-mute)' }}> · {rupees(planInfo(subscription.plan_interval).price)} · {planInfo(subscription.plan_interval).months === 12 ? '1 year' : planInfo(subscription.plan_interval).months === 1 ? '1 month' : `${planInfo(subscription.plan_interval).months} months`}</span>}
           </div>
           <div style={{ fontSize: 12.5, color: 'var(--text-mute)', marginBottom: 14, lineHeight: 1.5 }}>
             {isPro && periodEnd && `Your ${planName} pass is active until ${periodEnd}. It won't renew automatically, so you won't be charged again. Extend any time to keep Pro going — the new period is added after this one.`}

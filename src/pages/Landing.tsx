@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import Navbar from '../components/site/Navbar'
 import Footer from '../components/site/Footer'
 import { TESTIMONIALS } from '../data/testimonials'
+import { PLANS, PLAN_ORDER, rupees, type Interval } from '../lib/plans'
 import {
   IconSparkle, IconDoc, IconSend, IconMail, IconChart,
   IconArrowRight, IconCheck, IconPlus, IconShield,
@@ -392,18 +393,19 @@ function Testimonials() {
 
 /* ── Pricing ────────────────────────────────── */
 function Pricing() {
-  const [annual, setAnnual] = useState(true)
+  const [plan, setPlan] = useState<Interval>('quarterly')
   const toggleRef = useRef<HTMLDivElement>(null)
   const [pillStyle, setPillStyle] = useState<CSSProperties>({})
 
   useLayoutEffect(() => {
     if (!toggleRef.current) return
-    const btn = toggleRef.current.querySelector<HTMLButtonElement>(`button[data-key="${annual ? 'a' : 'm'}"]`)
+    const btn = toggleRef.current.querySelector<HTMLButtonElement>(`button[data-key="${plan}"]`)
     if (btn) setPillStyle({ left: btn.offsetLeft, width: btn.offsetWidth })
-  }, [annual])
+  }, [plan])
 
-  const proPrice  = annual ? '₹99' : '₹199'
-  const proStrike = annual ? '₹199' : null
+  const chosen    = PLANS[plan]
+  const proPrice  = rupees(chosen.perMonth)
+  const proStrike = plan === 'monthly' ? null : rupees(PLANS.monthly.perMonth)
   const freeFeatures = ['1 AI-tailored resume / month', 'Basic ATS scoring', 'Standard email support']
   const proFeatures  = ['Unlimited AI-tailored resumes', 'Advanced ATS readiness audits', 'Unlimited cover letters', 'Job application tracker', 'Smart Outreach with reply tracking', 'Performance analytics + insights', 'Priority human + AI support']
 
@@ -418,8 +420,11 @@ function Pricing() {
         <div style={{ textAlign: 'center' }}>
           <div className="pricing-toggle" ref={toggleRef}>
             <div className="pill-bg" style={pillStyle} />
-            <button data-key="m" className={!annual ? 'active' : ''} onClick={() => setAnnual(false)}>Monthly</button>
-            <button data-key="a" className={annual ? 'active' : ''} onClick={() => setAnnual(true)}>Annual <span className="save-tag">SAVE 50%</span></button>
+            {PLAN_ORDER.map(k => (
+              <button key={k} data-key={k} className={plan === k ? 'active' : ''} onClick={() => setPlan(k)}>
+                {PLANS[k].label}{PLANS[k].save && <> <span className="save-tag">{PLANS[k].save.toUpperCase()}</span></>}
+              </button>
+            ))}
           </div>
         </div>
         <div className="pricing-grid">
@@ -436,7 +441,7 @@ function Pricing() {
             <div className="price">
               {proStrike && <span className="strike">{proStrike}</span>}
               <div className="amt">{proPrice}</div>
-              <div className="per">/ month{annual ? ', billed once a year' : ', billed once'} · no auto-renewal</div>
+              <div className="per">/ month{plan === 'monthly' ? ', billed once' : `, billed once for ${chosen.months === 12 ? '12 months' : `${chosen.months} months`} (${rupees(chosen.price)})`} · no auto-renewal</div>
             </div>
             <p className="desc">For serious job seekers. Unlimited everything, plus recruiter outreach + analytics.</p>
             <ul>{proFeatures.map(f => <li key={f}><span className="check"><IconCheck size={11} /></span>{f}</li>)}</ul>
@@ -454,7 +459,7 @@ const FAQS = [
   { q: 'Will my resume sound like AI?',         a: 'No. Our models are tuned on hiring-manager-approved writing — concise, specific, quantitative. We preserve your voice and only edit for impact, clarity, and keyword alignment. You can review every change before accepting.' },
   { q: 'Do you support international roles?',   a: 'Yes. JobEarly works for English-language roles globally and includes filters for sponsorship-friendly companies, regional ATS systems, and salary band detection in 20+ markets including India, US, UK, and EU.' },
   { q: 'Is my data private?',                   a: 'Your resume, job search history, and outreach inbox are encrypted at rest and never used to train shared models. You can export or delete everything in one click. SOC 2 Type II audit completed Q1 2026.' },
-  { q: 'Can I cancel anytime?',                 a: "Yes. Pro is a one-time payment for 1 month or 1 year — it never renews on its own, so there's nothing to cancel and you won't be charged again unless you choose to. No questions asked." },
+  { q: 'Can I cancel anytime?',                 a: "Yes. Pro is a one-time payment for 1 month, 3 months or 1 year — it never renews on its own, so there's nothing to cancel and you won't be charged again unless you choose to. No questions asked." },
   { q: "What's included in the free plan?",     a: '1 AI-tailored resume per month and basic ATS scoring, so you can see what JobEarly does for free. Cover letters, the job tracker, analytics and recruiter outreach are part of Pro.' },
 ]
 function FAQ() {

@@ -230,7 +230,7 @@ const billing = (run) => async (req, res) => {
         res.status(error instanceof BillingError ? error.status : 500).json({ error: error.message || 'Billing request failed' });
     }
 };
-app.post('/api/create-order', billing(req => createOrder(req.headers.authorization, req.body?.interval === 'annual' ? 'annual' : 'monthly')));
+app.post('/api/create-order', billing(req => createOrder(req.headers.authorization, req.body?.interval)));
 app.post('/api/verify-payment', billing(req => verifyPayment(req.headers.authorization, req.body ?? {})));
 app.post('/api/cancel-and-refund', billing(req => cancelAndRefund(req.headers.authorization)));
 app.post('/api/razorpay-webhook', billing(req => handleWebhook(req.rawBody ?? '', req.headers['x-razorpay-signature'])));

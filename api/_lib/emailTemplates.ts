@@ -128,9 +128,15 @@ export function welcomeEmail(opts: { firstName: string }): Email {
 }
 
 // ── Payment receipt (to the customer) ──────────────────────────────────────
+const PLAN_INFO: Record<'monthly' | 'quarterly' | 'annual', { label: string; pass: string; price: string }> = {
+  monthly:   { label: 'JobEarly Pro — 1 month',  pass: 'one-month',   price: '₹199' },
+  quarterly: { label: 'JobEarly Pro — 3 months', pass: 'three-month', price: '₹449' },
+  annual:    { label: 'JobEarly Pro — 1 year',   pass: 'one-year',    price: '₹1,188' },
+}
+
 export interface ReceiptData {
   firstName: string
-  interval: 'monthly' | 'annual'
+  interval: 'monthly' | 'quarterly' | 'annual'
   amountRupees: number
   method?: string
   paymentId: string
@@ -160,7 +166,7 @@ function detailRow(label: string, value: string, strong = false): string {
 
 export function receiptEmail(d: ReceiptData): Email {
   const first = esc(d.firstName)
-  const planLabel = d.interval === 'annual' ? 'JobEarly Pro — 1 year' : 'JobEarly Pro — 1 month'
+  const planLabel = PLAN_INFO[d.interval].label
   const amount = formatRupees(d.amountRupees)
   const method = d.method ? METHOD_LABELS[d.method] ?? d.method : null
   const renews = formatDate(d.periodEnd)
@@ -204,7 +210,7 @@ export function receiptEmail(d: ReceiptData): Email {
     ${button('Open your dashboard', `${SITE}/app/dashboard`)}
 
     <p style="margin:20px 0 0;font-family:${FONT};font-size:13px;line-height:1.6;color:${MUTE};">
-      This is a one-${d.interval === 'annual' ? 'year' : 'month'} pass, so it won't renew automatically — you won't be charged again. When it ends, you can get Pro again any time from your dashboard.
+      This is a ${PLAN_INFO[d.interval].pass} pass, so it won't renew automatically — you won't be charged again. When it ends, you can get Pro again any time from your dashboard.
       See our <a href="${SITE}/refund" style="color:${BRAND};">Refund &amp; Cancellation Policy</a>.
     </p>
     ${signOff()}`
@@ -241,7 +247,7 @@ export function ownerNoticeEmail(d: ReceiptData & { customerName: string; custom
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
       ${detailRow('Name', esc(d.customerName || '—'))}
       ${detailRow('Email', esc(d.customerEmail))}
-      ${detailRow('Plan', d.interval === 'annual' ? 'One-year pass (₹1,188)' : 'One-month pass (₹199)')}
+      ${detailRow('Plan', `${PLAN_INFO[d.interval].pass[0].toUpperCase()}${PLAN_INFO[d.interval].pass.slice(1)} pass (${PLAN_INFO[d.interval].price})`)}
       ${detailRow('Amount', amount, true)}
       ${d.method ? detailRow('Method', esc(METHOD_LABELS[d.method] ?? d.method)) : ''}
       ${detailRow('Payment ID', esc(d.paymentId))}

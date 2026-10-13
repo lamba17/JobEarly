@@ -1,6 +1,8 @@
 import { supabase } from './supabaseClient'
+import { PLANS } from './plans'
 
-export type Interval = 'monthly' | 'annual'
+import type { Interval } from './plans'
+export type { Interval }
 
 export const SUBSCRIPTION_CHANGED = 'subscription-changed'
 
@@ -45,7 +47,7 @@ export async function startCheckout(interval: Interval, user: { name: string; em
       key: created.keyId,
       order_id: created.orderId,
       name: 'JobEarly',
-      description: interval === 'annual' ? 'JobEarly Pro — 1 year' : 'JobEarly Pro — 1 month',
+      description: `JobEarly Pro — ${PLANS[interval].period === 'month' ? '1 month' : PLANS[interval].period === 'year' ? '1 year' : PLANS[interval].period}`,
       prefill: { name: user.name, email: created.email || user.email },
       theme: accent ? { color: accent } : undefined,
       handler: async (response: Record<string, string>) => {

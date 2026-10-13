@@ -259,7 +259,7 @@ const billing = (run: (req: Request) => Promise<unknown>) => async (req: Request
 }
 
 app.post('/api/create-order', billing(req =>
-  createOrder(req.headers.authorization, req.body?.interval === 'annual' ? 'annual' : 'monthly')))
+  createOrder(req.headers.authorization, req.body?.interval)))
 app.post('/api/verify-payment', billing(req => verifyPayment(req.headers.authorization, req.body ?? {})))
 app.post('/api/cancel-and-refund', billing(req => cancelAndRefund(req.headers.authorization)))
 app.post('/api/razorpay-webhook', billing(req =>

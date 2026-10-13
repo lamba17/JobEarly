@@ -15,7 +15,11 @@ export class BillingError extends Error {
     }
 }
 // Prices live on the server so a browser can never choose its own amount (paise).
-const PRICES_PAISE = { monthly: 19900, annual: 118800 };
+const PRICES_PAISE = { monthly: 19900, quarterly: 44900, annual: 118800 };
+const MONTHS = { monthly: 1, quarterly: 3, annual: 12 };
+function parseInterval(value) {
+    return value === 'monthly' || value === 'quarterly' || value === 'annual' ? value : undefined;
+}
 const RZP_API = 'https://api.razorpay.com/v1';
 function rzpCredentials() {
     const id = process.env.RAZORPAY_KEY_ID;
@@ -74,7 +78,7 @@ function safeEqual(a, b) {
 }
 /** Calendar-accurate: 12 Oct + 1 month = 12 Nov; 31 Jan + 1 month = 28/29 Feb (never spills into March). */
 export function addPeriod(from, interval) {
-    const months = interval === 'annual' ? 12 : 1;
+    const months = MONTHS[interval];
     const d = new Date(from);
     const day = d.getUTCDate();
     d.setUTCDate(1);
@@ -127,7 +131,7 @@ async function fulfilPayment(paymentId, expectedUserId) {
         throw new BillingError(400, 'This payment is not linked to a JobEarly order.');
     const order = await rzp(`/orders/${payment.order_id}`);
     const userId = order.notes?.user_id;
-    const interval = order.notes?.interval === 'annual' ? 'annual' : order.notes?.interval === 'monthly' ? 'monthly' : undefined;
+    const interval = parseInterval(order.notes?.interval);
     if (!userId || !interval)
         throw new BillingError(400, 'Unrecognised order.');
     if (expectedUserId && userId !== expectedUserId)
@@ -176,9 +180,33 @@ async function fulfilPayment(paymentId, expectedUserId) {
     return { periodEnd: periodEnd.toISOString(), interval, alreadyRecorded: !isNew };
 }
 // ── Public API ──────────────────────────────────────────────────────────────
+/**
+ * A purchase is only recorded after Razorpay has taken the money, so make sure the database accepts the
+ * plan BEFORE an order exists. Probe: insert a row for an impossible user. A CHECK violation (23514)
+ * means the plan is not allowed yet (migration 0006 not applied); a foreign-key violation (23503) means
+ * the plan value itself is fine. Nothing is ever stored.
+ */
+async function assertPlanSupported(interval) {
+    const db = admin();
+    const probeId = `probe_${Date.now()}`;
+    const { error } = await db.from('purchases').insert({
+        user_id: '00000000-0000-0000-0000-000000000000',
+        razorpay_order_id: 'probe',
+        razorpay_payment_id: probeId,
+        plan_interval: interval,
+        amount_paise: 0,
+        period_end: new Date().toISOString(),
+    });
+    if (error?.code === '23514')
+        throw new BillingError(503, 'This plan is not available yet. Please choose another plan.');
+    if (!error)
+        await db.from('purchases').delete().eq('razorpay_payment_id', probeId); // cannot happen (FK), but never leave a row
+}
 export async function createOrder(authHeader, requested) {
-    const interval = requested === 'annual' ? 'annual' : 'monthly';
+    const interval = parseInterval(requested) ?? 'monthly';
     const user = await authenticate(authHeader);
+    if (interval === 'quarterly')
+        await assertPlanSupported(interval);
     const order = await rzp('/orders', {
         method: 'POST',
         body: {

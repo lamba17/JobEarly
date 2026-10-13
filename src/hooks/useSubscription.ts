@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { SUBSCRIPTION_CHANGED } from '../lib/billing'
+import type { Interval } from '../lib/plans'
 
 const REFUND_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
 
 /** The user's current one-time Pro pass (a 1-month or 1-year purchase). */
 export interface ProAccess {
-  plan_interval: 'monthly' | 'annual'
+  plan_interval: Interval
   current_period_end: string
   /** Set while the customer can still cancel for a full refund (first payment, within 7 days). */
   refundableUntil: string | null
