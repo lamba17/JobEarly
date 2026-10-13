@@ -59,17 +59,22 @@ export async function sendSignupEmails(email: string): Promise<{ sent: boolean }
   const name = meta.name ?? ''
   const jobTitle = meta.job_title ?? ''
 
-  await sendBrandedMail(email, welcomeEmail({ firstName: name.split(' ')[0] || 'there' }))
+  // Both emails go out at the same time: each opens its own Gmail connection (~3 s each), and
+  // doing them one after the other came close to the serverless time limit.
+  const owner = process.env.GMAIL_USER
+  const [welcome, alert] = await Promise.allSettled([
+    sendBrandedMail(email, welcomeEmail({ firstName: name.split(' ')[0] || 'there' })),
+    owner
+      ? sendBrandedMail(owner, signupAlertEmail({ name, email, jobTitle, createdAt: new Date(user.created_at), totalUsers }))
+      : Promise.resolve(false),
+  ])
+  // The alert is best-effort: it must never break signup.
+  if (alert.status === 'rejected') console.error('Signup alert failed:', alert.reason)
+  if (welcome.status === 'rejected') throw welcome.reason
 
   // Mark as welcomed so repeated requests for this account do nothing.
   const { error: markError } = await db.auth.admin.updateUserById(user.id, { user_metadata: { ...user.user_metadata, welcome_sent: true } })
   if (markError) console.error('Could not mark welcome_sent:', markError.message)
 
-  // The alert must never break signup, so it is best-effort.
-  const owner = process.env.GMAIL_USER
-  if (owner) {
-    await sendBrandedMail(owner, signupAlertEmail({ name, email, jobTitle, createdAt: new Date(user.created_at), totalUsers }))
-      .catch(e => console.error('Signup alert failed:', e))
-  }
   return { sent: true }
 }
