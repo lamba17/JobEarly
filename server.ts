@@ -1,9 +1,9 @@
 import express, { Request, Response } from 'express'
 import Anthropic from '@anthropic-ai/sdk'
 import 'dotenv/config'
-import { sendBrandedMail, mailerConfigured } from './api/_lib/mailer.js'
+import { mailerConfigured } from './api/_lib/mailer.js'
+import { sendSignupEmails } from './api/_lib/signup.js'
 import { EXAMPLE_RULES, sanitizeExample } from './api/_lib/suggestions.js'
-import { welcomeEmail } from './api/_lib/emailTemplates.js'
 import { BillingError, createOrder, verifyPayment, cancelAndRefund, handleWebhook } from './api/_lib/billing.js'
 
 const app = express()
@@ -232,27 +232,19 @@ Return ONLY the letter text. No explanations, no markdown, no surrounding quotes
   }
 })
 
-// Endpoint for sending the post-signup welcome email
+// Endpoint for the post-signup emails (welcome to the user, alert to the team)
 app.post('/api/send-welcome-email', async (req: Request, res: Response) => {
   try {
-    const { email, name } = req.body
+    const { email } = req.body
 
-    if (!email) {
+    if (!email || typeof email !== 'string') {
       return res.status(400).json({ error: 'Email is required' })
     }
 
-    if (!mailerConfigured()) {
-      console.warn('Welcome email skipped: GMAIL_USER / GMAIL_APP_PASSWORD not configured')
-      return res.json({ sent: false })
-    }
-
-    const firstName = (name || '').split(' ')[0] || 'there'
-    await sendBrandedMail(email, welcomeEmail({ firstName }))
-
-    res.json({ sent: true })
+    res.json(await sendSignupEmails(email))
   } catch (error: any) {
-    console.error('Welcome email error:', error)
-    res.status(500).json({ error: error.message || 'Failed to send welcome email' })
+    console.error('Signup email error:', error)
+    res.status(500).json({ error: error.message || 'Failed to send signup emails' })
   }
 })
 

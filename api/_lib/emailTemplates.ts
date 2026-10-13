@@ -303,3 +303,24 @@ export function ownerRefundNoticeEmail(d: { firstName: string; amountRupees: num
     text: `Pro cancelled & refunded\nName: ${d.customerName}\nEmail: ${d.customerEmail}\nRefunded: ${amount}\nPayment ID: ${d.paymentId}`,
   }
 }
+
+// ── New-signup alert (to the JobEarly team) ────────────────────────────────
+export function signupAlertEmail(d: { name: string; email: string; jobTitle: string; createdAt: Date; totalUsers?: number }): Email {
+  const when = d.createdAt.toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })
+  const body = `
+    <h1 style="margin:0 0 6px;font-family:${FONT};font-size:24px;font-weight:800;color:${INK};">🎉 New JobEarly signup</h1>
+    <p style="margin:0 0 18px;font-family:${FONT};font-size:15px;color:${MUTE};">${esc(d.name || 'Someone')} just created an account.</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      ${detailRow('Name', esc(d.name || '—'), true)}
+      ${detailRow('Email', esc(d.email))}
+      ${detailRow('Job title', esc(d.jobTitle || '—'))}
+      ${detailRow('Signed up', `${esc(when)} IST`)}
+      ${typeof d.totalUsers === 'number' ? detailRow('Total users', String(d.totalUsers)) : ''}
+    </table>
+    <p style="margin:20px 0 0;font-family:${FONT};font-size:13px;color:${MUTE};">Internal notification — the new user has been sent the welcome email.</p>`
+  return {
+    subject: `New signup: ${d.name || d.email}`,
+    html: layout({ preheader: `${d.email} just signed up`, body }),
+    text: `New JobEarly signup\nName: ${d.name}\nEmail: ${d.email}\nJob title: ${d.jobTitle}\nSigned up: ${when} IST${typeof d.totalUsers === 'number' ? `\nTotal users: ${d.totalUsers}` : ''}`,
+  }
+}

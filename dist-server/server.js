@@ -1,8 +1,9 @@
 import express from 'express';
 import Anthropic from '@anthropic-ai/sdk';
 import 'dotenv/config';
-import { sendBrandedMail, mailerConfigured } from './api/_lib/mailer.js';
-import { welcomeEmail } from './api/_lib/emailTemplates.js';
+import { mailerConfigured } from './api/_lib/mailer.js';
+import { sendSignupEmails } from './api/_lib/signup.js';
+import { EXAMPLE_RULES, sanitizeExample } from './api/_lib/suggestions.js';
 import { BillingError, createOrder, verifyPayment, cancelAndRefund, handleWebhook } from './api/_lib/billing.js';
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -61,7 +62,7 @@ Guidelines:
 - Include at least 1 urgent, 1 critical, and 1 optional
 - Be specific and actionable
 - Include before/after examples for the most impactful issues
-- "before" must be ONE complete bullet or line copied word-for-word from the resume; "after" must be the complete rewritten version that can directly replace it. Never use "..." or "…" at the start or end of either value, and never truncate them.
+${EXAMPLE_RULES}
 - Score should reflect overall quality (A=excellent, B=good, C=fair, D=poor, F=critical issues)`;
         const message = await client.messages.create({
             model: 'claude-haiku-4-5-20251001',
@@ -74,13 +75,8 @@ Guidelines:
             return res.status(500).json({ error: 'Invalid response from Claude' });
         }
         const report = JSON.parse(jsonMatch[0]);
-        // Cut-off suggestions (starting/ending with "...") can't replace a bullet, so drop them
-        const ellipsisEdge = /^\s*["'“]?\s*(\.\.\.|…)|(\.\.\.|…)\s*["'”]?\s*$/;
-        report.issues = (report.issues || []).map((i) => {
-            const ex = i.example;
-            const ok = ex && ex.before && ex.after && !ellipsisEdge.test(String(ex.before)) && !ellipsisEdge.test(String(ex.after));
-            return { ...i, example: ok ? { before: String(ex.before).trim(), after: String(ex.after).trim() } : undefined };
-        });
+        // Drop cut-off suggestions and mask numbers that aren't in the resume
+        report.issues = (report.issues || []).map((i) => ({ ...i, example: sanitizeExample(i.example, resumeText) }));
         const result = {
             ...report,
             urgentCount: report.issues.filter((i) => i.category === 'urgent').length,
@@ -209,24 +205,18 @@ Return ONLY the letter text. No explanations, no markdown, no surrounding quotes
         res.status(500).json({ error: error.message || 'Failed to generate cover letter' });
     }
 });
-// Endpoint for sending the post-signup welcome email
+// Endpoint for the post-signup emails (welcome to the user, alert to the team)
 app.post('/api/send-welcome-email', async (req, res) => {
     try {
-        const { email, name } = req.body;
-        if (!email) {
+        const { email } = req.body;
+        if (!email || typeof email !== 'string') {
             return res.status(400).json({ error: 'Email is required' });
         }
-        if (!mailerConfigured()) {
-            console.warn('Welcome email skipped: GMAIL_USER / GMAIL_APP_PASSWORD not configured');
-            return res.json({ sent: false });
-        }
-        const firstName = (name || '').split(' ')[0] || 'there';
-        await sendBrandedMail(email, welcomeEmail({ firstName }));
-        res.json({ sent: true });
+        res.json(await sendSignupEmails(email));
     }
     catch (error) {
-        console.error('Welcome email error:', error);
-        res.status(500).json({ error: error.message || 'Failed to send welcome email' });
+        console.error('Signup email error:', error);
+        res.status(500).json({ error: error.message || 'Failed to send signup emails' });
     }
 });
 // ── Razorpay one-time Pro payments (logic lives in api/_lib/billing.ts) ──────────
