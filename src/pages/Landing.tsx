@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import Navbar from '../components/site/Navbar'
 import Footer from '../components/site/Footer'
 import { TESTIMONIALS } from '../data/testimonials'
+import { STATUS_META } from '../lib/jobTracker'
 import { PLANS, PLAN_ORDER, rupees, type Interval } from '../lib/plans'
 import {
   IconSparkle, IconDoc, IconSend, IconMail, IconChart,
@@ -29,7 +30,7 @@ function MockDashboard() {
   ]
   const cards = [
     { icon: <IconDoc size={16} />,     lbl: 'RESUMES CREATED', num: '24',  delta: '+12% from last month' },
-    { icon: <IconSparkle size={16} />, lbl: 'JOBS MATCHED',    num: '142', delta: '8 High-Probability Leads' },
+    { icon: <IconBriefcase size={16} />, lbl: 'JOBS TRACKED', num: '48',  delta: '6 Interviews scheduled' },
     { icon: <IconSend size={16} />,    lbl: 'OUTREACH SENT',   num: '38',  delta: '15 Responses received' },
   ]
   const recentDocs = [
@@ -61,7 +62,7 @@ function MockDashboard() {
       <div className="mock-main">
         <h2 className="mock-greeting">{greeting()}, Alex.</h2>
         <p className="mock-sub">
-          Your AI career architect has identified <b>12 new matches</b> aligned with your Senior Product Designer trajectory.
+          Your AI career architect is keeping tabs on <b>48 applications</b> across your Senior Product Designer search.
         </p>
         <div className="mock-cards">
           {cards.map(({ icon, lbl, num, delta }) => (
@@ -209,7 +210,7 @@ function ProductPreview() {
         <div className="section-head">
           <div className="section-eyebrow"><IconSparkle size={12} /> Product</div>
           <h2>Your career, <span className="ital">organized</span>.</h2>
-          <p className="sub">One dashboard for every resume, match, and outreach — so nothing falls through the cracks.</p>
+          <p className="sub">One dashboard for every resume, application, and outreach — so nothing falls through the cracks.</p>
         </div>
         <div className="hero-mock-wrap">
           <div className="hero-mock">
@@ -270,6 +271,13 @@ function Stats() {
 }
 
 /* ── Bento ──────────────────────────────────── */
+const TRACKER_BOARD = [
+  { status: 'applied',     jobs: ['Stripe · Product Designer', 'Linear · Design Lead'] },
+  { status: 'interview',   jobs: ['Figma · Senior Designer'] },
+  { status: 'final_round', jobs: ['Notion · Product Lead'] },
+  { status: 'offer',       jobs: ['Vercel · Staff Designer'] },
+] as const
+
 function Bento() {
   return (
     <section className="section" id="features">
@@ -319,6 +327,23 @@ function Bento() {
               </div>
             </div>
           </div>
+          <div id="feature-tracker" className="bento-card span-6">
+            <div className="ico-tile"><IconBriefcase size={20} /></div>
+            <h3>Job Tracker</h3>
+            <p>Every application on one board, from Wishlist to Offer. Add follow-up dates, salary and notes, and never lose track of a role.</p>
+            <div className="bento-vis tracker-vis" aria-hidden="true">
+              {TRACKER_BOARD.map(col => (
+                <div key={col.status} className="tcol">
+                  <div className="thead">
+                    <span className="dot" style={{ background: STATUS_META[col.status].color }} />
+                    {STATUS_META[col.status].label}
+                    <b>{col.jobs.length}</b>
+                  </div>
+                  {col.jobs.map(j => <div key={j} className="tjob">{j}</div>)}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -328,19 +353,21 @@ function Bento() {
 /* ── How It Works ───────────────────────────── */
 function HowItWorks() {
   const steps = [
-    { n: '01', title: 'Upload your resume',    body: 'Or start from a template. We parse roles, achievements, and keywords automatically.' },
-    { n: '02', title: 'Pick a target role',    body: 'Paste a job link or describe your dream role. JobEarly extracts what matters.' },
-    { n: '03', title: 'AI tailors everything', body: 'Resume, summary, and bullet impact rewritten to match the role — in seconds.' },
-    { n: '04', title: 'ATS score + fix',       body: 'See exactly which keywords are missing and accept one-click fixes.' },
-    { n: '05', title: 'Generate cover letter', body: 'Personalized to the company, the team, and your story — no more templates.' },
-    { n: '06', title: 'Outreach + apply',      body: 'Send recruiter emails, track replies, and apply with one click.' },
+    { n: '01', title: 'Upload your resume',      body: 'Or start from a template. We parse roles, achievements, and keywords automatically.' },
+    { n: '02', title: 'Pick a target role',      body: 'Paste a job link or describe your dream role. JobEarly extracts what matters.' },
+    { n: '03', title: 'AI tailors everything',   body: 'Resume, summary, and bullet impact rewritten to match the role — in seconds.' },
+    { n: '04', title: 'ATS score + fix',         body: 'See exactly which keywords are missing and accept one-click fixes.' },
+    { n: '05', title: 'Generate cover letter',   body: 'Personalized to the company, the team, and your story — no more templates.' },
+    { n: '06', title: 'Reach recruiters',        body: 'Send recruiter emails from your own Gmail and see when they reply.' },
+    { n: '07', title: 'Track every application', body: 'Log each job on one board, from Wishlist to Offer, with follow-up dates so nothing slips through.' },
+    { n: '08', title: "See what's working",      body: 'Analytics show your applications by status, portal, and company, so you know where to focus.' },
   ]
   return (
     <section className="section" id="how" style={{ background: 'var(--bg-soft)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
       <div className="container">
         <div className="section-head">
           <div className="section-eyebrow"><IconSparkle size={12} /> How it works</div>
-          <h2>From résumé to reply in <span className="ital">six steps</span>.</h2>
+          <h2>Résumé to offer in <span className="ital">eight steps</span>.</h2>
           <p className="sub">A guided workflow, not a blank page. Each step takes seconds and stacks toward an offer.</p>
         </div>
         <div className="steps">
@@ -349,7 +376,7 @@ function HowItWorks() {
               <div className="num">{s.n}</div>
               <h3>{s.title}</h3>
               <p>{s.body}</p>
-              {i < steps.length - 1 && (i + 1) % 3 !== 0 && <div className="arrow" />}
+              {i < steps.length - 1 && (i + 1) % 4 !== 0 && <div className="arrow" />}
             </div>
           ))}
         </div>

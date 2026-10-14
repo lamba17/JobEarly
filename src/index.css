@@ -557,6 +557,7 @@ a.eyebrow:hover { border-color: var(--border-strong); box-shadow: var(--shadow-m
 .bento-card.span-3 { grid-column: span 3; }
 .bento-card.span-2 { grid-column: span 2; }
 .bento-card.span-4 { grid-column: span 4; }
+.bento-card.span-6 { grid-column: span 6; }
 .bento-card.row-2  { grid-row: span 2; }
 
 .bento-vis { position: absolute; pointer-events: none; }
@@ -596,6 +597,12 @@ a.eyebrow:hover { border-color: var(--border-strong); box-shadow: var(--shadow-m
 
 /* Outreach — Gmail card stack */
 .outreach-vis { right: 18px; bottom: 20px; width: 190px; }
+.tracker-vis { right: 24px; top: 22px; bottom: 22px; width: 54%; display: flex; gap: 10px; }
+.tracker-vis .tcol { flex: 1; min-width: 0; background: var(--bg-soft); border: 1px solid var(--border); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.tracker-vis .thead { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: var(--text-soft); letter-spacing: .02em; white-space: nowrap; }
+.tracker-vis .thead .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.tracker-vis .thead b { margin-left: auto; font-weight: 700; color: var(--text-mute); }
+.tracker-vis .tjob { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; font-size: 11.5px; font-weight: 600; color: var(--text); line-height: 1.3; }
 .gmail-stack { position: relative; width: 100%; height: 105px; }
 .gmail-stack .card-shot { position: absolute; width: 118px; }
 .gmail-stack .g1 { top: 0; left: 0; transform: rotate(-4deg); }
@@ -609,12 +616,12 @@ a.eyebrow:hover { border-color: var(--border-strong); box-shadow: var(--shadow-m
 ═══════════════════════════════════════════════ */
 .steps {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 18px;
 }
 .step {
   position: relative;
-  padding: 28px;
+  padding: 24px;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 16px;
@@ -882,11 +889,13 @@ a.eyebrow:hover { border-color: var(--border-strong); box-shadow: var(--shadow-m
   .bento-card.span-3 { grid-column: span 4; }
   .bento-card.span-2 { grid-column: span 2; }
   .bento-card.span-4 { grid-column: span 4; }
+  .bento-card.span-6 { grid-column: span 4; }
+  .tracker-vis { width: 58%; }
   .stats-row { grid-template-columns: repeat(2,1fr); gap: 28px; }
   .stats-row > div + div { padding-left: 0; border-left: none; }
   .footer-grid { grid-template-columns: 1.6fr repeat(2,1fr); }
   .pricing-grid { grid-template-columns: 1fr; }
-  .steps { grid-template-columns: 1fr; }
+  .steps { grid-template-columns: repeat(2, 1fr); }
   .step .arrow { display: none; }
   .mock { grid-template-columns: 1fr; height: auto; }
   .mock-side { display: none; }
@@ -897,7 +906,9 @@ a.eyebrow:hover { border-color: var(--border-strong); box-shadow: var(--shadow-m
   .hero { padding: 56px 0 36px; }
   .hero-floating { display: none; }
   .bento { grid-template-columns: 1fr; }
-  .bento-card.span-3, .bento-card.span-2, .bento-card.span-4 { grid-column: span 1; }
+  .bento-card.span-3, .bento-card.span-2, .bento-card.span-4, .bento-card.span-6 { grid-column: span 1; }
+  .tracker-vis { display: none; }
+  .steps { grid-template-columns: 1fr; }
   .footer-grid { grid-template-columns: 1fr 1fr; }
   .mock-cards { grid-template-columns: 1fr; }
   .mock-rows  { grid-template-columns: 1fr; }
