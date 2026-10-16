@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en" data-resolution="portrait">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <script src="vendor/gsap.min.js"></script>
+    <style>
+      @font-face { font-family: "Inter"; font-weight: 500; src: url("fonts/inter-latin-500-normal.woff2") format("woff2"); }
+      @font-face { font-family: "Inter"; font-weight: 700; src: url("fonts/inter-latin-700-normal.woff2") format("woff2"); }
+      @font-face { font-family: "Inter"; font-weight: 800; src: url("fonts/inter-latin-800-normal.woff2") format("woff2"); }
+      @font-face { font-family: "Inter"; font-weight: 900; src: url("fonts/inter-latin-900-normal.woff2") format("woff2"); }
+      @font-face { font-family: "Instrument Serif"; font-style: italic; font-weight: 400; src: url("fonts/instrument-serif-latin-400-italic.woff2") format("woff2"); }
+
+      /* Brand tokens, taken from the app's Tailwind config and landing page */
+      :root {
+        --blue-50: #eff6ff;
+        --blue-100: #dbeafe;
+        --blue-600: #2563eb;
+        --blue-700: #1d4ed8;
+        --blue-900: #1e3a8a;
+        --ink: #0f172a;
+        --green: #16a34a;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--ink); }
+      #root {
+        position: relative; width: 1080px; height: 1920px; overflow: hidden;
+        font-family: "Inter", ui-sans-serif, system-ui, sans-serif; color: var(--ink);
+      }
+      .scene { position: absolute; inset: 0; overflow: hidden; }
+      em { font-family: "Instrument Serif", Georgia, serif; font-style: italic; font-weight: 400; color: var(--blue-600); letter-spacing: 0; }
+
+      /* Kinetic word cards */
+      .word { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+      .word.blue { background: var(--blue-600); color: #fff; }
+      .word.ink { background: var(--ink); color: #fff; }
+      .word.light { background: var(--blue-50); color: var(--ink); }
+      .word.blue em, .word.ink em { color: #bfdbfe; }
+      .word h1 { font-size: 210px; line-height: 0.95; font-weight: 900; letter-spacing: -0.05em; padding: 0 60px; }
+      .word h1.xl { font-size: 300px; }
+      .word h1 em { font-size: 1.12em; }
+      .word p { margin-top: 36px; font-size: 64px; font-weight: 700; letter-spacing: -0.02em; opacity: 0.85; }
+
+      /* Screenshot scenes */
+      .shot { background: radial-gradient(120% 80% at 50% 30%, #ffffff 0%, var(--blue-50) 55%, var(--blue-100) 100%); }
+      .cam { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+      .cam img { display: block; border-radius: 28px; box-shadow: 0 40px 120px rgba(37, 99, 235, 0.22), 0 12px 32px rgba(15, 23, 42, 0.12); }
+      .tag {
+        position: absolute; left: 60px; top: 150px; padding: 18px 34px; border-radius: 999px;
+        background: var(--ink); color: #fff; font-size: 38px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+      }
+      .cap {
+        position: absolute; left: 50px; right: 50px; bottom: 210px; padding: 44px 52px; border-radius: 40px;
+        background: #fff; box-shadow: 0 24px 80px rgba(15, 23, 42, 0.18);
+        font-size: 74px; line-height: 1.05; font-weight: 800; letter-spacing: -0.035em; text-align: center;
+      }
+      .cap em { font-size: 1.12em; }
+
+      /* End card */
+      #end { background: radial-gradient(110% 70% at 50% 40%, #ffffff 0%, var(--blue-50) 60%, var(--blue-100) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+      .logo { width: 260px; height: 260px; border-radius: 68px; background: linear-gradient(145deg, var(--blue-600), var(--blue-700)); display: flex; align-items: center; justify-content: center; box-shadow: 0 30px 90px rgba(37, 99, 235, 0.45); }
+      .logo svg { width: 150px; height: 150px; }
+      .brand { margin-top: 56px; font-size: 140px; font-weight: 900; letter-spacing: -0.05em; }
+      .line { margin-top: 18px; font-size: 76px; font-weight: 800; letter-spacing: -0.035em; line-height: 1.05; padding: 0 70px; }
+      .line em { font-size: 1.14em; }
+      .cta { margin-top: 90px; padding: 46px 84px; border-radius: 999px; background: var(--blue-600); color: #fff; font-size: 64px; font-weight: 800; letter-spacing: -0.02em; box-shadow: 0 24px 70px rgba(37, 99, 235, 0.45); }
+      .url { margin-top: 44px; font-size: 48px; font-weight: 700; color: #475569; letter-spacing: -0.01em; }
+      .flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="35" data-width="1080" data-height="1920">
+
+      <!-- HOOK -->
+      <section id="h1" class="scene word ink clip" data-start="0" data-duration="1" data-track-index="0">
+        <h1 class="xl"><span id="count">0</span></h1>
+        <p>applicants.</p>
+      </section>
+      <section id="h2" class="scene word blue clip" data-start="1" data-duration="1" data-track-index="0">
+        <h1>One job.</h1>
+      </section>
+      <section id="h3" class="scene word light clip" data-start="2" data-duration="1" data-track-index="0">
+        <h1>Be <em>first.</em></h1>
+      </section>
+
+      <!-- HERO -->
+      <section id="s-hero" class="scene shot clip" data-start="3" data-duration="3" data-track-index="0">
+        <div class="cam"><img src="screens/hero.png" width="2880" height="1800" alt="" /></div>
+        <div class="cap">Your whole job hunt. <em>One</em> app.</div>
+      </section>
+
+      <section id="w1" class="scene word blue clip" data-start="6" data-duration="1" data-track-index="0"><h1>BUILD.</h1></section>
+      <section id="s-resume" class="scene shot clip" data-start="7" data-duration="3" data-track-index="0">
+        <div class="cam"><img src="screens/resume-builder.png" width="1172" height="924" alt="" /></div>
+        <div class="tag">ATS Resume Builder</div>
+        <div class="cap">A resume <em>tailored</em> to every job.</div>
+      </section>
+
+      <section id="w2" class="scene word ink clip" data-start="10" data-duration="1" data-track-index="0"><h1>SCORE.</h1></section>
+      <section id="s-score" class="scene shot clip" data-start="11" data-duration="3" data-track-index="0">
+        <div class="cam"><img src="screens/ats-score.png" width="1172" height="924" alt="" /></div>
+        <div class="tag">ATS Readiness Score</div>
+        <div class="cap">Know your score <em>before</em> you apply.</div>
+      </section>
+
+      <section id="w3" class="scene word blue clip" data-start="14" data-duration="1" data-track-index="0"><h1>WRITE.</h1></section>
+      <section id="s-cover" class="scene shot clip" data-start="15" data-duration="3" data-track-index="0">
+        <div class="cam"><img src="screens/cover-letter.png" width="1172" height="452" alt="" /></div>
+        <div class="tag">AI Cover Letters</div>
+        <div class="cap">Cover letters in <em>8 seconds.</em></div>
+      </section>
+
+      <section id="w4" class="scene word ink clip" data-start="18" data-duration="1" data-track-index="0"><h1>REACH OUT.</h1></section>
+      <section id="s-outreach" class="scene shot clip" data-start="19" data-duration="3" data-track-index="0">
+        <div class="cam"><img src="screens/outreach.png" width="1172" height="452" alt="" /></div>
+        <div class="tag">Smart Outreach</div>
+        <div class="cap">Email recruiters. <em>Track</em> every reply.</div>
+      </section>
+
+      <section id="w5" class="scene word blue clip" data-start="22" data-duration="1" data-track-index="0"><h1>TRACK.</h1></section>
+      <section id="s-dash" class="scene shot clip" data-start="23" data-duration="3" data-track-index="0">
+        <div class="cam"><img src="screens/dashboard.png" width="2240" height="1130" alt="" /></div>
+        <div class="tag">Dashboard</div>
+        <div class="cap">Every match &amp; reply in <em>one</em> place.</div>
+      </section>
+
+      <section id="w6" class="scene word ink clip" data-start="26" data-duration="1" data-track-index="0"><h1>10 jobs.</h1></section>
+      <section id="w7" class="scene word blue clip" data-start="27" data-duration="1" data-track-index="0"><h1>10 <em>minutes.</em></h1></section>
+
+      <section id="s-pro" class="scene shot clip" data-start="28" data-duration="3" data-track-index="0">
+        <div class="cam"><img src="screens/pro-trial.png" width="920" height="1022" alt="" /></div>
+        <div class="cap">Start free. <em>Upgrade</em> when ready.</div>
+      </section>
+
+      <!-- END CARD -->
+      <section id="end" class="scene clip" data-start="31" data-duration="4" data-track-index="0">
+        <div class="logo">
+          <!-- Rocket mark from src/icons.tsx (IconRocket) -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
+            <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
+            <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
+            <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
+          </svg>
+        </div>
+        <div class="brand">JobEarly</div>
+        <div class="line">Get hired <em>before</em> everyone else.</div>
+        <div class="cta">Start your free trial →</div>
+        <div class="url">getjobearly.com</div>
+      </section>
+
+      <div id="flash" class="flash"></div>
+      <audio id="music" src="audio/track.m4a" data-start="0" data-media-start="0.055" data-duration="35" data-volume="0.9" data-fade-out="1.5"></audio>
+    </div>
+
+    <script>
+      const W = 1080, CY = 820; // camera centre sits above the caption
+      const tl = gsap.timeline({ paused: true });
+
+      // Overview framing: screenshot fit to the frame width, centred on CY
+      function overview(w, h) {
+        const z = 1000 / w;
+        return { x: 40, y: CY - (h * z) / 2, scale: z };
+      }
+      // Framing that centres image point (fx, fy) at zoom z
+      function focus(fx, fy, z) {
+        return { x: W / 2 - fx * z, y: CY - fy * z, scale: z };
+      }
+
+      // Screenshot scene: punch in to overview, snap-zoom to the part that matters, drift, optional extra stops
+      function shot(id, start, w, h, stops) {
+        const sel = `#${id} .cam`;
+        const o = overview(w, h);
+        tl.fromTo(sel, { ...o, scale: o.scale * 1.25, opacity: 0 }, { ...o, opacity: 1, duration: 0.35, ease: "power4.out" }, start);
+        let t = start + 0.6;
+        stops.forEach((s, i) => {
+          const f = focus(s[0], s[1], s[2]);
+          tl.to(sel, { ...f, duration: 0.45, ease: "expo.inOut" }, t);
+          const hold = s[3] || 0;
+          if (hold) tl.to(sel, { scale: f.scale * 1.06, x: W / 2 - s[0] * f.scale * 1.06, y: CY - s[1] * f.scale * 1.06, duration: hold, ease: "none" }, t + 0.45);
+          t += 0.45 + hold;
+        });
+        tl.fromTo(`#${id} .cap`, { y: 140, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: "back.out(1.6)" }, start + 0.45);
+        const tag = document.getElementById(id).querySelector(".tag");
+        if (tag) tl.fromTo(tag, { x: -80, opacity: 0 }, { x: 0, opacity: 1, duration: 0.3, ease: "power3.out" }, start + 0.2);
+      }
+
+      // Big-word card: slam in from oversized
+      function word(id, start) {
+        tl.fromTo(`#${id} h1`, { scale: 1.7, opacity: 0, rotation: -3 }, { scale: 1, opacity: 1, rotation: 0, duration: 0.28, ease: "power4.out" }, start);
+        tl.to(`#${id} h1`, { scale: 1.06, duration: 0.7, ease: "none" }, start + 0.28);
+      }
+
+      // Hook: 0 → 1,000 counter
+      const counter = { v: 0 };
+      tl.fromTo("#h1 h1", { scale: 0.6, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3, ease: "back.out(2)" }, 0);
+      tl.to(counter, { v: 1000, duration: 0.6, ease: "power2.out", onUpdate: () => {
+        document.getElementById("count").textContent = Math.round(counter.v).toLocaleString("en-US");
+      } }, 0.05);
+      tl.fromTo("#h1 p", { y: 60, opacity: 0 }, { y: 0, opacity: 0.85, duration: 0.3, ease: "power3.out" }, 0.3);
+      word("h2", 1);
+      word("h3", 2);
+
+      // Screens: [focusX, focusY, zoom, holdSeconds] in screenshot pixels
+      shot("s-hero", 3, 2880, 1800, [[778, 576, 1.0, 0.5], [2420, 1000, 1.9, 0.9]]);
+      word("w1", 6);
+      shot("s-resume", 7, 1172, 924, [[894, 700, 2.3, 1.5]]);
+      word("w2", 10);
+      shot("s-score", 11, 1172, 924, [[984, 650, 2.0, 1.5]]);
+      word("w3", 14);
+      shot("s-cover", 15, 1172, 452, [[930, 318, 2.3, 1.5]]);
+      word("w4", 18);
+      shot("s-outreach", 19, 1172, 452, [[998, 246, 2.6, 1.5]]);
+      word("w5", 22);
+      shot("s-dash", 23, 2240, 1130, [[530, 496, 1.5, 0.15], [1116, 496, 1.5, 0.15], [1674, 496, 1.5, 0.75]]);
+      word("w6", 26);
+      word("w7", 27);
+      shot("s-pro", 28, 920, 1022, [[459, 890, 1.3, 1.5]]);
+
+      // End card
+      tl.fromTo("#end .logo", { scale: 0, rotation: -25 }, { scale: 1, rotation: 0, duration: 0.5, ease: "back.out(1.8)" }, 31);
+      tl.fromTo("#end .brand", { y: 80, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: "power3.out" }, 31.3);
+      tl.fromTo("#end .line", { y: 80, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: "power3.out" }, 31.55);
+      tl.fromTo("#end .cta", { scale: 0.6, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.4, ease: "back.out(2)" }, 32);
+      tl.to("#end .cta", { scale: 1.05, duration: 0.5, ease: "sine.inOut", yoyo: true, repeat: 3 }, 32.5);
+      tl.fromTo("#end .url", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 32.3);
+
+      // White flash on every cut, on the 1s beat grid
+      [1, 2, 3, 6, 7, 10, 11, 14, 15, 18, 19, 22, 23, 26, 27, 28, 31].forEach((t) => {
+        tl.fromTo("#flash", { opacity: 0.55 }, { opacity: 0, duration: 0.18, ease: "power2.out", immediateRender: false }, t);
+      });
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines["main"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>
