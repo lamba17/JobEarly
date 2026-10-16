@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { IconRocket } from '../../icons'
+import { IconRocket, IconInstagram } from '../../icons'
 
 const PRODUCT_LINKS: [string, string][] = [
   ['Resume Builder', '/#feature-resume'],
@@ -17,6 +17,7 @@ const COMPANY_LINKS: [string, string][] = [
 const LEGAL_LINKS: [string, string][] = [
   ['Privacy', '/privacy'],
   ['Terms', '/terms'],
+  ['Refunds', '/refund'],
   ['Security', '/security'],
   ['DPA', '/dpa'],
   ['Cookies', '/cookies'],
@@ -38,6 +39,11 @@ export default function Footer() {
               <span>JobEarly</span>
             </Link>
             <p className="desc">AI-powered job application platform. Get hired before everyone else.</p>
+            <div className="footer-social">
+              <a href="https://www.instagram.com/jobearly.official/" target="_blank" rel="noopener noreferrer" aria-label="JobEarly on Instagram" title="@jobearly.official on Instagram">
+                <IconInstagram size={16} />
+              </a>
+            </div>
           </div>
           {cols.map(({ h, links }) => (
             <div key={h} className="footer-col">

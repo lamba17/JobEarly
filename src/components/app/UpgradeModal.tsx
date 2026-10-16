@@ -1,18 +1,43 @@
 import { useState } from 'react'
+import { useAuth } from '../../context/AuthContext'
+import { useSubscription } from '../../hooks/useSubscription'
+import { startCheckout } from '../../lib/billing'
 import { IconCheck, IconSparkle } from '../../icons'
+import { PLANS, PLAN_ORDER, rupees, type Interval } from '../../lib/plans'
 
 const PRO_FEATURES = [
   'Unlimited AI-tailored resumes',
   'Advanced ATS readiness audits',
   'Unlimited cover letters',
+  'Job application tracker',
   'Smart Outreach with reply tracking',
   'Performance analytics + insights',
   'Priority human + AI support',
 ]
 
 export default function UpgradeModal({ onClose }: { onClose: () => void }) {
-  const [annual, setAnnual] = useState(true)
-  const price = annual ? '₹99' : '₹199'
+  const { user } = useAuth()
+  const { isPro, subscription } = useSubscription(user?.id)
+  const [plan, setPlan] = useState<Interval>('quarterly')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [done, setDone] = useState(false)
+  const [extended, setExtended] = useState(false)
+  const chosen = PLANS[plan]
+
+  const handleUpgrade = async () => {
+    if (!user) return
+    setError(null)
+    setBusy(true)
+    try {
+      const result = await startCheckout(plan, { name: user.name, email: user.email })
+      if (result === 'paid') { setExtended(isPro); setDone(true) }
+    } catch (e: any) {
+      setError(e.message || 'Something went wrong. Please try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <div
@@ -30,7 +55,7 @@ export default function UpgradeModal({ onClose }: { onClose: () => void }) {
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', color: 'var(--accent)', marginBottom: 8 }}>
               <IconSparkle size={12} /> JOBEARLY PRO
             </div>
-            <div style={{ fontWeight: 800, fontSize: 20, color: 'var(--text)' }}>Unlock unlimited tailoring</div>
+            <div style={{ fontWeight: 800, fontSize: 20, color: 'var(--text)' }}>{isPro && !done ? 'Extend your Pro' : 'Unlock unlimited tailoring'}</div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-mute)', display: 'grid', placeItems: 'center', width: 28, height: 28, flexShrink: 0 }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -39,27 +64,41 @@ export default function UpgradeModal({ onClose }: { onClose: () => void }) {
 
         {/* Price toggle */}
         <div style={{ padding: '18px 24px 0' }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
-            <span style={{ fontSize: 34, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.02em' }}>{price}</span>
-            <span style={{ fontSize: 13, color: 'var(--text-mute)' }}>/ month{annual ? ', billed yearly' : ''}</span>
+          <div style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 8, marginBottom: 4 }}>
+            <span style={{ fontSize: 34, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.02em' }}>{rupees(chosen.perMonth)}</span>
+            <span style={{ fontSize: 13, color: 'var(--text-mute)' }}>/ month{plan === 'monthly' ? '' : `, billed once for ${chosen.months === 12 ? '12 months' : `${chosen.months} months`}`}</span>
+            {chosen.save && (
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#16A34A', background: 'rgba(22,163,74,0.12)', borderRadius: 10, padding: '2px 8px' }}>
+                {plan === 'quarterly' ? '★ Most popular · ' : ''}{chosen.save}
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: 12.5, color: 'var(--text-mute)', margin: '2px 0 10px' }}>
+            One payment of {rupees(chosen.price)} covers {chosen.months === 1 ? '1 month' : `${chosen.months} months`}. No auto-renewal — you're never charged again unless you choose to.
           </div>
           <div style={{ display: 'inline-flex', border: '1px solid var(--border)', borderRadius: 20, padding: 3, gap: 2 }}>
-            {(['annual', 'monthly'] as const).map(k => (
+            {PLAN_ORDER.map(k => (
               <button
                 key={k}
-                onClick={() => setAnnual(k === 'annual')}
+                onClick={() => setPlan(k)}
                 style={{
                   padding: '5px 12px', borderRadius: 16, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
                   fontSize: 12, fontWeight: 700,
-                  background: (annual ? k === 'annual' : k === 'monthly') ? 'var(--accent)' : 'transparent',
-                  color: (annual ? k === 'annual' : k === 'monthly') ? '#fff' : 'var(--text-mute)',
+                  background: plan === k ? 'var(--accent)' : 'transparent',
+                  color: plan === k ? '#fff' : 'var(--text-mute)',
                 }}
               >
-                {k === 'annual' ? 'Annual · Save 50%' : 'Monthly'}
+                {PLANS[k].label}
               </button>
             ))}
           </div>
         </div>
+
+        {isPro && subscription && (
+          <div style={{ padding: '14px 24px 0', fontSize: 12.5, color: 'var(--text-mute)', lineHeight: 1.5 }}>
+            Your current Pro runs until <strong style={{ color: 'var(--text)' }}>{new Date(subscription.current_period_end).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>. The new period is added after it, so you lose nothing.
+          </div>
+        )}
 
         {/* Features */}
         <div style={{ padding: '20px 24px 0', display: 'flex', flexDirection: 'column', gap: 11 }}>
@@ -75,19 +114,34 @@ export default function UpgradeModal({ onClose }: { onClose: () => void }) {
 
         {/* CTA */}
         <div style={{ padding: '24px', marginTop: 4 }}>
-          <div style={{ background: 'var(--bg-soft)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: 'var(--text-mute)', marginBottom: 14, lineHeight: 1.5 }}>
-            Pro billing isn't live yet — request early access below and we'll email you the moment it opens up.
-          </div>
-          <a
-            href="mailto:hello@jobearly.ai?subject=Pro%20upgrade%20request&body=Hi%20JobEarly%20team%2C%0A%0AI'd%20like%20to%20upgrade%20to%20Pro%20as%20soon%20as%20it's%20available."
-            className="btn btn-primary"
-            style={{ width: '100%', justifyContent: 'center', padding: '11px 0', fontSize: 14 }}
-          >
-            Request Early Access
-          </a>
-          <button onClick={onClose} style={{ width: '100%', marginTop: 8, padding: '10px 0', background: 'none', border: 'none', color: 'var(--text-mute)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
-            Maybe later
-          </button>
+          {done ? (
+            <>
+              <div style={{ background: 'var(--blue-50)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px', fontSize: 13.5, color: 'var(--text)', marginBottom: 14, lineHeight: 1.5 }}>
+                {extended ? 'Done — your Pro has been extended.' : "You're all set — welcome to JobEarly Pro!"}
+              </div>
+              <button onClick={onClose} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '11px 0', fontSize: 14 }}>
+                Done
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={handleUpgrade}
+                disabled={busy}
+                className="btn btn-primary"
+                style={{ width: '100%', justifyContent: 'center', padding: '11px 0', fontSize: 14, opacity: busy ? 0.7 : 1 }}
+              >
+                {busy ? 'Opening secure checkout…' : `${isPro ? 'Extend' : 'Upgrade'} — ${rupees(chosen.price)} / ${chosen.period}`}
+              </button>
+              {error && <div style={{ color: '#DC2626', fontSize: 12.5, marginTop: 10, lineHeight: 1.5 }}>{error}</div>}
+              <div style={{ fontSize: 11.5, color: 'var(--text-mute)', marginTop: 10, textAlign: 'center', lineHeight: 1.5 }}>
+                Secure payment by Razorpay (UPI, cards, netbanking). One payment, no auto-renewal.
+              </div>
+              <button onClick={onClose} style={{ width: '100%', marginTop: 8, padding: '10px 0', background: 'none', border: 'none', color: 'var(--text-mute)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Maybe later
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

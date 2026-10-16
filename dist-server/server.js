@@ -1,25 +1,23 @@
 import express from 'express';
 import Anthropic from '@anthropic-ai/sdk';
-import nodemailer from 'nodemailer';
 import 'dotenv/config';
+import { mailerConfigured } from './api/_lib/mailer.js';
+import { sendSignupEmails } from './api/_lib/signup.js';
+import { EXAMPLE_RULES, sanitizeExample } from './api/_lib/suggestions.js';
+import { BillingError, createOrder, verifyPayment, cancelAndRefund, handleWebhook } from './api/_lib/billing.js';
 const app = express();
 const PORT = process.env.PORT || 3001;
-app.use(express.json());
+// Keep the raw bytes: Razorpay's webhook signature is computed over them.
+app.use(express.json({ verify: (req, _res, buf) => { req.rawBody = buf.toString('utf8'); } }));
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     next();
 });
 const client = new Anthropic({
     apiKey: process.env.CLAUDE_API_KEY,
 });
-const mailTransport = process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD
-    ? nodemailer.createTransport({
-        service: 'gmail',
-        auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
-    })
-    : null;
 // Endpoint for generating analysis report
 app.post('/api/analyze-resume', async (req, res) => {
     try {
@@ -64,6 +62,7 @@ Guidelines:
 - Include at least 1 urgent, 1 critical, and 1 optional
 - Be specific and actionable
 - Include before/after examples for the most impactful issues
+${EXAMPLE_RULES}
 - Score should reflect overall quality (A=excellent, B=good, C=fair, D=poor, F=critical issues)`;
         const message = await client.messages.create({
             model: 'claude-haiku-4-5-20251001',
@@ -76,6 +75,8 @@ Guidelines:
             return res.status(500).json({ error: 'Invalid response from Claude' });
         }
         const report = JSON.parse(jsonMatch[0]);
+        // Drop cut-off suggestions and mask numbers that aren't in the resume
+        report.issues = (report.issues || []).map((i) => ({ ...i, example: sanitizeExample(i.example, resumeText) }));
         const result = {
             ...report,
             urgentCount: report.issues.filter((i) => i.category === 'urgent').length,
@@ -204,34 +205,38 @@ Return ONLY the letter text. No explanations, no markdown, no surrounding quotes
         res.status(500).json({ error: error.message || 'Failed to generate cover letter' });
     }
 });
-// Endpoint for sending the post-signup welcome email
+// Endpoint for the post-signup emails (welcome to the user, alert to the team)
 app.post('/api/send-welcome-email', async (req, res) => {
     try {
-        const { email, name } = req.body;
-        if (!email) {
+        const { email } = req.body;
+        if (!email || typeof email !== 'string') {
             return res.status(400).json({ error: 'Email is required' });
         }
-        if (!mailTransport) {
-            console.warn('Welcome email skipped: GMAIL_USER / GMAIL_APP_PASSWORD not configured');
-            return res.json({ sent: false });
-        }
-        const firstName = (name || '').split(' ')[0] || 'there';
-        await mailTransport.sendMail({
-            from: `"JobEarly" <${process.env.GMAIL_USER}>`,
-            to: email,
-            subject: 'Welcome to JobEarly!',
-            text: `Hi ${firstName},\n\nThank you for signing up, and we look forward to you using JobEarly.\n\n— The JobEarly Team`,
-            html: `<p>Hi ${firstName},</p><p>Thank you for signing up, and we look forward to you using JobEarly.</p><p>— The JobEarly Team</p>`,
-        });
-        res.json({ sent: true });
+        res.json(await sendSignupEmails(email));
     }
     catch (error) {
-        console.error('Welcome email error:', error);
-        res.status(500).json({ error: error.message || 'Failed to send welcome email' });
+        console.error('Signup email error:', error);
+        res.status(500).json({ error: error.message || 'Failed to send signup emails' });
     }
 });
+// ── Razorpay one-time Pro payments (logic lives in api/_lib/billing.ts) ──────────
+const billing = (run) => async (req, res) => {
+    try {
+        res.json(await run(req));
+    }
+    catch (error) {
+        if (!(error instanceof BillingError))
+            console.error('Billing error:', error);
+        res.status(error instanceof BillingError ? error.status : 500).json({ error: error.message || 'Billing request failed' });
+    }
+};
+app.post('/api/create-order', billing(req => createOrder(req.headers.authorization, req.body?.interval)));
+app.post('/api/verify-payment', billing(req => verifyPayment(req.headers.authorization, req.body ?? {})));
+app.post('/api/cancel-and-refund', billing(req => cancelAndRefund(req.headers.authorization)));
+app.post('/api/razorpay-webhook', billing(req => handleWebhook(req.rawBody ?? '', req.headers['x-razorpay-signature'])));
 app.listen(PORT, () => {
     console.log(`🚀 Backend server running on http://localhost:${PORT}`);
     console.log(`CLAUDE_API_KEY: ${process.env.CLAUDE_API_KEY ? '✓ Set' : '✗ Not set'}`);
-    console.log(`GMAIL welcome email: ${mailTransport ? '✓ Configured' : '✗ Not configured'}`);
+    console.log(`Razorpay payments: ${process.env.RAZORPAY_KEY_ID && process.env.SUPABASE_SERVICE_ROLE_KEY ? '✓ Configured' : '✗ Not configured (needs RAZORPAY_KEY_* and SUPABASE_SERVICE_ROLE_KEY)'}`);
+    console.log(`GMAIL welcome email: ${mailerConfigured() ? '✓ Configured' : '✗ Not configured'}`);
 });

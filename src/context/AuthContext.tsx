@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from '../lib/supabaseClient'
+import { supabase, clearRecovery } from '../lib/supabaseClient'
 
 export interface User {
   id: string
@@ -38,7 +38,7 @@ async function loadUser(session: Session | null): Promise<User | null> {
     .from('profiles')
     .select('name, job_title, claude_api_key')
     .eq('id', session.user.id)
-    .single()
+    .maybeSingle()
 
   return {
     id: session.user.id,
@@ -78,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (email: string, password: string): Promise<string | null> => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) return authErrorMessage(error.message)
+    clearRecovery()
     return null
   }
 
@@ -85,7 +86,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: result, error } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
-      options: { data: { name: data.name, job_title: data.jobTitle } },
+      options: {
+        data: { name: data.name, job_title: data.jobTitle },
+        emailRedirectTo: `${window.location.origin}/signin`,
+      },
     })
     if (error) return { error: authErrorMessage(error.message), needsEmailConfirmation: false }
 

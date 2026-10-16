@@ -234,14 +234,50 @@ function computeScore(found: number, total: number, hasJD: boolean, resumeText?:
   return Math.min(98, Math.round(score))
 }
 
-const FORMAT_CHECKS = [
-  { label: 'Standard section headings', pass: true },
-  { label: 'Contact info readable by ATS', pass: true },
-  { label: 'Quantified achievements present', pass: true },
-  { label: 'Action verbs lead each bullet', pass: true },
-  { label: 'No graphics in text areas', pass: true },
-  { label: 'Date ranges consistently formatted', pass: true },
+const ACTION_VERBS = [
+  'led','managed','built','developed','created','designed','launched','drove','delivered',
+  'improved','increased','decreased','reduced','implemented','architected','optimized',
+  'automated','analyzed','coordinated','established','executed','generated','grew',
+  'identified','initiated','introduced','maintained','migrated','mentored','negotiated',
+  'organized','oversaw','pioneered','planned','presented','produced','proposed','published',
+  'redesigned','resolved','spearheaded','streamlined','supervised','trained','transformed',
+  'utilized', 'wrote', 'shared', 'contributed', 'demonstrated', 'trained', 'participated',
+  'successfully', 'proposed',
 ]
+
+interface FormatCheck { label: string; pass: boolean }
+
+function computeFormatChecks(resumeText: string, email: string, phone: string, workExp: WorkExp[]): FormatCheck[] {
+  const upper = resumeText.toUpperCase()
+  const hasHeadings = ['EXPERIENCE', 'EDUCATION', 'SKILLS'].filter(h => upper.includes(h)).length >= 2
+
+  const emailOk = !!email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  const phoneOk = !!phone && (phone.match(/\d/g) || []).length >= 7
+
+  const bullets = workExp.flatMap(w => w.bullets).filter(b => b.trim().length > 0)
+  const hasQuantified = bullets.some(b => /\d+[%+]|\d+x\b|[$€£¥]\s?\d/.test(b))
+
+  const bulletsWithVerb = bullets.filter(b => {
+    const firstWord = b.trim().split(/\s+/)[0]?.toLowerCase().replace(/[^a-z]/g, '')
+    return ACTION_VERBS.includes(firstWord)
+  })
+  const actionVerbsLead = bullets.length > 0 && bulletsWithVerb.length / bullets.length >= 0.6
+
+  const hasGarbledText = /�|[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(resumeText)
+
+  const periods = workExp.map(w => w.period).filter(Boolean)
+  const datePattern = /^[A-Za-z]{3,9}\.?\s+\d{4}\s*[—–-]\s*([A-Za-z]{3,9}\.?\s+\d{4}|present)$/i
+  const datesConsistent = periods.length === 0 || periods.every(p => datePattern.test(p.trim()))
+
+  return [
+    { label: 'Standard section headings', pass: hasHeadings },
+    { label: 'Contact info readable by ATS', pass: emailOk && phoneOk },
+    { label: 'Quantified achievements present', pass: hasQuantified },
+    { label: 'Action verbs lead each bullet', pass: actionVerbsLead },
+    { label: 'No graphics in text areas', pass: !hasGarbledText },
+    { label: 'Date ranges consistently formatted', pass: datesConsistent },
+  ]
+}
 
 const IcoUpload = ({ size = 14 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -271,8 +307,92 @@ interface ParsedResume {
 }
 
 // ── Resume Text Parser ────────────────────────────────────────────────────────
+// ── Applying an AI suggestion ─────────────────────────────────────────────────
+
+interface EditableResume {
+  workExp: WorkExp[]; skills: string[]; skillCategories: SkillCategory[]
+  summary: string; education: EduEntry[]; certifications: string[]
+}
+type ApplyResult = { ok: true; next: EditableResume } | { ok: false; message: string }
+
+const CUT_OFF_RE = /^\s*["'“]?\s*(\.\.\.|…)|(\.\.\.|…)\s*["'”]?\s*$/
+
+// Strips wrapping quotes, bullet markers and ALL-CAPS labels such as "PRIMARY SKILLS:"
+const cleanSuggestionText = (s: string) => s
+  .replace(/^["'“]|["'”]$/g, '')
+  .replace(/^[•\-*]\s*/, '')
+  .replace(/^[A-Z][A-Z\s&]{2,}:\s*/, '')
+  .trim()
+
+function suggestionMatchScore(text: string, rawBefore: string, beforeWords: string[]): number {
+  if (!text) return 0
+  const t = text.toLowerCase()
+  const b = rawBefore.toLowerCase()
+  if (t === b) return 100
+  if (t.includes(b)) return 90
+  if (b.includes(t) && t.length >= b.length * 0.6) return 85
+  if (b.length > 10 && t.includes(b.slice(0, 40))) return 80
+  if (beforeWords.length >= 2) {
+    const ratio = beforeWords.filter(w => t.includes(w)).length / beforeWords.length
+    if (ratio >= (beforeWords.length <= 4 ? 0.4 : 0.5)) return Math.round(ratio * 70)
+  }
+  return 0
+}
+
+// Replaces exactly ONE resume entry (the best match for `before`) with `after`.
+// Refuses cut-off suggestions so a fragment like "...cutting effort by 45%" never overwrites a full bullet.
+function applySuggestion(data: EditableResume, beforeRaw: string, afterRaw: string): ApplyResult {
+  if (CUT_OFF_RE.test(afterRaw) || CUT_OFF_RE.test(beforeRaw)) {
+    return { ok: false, message: 'This suggestion was cut off, so it can\'t replace a full bullet. Use Copy and edit it manually.' }
+  }
+  const rawBefore = cleanSuggestionText(beforeRaw)
+  const after = cleanSuggestionText(afterRaw)
+  if (!rawBefore || !after) return { ok: false, message: 'This suggestion is empty.' }
+
+  const beforeWords = rawBefore.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 2)
+  type Loc =
+    | { k: 'bullet'; e: number; i: number } | { k: 'title'; e: number } | { k: 'summary' }
+    | { k: 'skill'; i: number } | { k: 'cat'; c: number; i: number }
+    | { k: 'activity'; e: number; i: number } | { k: 'degree'; e: number } | { k: 'cert'; i: number }
+
+  let best: { score: number; loc: Loc } | null = null
+  const consider = (text: string, loc: Loc) => {
+    const score = suggestionMatchScore(text, rawBefore, beforeWords)
+    if (score > 0 && (!best || score > best.score)) best = { score, loc }
+  }
+  data.workExp.forEach((exp, e) => {
+    exp.bullets.forEach((b, i) => consider(b, { k: 'bullet', e, i }))
+    if (exp.title) consider(exp.title, { k: 'title', e })
+  })
+  consider(data.summary, { k: 'summary' })
+  data.skills.forEach((s, i) => consider(s, { k: 'skill', i }))
+  data.skillCategories.forEach((cat, c) => cat.skills.forEach((s, i) => consider(s, { k: 'cat', c, i })))
+  data.education.forEach((edu, e) => {
+    (edu.activities || []).forEach((a, i) => consider(a, { k: 'activity', e, i }))
+    consider(edu.degree, { k: 'degree', e })
+  })
+  data.certifications.forEach((c, i) => consider(c, { k: 'cert', i }))
+
+  if (!best) return { ok: false, message: 'Couldn\'t find that text in your resume. Use Copy and paste it where you want it.' }
+  const loc = (best as { score: number; loc: Loc }).loc
+
+  const next: EditableResume = JSON.parse(JSON.stringify(data))
+  switch (loc.k) {
+    case 'bullet':   next.workExp[loc.e].bullets[loc.i] = after; break
+    case 'title':    next.workExp[loc.e].title = after; break
+    case 'summary':  next.summary = after; break
+    case 'skill':    next.skills[loc.i] = after; break
+    case 'cat':      next.skillCategories[loc.c].skills[loc.i] = after; break
+    case 'activity': next.education[loc.e].activities![loc.i] = after; break
+    case 'degree':   next.education[loc.e].degree = after; break
+    case 'cert':     next.certifications[loc.i] = after; break
+  }
+  return { ok: true, next }
+}
+
 function parseResumeText(raw: string, linkMap: Record<string, string> = {}): ParsedResume {
-  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean)
+  // Unusual bullet glyphs (⮚ ➢ ▪ …) are normalised to "•" so every bullet check sees one marker
+  const lines = raw.split('\n').map(l => l.trim().replace(/^[⮚➢➤►▪■●○✓✔❖⦿▶➔➜⇨‣◦]\s*/, '• ')).filter(Boolean)
 
   // ── Email ─────────────────────────────────────────────────────────────────
   const email = raw.match(/[\w.+\-]+@[\w\-]+\.[\w.]+/)?.[0] ?? ''
@@ -285,7 +405,12 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
   const linkedin = linkedinMatch ? `linkedin.com/in/${linkedinMatch[1]}` : ''
 
   // ── Location — search only in the first 8 header lines ───────────────────
-  const headerLines = lines.slice(0, 8).join(' ')
+  // Stop at the first section heading so a job's office city isn't mistaken for the candidate's location.
+  const firstHeadingIdx = lines.findIndex((l, i) => i > 0 && /^(work\s+experience|professional\s+experience|experience|education|technical\s+skills|skills|summary|profile)\s*$/i.test(l))
+  const headerLines = lines.slice(0, firstHeadingIdx > 0 ? Math.min(8, firstHeadingIdx) : 8).join(' ')
+  const labeledLocation = lines
+    .map(l => l.match(/\blocation\s*[:\-]\s*(.+)$/i)?.[1]?.trim() ?? '')
+    .find(v => v.length > 2 && v.length < 60) ?? ''
   const LOC_CITIES = [
     'Vancouver','Toronto','Ottawa','Calgary','Montreal','Edmonton',
     'New York','San Francisco','Seattle','Boston','Austin','Chicago','Los Angeles','New Jersey',
@@ -300,7 +425,14 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
   for (const city of LOC_CITIES) {
     const re = new RegExp(`${city}[,\\s]+([A-Z]{2}|${LOC_COUNTRIES.join('|')})`, 'i')
     const m = headerLines.match(re)
-    if (m) { location = m[0].trim(); break }
+    if (m) {
+      // The regex is case-insensitive, so make sure the tail is a real state code or country
+      // ("Gurugram li" from "linkedin.com" must not become a location)
+      const tail = m[1]
+      const real = /^[A-Z]{2}$/.test(tail) || new RegExp(`^(?:${LOC_COUNTRIES.join('|')})$`, 'i').test(tail)
+      location = real ? m[0].trim() : city
+      break
+    }
   }
   // Fallback: just a city name in header
   if (!location) {
@@ -316,6 +448,8 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
   }
   // Ignore US state codes standing alone (false positives like "BC" in company names)
   if (LOC_REGIONS.includes(location)) location = ''
+  // An explicit "Location: …" label always wins over guessing from city names
+  if (labeledLocation) location = labeledLocation
 
   // ── Name ─────────────────────────────────────────────────────────────────
   // Find name near contact info (email/phone), not just first matching line
@@ -324,9 +458,13 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
   const nameSearchStart = Math.max(0, emailIndex - 3)
   const nameSearchEnd = Math.min(lines.length, emailIndex + 2)
 
+  // A section heading such as "WORK EXPERIENCE" has the same shape as an ALL-CAPS name
+  const HEADING_ONLY_RE = /^#?\s*(work\s+experience|professional\s+experience|experience|education|skills|technical\s+skills|summary|profile|objective|contact|projects?|achievements?|certifications?|declaration|key\s+highlights)\s*:?$/i
+
   if (emailIndex >= 0) {
     // Search near email for the actual name
     name = lines.slice(nameSearchStart, nameSearchEnd).find(l => {
+      if (HEADING_ONLY_RE.test(l)) return false
       if (l.includes('@') || l.includes('http') || l.includes('|') || l.includes('·') || l.includes('•')) return false
       if (/^\+?\d/.test(l)) return false
       if (/linkedin|resume|curriculum|vitae/i.test(l)) return false
@@ -339,6 +477,7 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
   // Fallback: search in first 10 lines only
   if (!name) {
     name = lines.slice(0, 10).find(l => {
+      if (HEADING_ONLY_RE.test(l)) return false
       if (l.includes('@') || l.includes('http') || l.includes('|') || l.includes('·') || l.includes('•')) return false
       if (/^\+?\d/.test(l)) return false
       if (/linkedin|resume|curriculum|vitae/i.test(l)) return false
@@ -350,23 +489,39 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
 
   // ── Section splitter ──────────────────────────────────────────────────────
   const SECTION_RE: Record<string, RegExp> = {
-    summary:        /^(summary|profile|about me|objective|professional summary|career objective|personal statement)/i,
-    skills:         /^(skills|core skills|technical skills|competencies|key skills|areas of expertise|tools & technologies)/i,
+    // Checked first so "Academic Achievements" isn't mistaken for the Education heading.
+    // These sections are recognised only so their text doesn't bleed into the section above.
+    other:          /^(achievements?|key highlights|highlights|projects?|declaration|interpersonal skills|academic achievements?|references)\s*:?$/i,
+    summary:        /^(summary|profile|about me|objective|professional summary|career objective|personal statement|profile synopsis|professional profile|executive summary|career summary|synopsis)/i,
+    skills:         /^(skills|core skills|technical skills|competencies|core competencies|key skills|skill\s*set|areas of expertise|tools & technologies)/i,
     experience:     /^(experience|work experience|employment|professional experience|career history|work history)/i,
-    education:      /^(education|academic|qualification|educational background)/i,
+    education:      /^(education|academic history|academic credentials|academic|qualification|educational background)/i,
     certifications: /^certifications?$/i,
     additional:     /^(additional information|additional|interests|awards|volunteer|community service)/i,
   }
+  // Headings that continue an existing section instead of replacing it
+  const APPEND_RE: Record<string, RegExp> = { experience: /^internships?\s*:?$/i }
   const sections: Record<string, string[]> = { preamble: [] }
+  const lastHeading: Record<string, string> = {}
   let cur = 'preamble'
   for (const line of lines) {
     let matched = false
+    const h = line.replace(/^#+\s*/, '')   // "# PROFESSIONAL EXPERIENCE"
+    for (const [key, re] of Object.entries(APPEND_RE)) {
+      if (re.test(h)) { cur = key; matched = true; break }
+    }
+    if (matched) continue
     for (const [key, re] of Object.entries(SECTION_RE)) {
-      if (re.test(line) && line.length < 70) {
-        // RESET section content when header seen again — handles two-column PDFs
-        // where a template column pollutes the same section (e.g. "TECHNICAL SKILLS" twice)
+      if (re.test(h) && h.length < 70) {
+        // "Interests" inside a skills block is a label for a group of skills, not a new section
+        if (key === 'additional' && cur === 'skills' && /^interests/i.test(h)) break
+        // RESET section content when the SAME header is seen again — handles two-column PDFs
+        // where a template column pollutes the same section (e.g. "TECHNICAL SKILLS" twice).
+        // A different header for the same section ("Core competencies" then "Technical skills") appends.
+        const norm = h.toLowerCase().replace(/[:\s]+$/, '')
+        if (lastHeading[key] === norm || !sections[key]) sections[key] = []
+        lastHeading[key] = norm
         cur = key
-        sections[key] = []
         matched = true
         break
       }
@@ -378,25 +533,68 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
   // ── Job title ─────────────────────────────────────────────────────────────
   const TITLE_RE = /\b(manager|designer|engineer|developer|analyst|consultant|lead|director|vp|head|architect|scientist|specialist|strategist|associate|intern|officer|coordinator|advisor|executive|president|founder|recruiter)\b/i
   const preamble = sec('preamble')
-  const jobTitle = preamble.find(l =>
+  // "Senior Data & Business Analyst | Driving Data-Driven Excellence | Deloitte USI" → first segment
+  const jobTitleLine = preamble.find(l =>
     l !== name && !l.includes('@') && !l.includes('http') && !l.match(/^\+?\d/) &&
-    TITLE_RE.test(l) && l.length < 80
+    TITLE_RE.test(l.split('|')[0]) && l.split('|')[0].length < 80 && l.length < 160 && !/^contact\b/i.test(l)
   ) ?? ''
+  const jobTitle = jobTitleLine.split('|')[0].trim()
 
   // ── Summary ───────────────────────────────────────────────────────────────
-  const summary = sec('summary').filter(l => l.length > 30).join(' ')
+  let summary = sec('summary').filter(l => l.length > 30).map(l => l.replace(/^•\s*/, '')).join(' ')
+  if (!summary) {
+    // No heading: an objective paragraph sitting under the name/contact lines. It starts at the first
+    // sentence-like line and runs over its wrapped lines until contact info begins.
+    const isContact = (l: string) => l.includes('@') || /^contact\b|linkedin|^\+?\d/i.test(l) || l.includes('|')
+    const proseLines: string[] = []
+    for (const l of preamble) {
+      if (l === jobTitleLine || isContact(l)) { if (proseLines.length) break; continue }
+      if (proseLines.length || l.split(/\s+/).length >= 8) proseLines.push(l)
+    }
+    summary = proseLines.join(' ')
+  }
 
   // ── Skills — build both flat list and categorized groups ────────────────
   const skillSet: string[] = []
   const skillGroups: SkillCategory[] = []
 
-  const SKILL_CAT_RE = /^(primary\s+skills?|etl\s+tools?|cloud\s+technologies?|languages?|tools?|project\s+management|portfolio\s+links?|certifications?|technical\s+skills?|core\s+skills?|soft\s+skills?|hard\s+skills?|dev(?:elopment)?\s+tools?|methodology|frameworks?)\s*(?:[:：]|$)/i
-  const SKILL_CAT_INLINE = /^(primary\s+skills?|etl\s+tools?|cloud\s+technologies?|languages?|tools?|project\s+management|portfolio\s+links?|certifications?|technical\s+skills?|core\s+skills?|soft\s+skills?|hard\s+skills?|dev(?:elopment)?\s+tools?|methodology|frameworks?)\s*[:：]\s*/i
+  const SKILL_CAT_RE = /^(primary\s+skills?|etl\s+tools?|cloud\s+technologies?|languages?|tools?|project\s+management|portfolio\s+links?|certifications?|technical\s+skills?|core\s+skills?|soft\s+skills?|hard\s+skills?|dev(?:elopment)?\s+tools?|methodology|frameworks?|interests?)\s*(?:[:：]|$)/i
+  const SKILL_CAT_INLINE = /^(primary\s+skills?|etl\s+tools?|cloud\s+technologies?|languages?|tools?|project\s+management|portfolio\s+links?|certifications?|technical\s+skills?|core\s+skills?|soft\s+skills?|hard\s+skills?|dev(?:elopment)?\s+tools?|methodology|frameworks?|interests?)\s*[:：]\s*/i
 
   const linkAnchors = new Set(Object.keys(linkMap).map(k => k.toLowerCase()))
   const isLinkAnchor = (s: string) => {
     const lower = s.toLowerCase()
     return linkAnchors.has(lower) || /\b(portfolio|resume|website|github\.com|linkedin\.com|http)/i.test(lower)
+  }
+
+  // Skill "chips" extracted as one space-separated line ("Python Pyspark SAS SQL Excel Tableau Risk Management"):
+  // split into single-word skills plus a few well-known two-word skills. Only used when every token fits.
+  const SKILL_PHRASES = new Set([
+    'Business Insights', 'Business Analysis', 'Business Intelligence', 'Risk Management', 'Project Management',
+    'Data Analysis', 'Data Visualization', 'Data Science', 'Data Warehousing', 'Data Modeling', 'Machine Learning',
+    'Stakeholder Management', 'Product Management', 'Process Improvement',
+  ])
+  const ETL_RE = /Extract,\s*Transform,?\s*and Load \(ETL\)/i
+  const ETL_COMMA = '⁣'   // keeps the commas inside "Extract, Transform, and Load (ETL)" from splitting it
+  const splitSkillChips = (line: string): string => {
+    let etl = ''
+    const m = line.match(ETL_RE)
+    if (m) { etl = m[0].replace(/,/g, ETL_COMMA); line = line.replace(m[0], ' ').trim() }
+    let out: string[] | null = []
+    if (line) {
+      if (/[,;|•]/.test(line)) return (etl ? etl + ', ' : '') + line
+      const tokens = line.split(/\s+/)
+      out = []
+      for (let i = 0; i < tokens.length && out; i++) {
+        const two = tokens.slice(i, i + 2).join(' ')
+        if (SKILL_PHRASES.has(two)) { out.push(two); i++; continue }
+        if (!/^[A-Z][A-Za-z0-9+#.]{1,14}$/.test(tokens[i])) out = null
+        else out.push(tokens[i])
+      }
+      if (out && (out.length < 2 || new Set(out.map(x => x.toLowerCase())).size !== out.length)) out = null
+      if (!out) return (etl ? etl + ', ' : '') + line
+    }
+    return [etl, ...(out ?? [])].filter(Boolean).join(', ')
   }
 
   const parseSkillItems = (csv: string): string[] =>
@@ -409,7 +607,27 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
   }
 
   // 1. Skills section — detect category headers and group
-  const skillsLines = sec('skills')
+  // A bullet's wrapped second line ("Advance Data" / "Analytics") belongs to that bullet.
+  // Labels such as "Clients Handled: …" and category headers never merge.
+  const rawSkillLines = sec('skills')
+  const skillsLines: string[] = []
+  for (let i = 0; i < rawSkillLines.length; i++) {
+    let acc = rawSkillLines[i]
+    while (i + 1 < rawSkillLines.length) {
+      const next = rawSkillLines[i + 1]
+      const isLabel = /^[A-Z][A-Za-z\/ ]{2,30}:/.test(next) || SKILL_CAT_RE.test(next)
+      if (!(acc.startsWith('• ') && !next.startsWith('• ') && !isLabel)) break
+      acc += ' ' + next
+      i++
+    }
+    if (/^(?:clients?\s+handled|industry\/domain)\s*:/i.test(acc)) {
+      // also drop its wrapped second line ("Group North America")
+      const after = rawSkillLines[i + 1]
+      if (after && !after.startsWith('• ') && !/^[A-Z][A-Za-z\/ ]{2,30}:/.test(after) && !SKILL_CAT_RE.test(after)) i++
+      continue
+    }
+    skillsLines.push(acc)
+  }
   let currentCat = ''
   for (let i = 0; i < skillsLines.length; i++) {
     const line = skillsLines[i].trim()
@@ -428,6 +646,7 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
     const inlineMatch = line.match(SKILL_CAT_INLINE)
     if (inlineMatch) {
       const cat = inlineMatch[1].trim()
+      if (/portfolio/i.test(cat)) { currentCat = cat; continue }
       const items = parseSkillItems(line)
       if (items.length) skillGroups.push({ category: cat, skills: items })
       items.forEach(s => { if (!skillSet.includes(s)) skillSet.push(s) })
@@ -435,8 +654,14 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
       continue
     }
 
+    // Link labels under a "Portfolio Links" header (e.g. "Tableau Profile") are not skills
+    if (/portfolio/i.test(currentCat)) continue
+
     // Plain skill line (possibly under a category header)
-    const items = parseSkillItems(line.replace(/^[•\-*▸◆→>]\s*/, '').replace(/[•▸◆]/g, ','))
+    const hadBullet = /^[•\-*▸◆→>]\s/.test(line)
+    const text = line.replace(/^[•\-*▸◆→>]\s*/, '').replace(/[•▸◆]/g, ',')
+    // Bulleted lines are one skill each; only unbulleted chip lines get split on spaces
+    const items = parseSkillItems(hadBullet ? text : splitSkillChips(text)).map(x => x.split(ETL_COMMA).join(','))
     if (items.length) {
       if (currentCat) {
         const existing = skillGroups.find(g => g.category.toLowerCase() === currentCat.toLowerCase())
@@ -475,26 +700,31 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
 
   const MONTH  = '(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?'
   const SEASON = '(?:summer|spring|fall|autumn|winter)'
+  // One date: "Jun 2018", "12/2021", "Summer 2020" or a bare year
+  const DATE_ATOM = `(?:${MONTH}\\s*\\d{4}|\\d{1,2}\\/\\d{4}|${SEASON}\\s+\\d{4}|\\d{4})`
   // A date/period sitting at the END of a line → marks a Title+Period anchor line
+  // (an optional closing ")" covers "Company (Title | Jul 2021 - Present)")
   const PERIOD_END_RE = new RegExp(
-    `((?:${MONTH}\\s*\\d{4}|${SEASON}\\s+\\d{4}|\\d{4})\\s*[-–—]\\s*(?:${MONTH}\\s*\\d{4}|${SEASON}\\s+\\d{4}|present|current|now|till\\s*date|\\d{4})|${SEASON}\\s+\\d{4}|${MONTH}\\s*\\d{4})\\s*$`,
+    `((?:${DATE_ATOM})\\s*[-–—]\\s*(?:${DATE_ATOM}|present|current|now|till\\s*date)|${SEASON}\\s+\\d{4}|${MONTH}\\s*\\d{4})\\s*\\)?\\s*$`,
     'i'
   )
   // A period anywhere in a line (some resumes append "(Client – X)" after the date)
   const PERIOD_ANY_RE = new RegExp(
-    `((?:${MONTH}\\s*\\d{4}|${SEASON}\\s+\\d{4}|\\d{4})\\s*[-–—]\\s*(?:${MONTH}\\s*\\d{4}|${SEASON}\\s+\\d{4}|present|current|now|till\\s*date|\\d{4})|${SEASON}\\s+\\d{4})`,
+    `((?:${DATE_ATOM})\\s*[-–—]\\s*(?:${DATE_ATOM}|present|current|now|till\\s*date)|${SEASON}\\s+\\d{4})`,
     'i'
   )
 
   const STATE_CC = '[A-Z]{2}(?:\\/[A-Z]{2})?'
   const COUNTRY  = 'India|USA|U\\.S\\.A\\.|UK|Canada|Peru|Australia|Singapore|Germany|France|China'
-  const CITY     = 'new york|navi mumbai|new delhi|san francisco|los angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|vancouver|montreal|mumbai|bangalore|bengaluru|hyderabad|pune|delhi|noida|gurugram|gurgaon|chennai|kochi|baltimore|washington|lima'
+  const CITY     = 'new york|navi mumbai|new delhi|san francisco|los angeles|san jose|san diego|jersey city|chicago|seattle|boston|austin|atlanta|miami|denver|dallas|houston|phoenix|portland|philadelphia|minneapolis|pittsburgh|columbus|boise|toronto|vancouver|montreal|mumbai|bangalore|bengaluru|hyderabad|pune|delhi|noida|gurugram|gurgaon|chennai|kochi|indore|jaipur|ahmedabad|kolkata|chandigarh|lucknow|nagpur|surat|thane|bhopal|dehradun|london|dublin|sydney|melbourne|berlin|paris|dubai|baltimore|washington|lima'
   // Whole line is just a location (e.g. "New York, NY") → repeat role, same company
   const LOCATION_ONLY_RE = new RegExp(`^(?:${CITY})\\s*,?\\s*(?:${STATE_CC}|${COUNTRY})?\\.?\\s*$`, 'i')
   // Company followed by a trailing location anchored on a KNOWN city (most reliable)
   const LOCATION_END_CITY = new RegExp(`^(.+?)\\s+((?:${CITY})\\s*,?\\s*(?:${STATE_CC}|${COUNTRY})?\\.?)\\s*$`, 'i')
-  // Generic fallback: "City, ST" with a 1-2 word capitalized city + 2-letter state code
-  const LOCATION_END_GENERIC = new RegExp(`^(.+?)\\s+([A-Z][a-zA-Z.]+(?:\\s+[A-Z][a-zA-Z.]+)?,\\s*${STATE_CC})\\s*$`)
+  // Generic fallback: 1-2 word capitalized city + state code, with a comma ("Dallas, TX") or, for real
+  // US/Canadian state codes only, without one ("Dallas TX")
+  const US_ST = 'AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC|BC|ON|QC|AB'
+  const LOCATION_END_GENERIC = new RegExp(`^(.+?)[,\\s]+([A-Z][a-zA-Z.]+(?:\\s+[A-Z][a-zA-Z.]+)?(?:,\\s*${STATE_CC}|\\s+(?:${US_ST})))\\s*$`)
 
   const isBulletLine = (l: string) =>
     /^[•\-*◆▸→>·]\s/.test(l) || /^\d+[.)]\s/.test(l) || /^[ivxlcdm]+\)\s/i.test(l) || /^[a-z]\)\s/i.test(l)
@@ -506,10 +736,10 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
     if (paren) return { company: paren[1].trim(), location: paren[2].trim() }
     // Trailing "<known city>, ST/Country"
     const cityM = t.match(LOCATION_END_CITY)
-    if (cityM && cityM[1].trim().length > 1) return { company: cityM[1].trim(), location: cityM[2].trim() }
+    if (cityM && cityM[1].trim().length > 1) return { company: cityM[1].replace(/[,\s]+$/, ''), location: cityM[2].trim() }
     // Generic "City, ST"
     const genM = t.match(LOCATION_END_GENERIC)
-    if (genM && genM[1].trim().length > 1) return { company: genM[1].trim(), location: genM[2].trim() }
+    if (genM && genM[1].trim().length > 1) return { company: genM[1].replace(/[,\s]+$/, ''), location: genM[2].trim() }
     return { company: t, location: '' }
   }
 
@@ -533,14 +763,33 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
   }
 
   const expLines = sec('experience')
-  for (let i = 0; i < expLines.length; i++) {
-    const line = expLines[i].trim()
-    if (!line || line.includes('@')) continue
+  const BULLET_PREFIX = /^[•\-*◆▸→>·]\s*|^\d+[.)]\s*|^[ivxlcdm]+\)\s*|^[a-z]\)\s*/i
+  // True when line idx is just a date range (optionally followed by ", City")
+  const periodOnlyAt = (idx: number) => {
+    const l = (expLines[idx] ?? '').trim()
+    if (!l || isBulletLine(l)) return false
+    const m = l.match(PERIOD_END_RE) || l.match(PERIOD_ANY_RE)
+    return !!m && m.index === 0
+  }
+  let pendingTitleLine = ''
+  let plainDesc = false   // the current role's text has no bullet markers
 
-    // 1. Bullet line → attach to current entry
+  for (let i = 0; i < expLines.length; i++) {
+    let line = expLines[i].trim()
+    if (!line || line.includes('@')) continue
+    // Stray labels some templates print under every role
+    if (/^(achievements?\s*\/\s*tasks?|key\s+responsibilities|responsibilities|description)\s*:?$/i.test(line)) continue
+
+    // 1. Bullet line → attach to current entry, unless it is a "Title | Company | dates" role line
+    //    (e.g. the bulleted roles listed under "Internships")
     if (isBulletLine(line)) {
-      if (curExp) curExp.bullets = [...(curExp.bullets ?? []), line.replace(/^[•\-*◆▸→>·]\s*|^\d+[.)]\s*|^[ivxlcdm]+\)\s*|^[a-z]\)\s*/i, '').trim()]
-      continue
+      const stripped = line.replace(BULLET_PREFIX, '').trim()
+      if (PERIOD_END_RE.test(stripped) && stripped.includes('|') && stripped.split(/\s+/).length <= 14) {
+        line = stripped
+      } else {
+        if (curExp) { curExp.bullets = [...(curExp.bullets ?? []), stripped]; plainDesc = false }
+        continue
+      }
     }
 
     // 2. Anchor line: ends with a date (Title + Period), or is period-only / period + client note
@@ -550,25 +799,46 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
 
     if (periodM) {
       const period = periodM[1].trim()
-      let title = line.slice(0, periodM.index).replace(/[,·\-–—\s]+$/, '').trim()
+      let title = line.slice(0, periodM.index).replace(/[,·|\-–—\s]+$/, '').trim()
+      // Text after a leading period ("12/2021 - Present, Gurugram") is the location
+      const trailingLoc = !endM ? line.slice(periodM[0].length).replace(/^[,·|\-–—\s]+/, '').trim() : ''
 
       // Resolve company + location for this entry
       let company = pendingCompany || lastCompany
       let location = pendingLocation || (pendingCompany ? '' : lastLocation)
+      // Only place-like text counts: not a "(Client – X)" note, not a sentence
+      if (trailingLoc && !/^[(\[]/.test(trailingLoc) && !/client|\d/i.test(trailingLoc) && trailingLoc.split(/\s+/).length <= 4) location = trailingLoc
+      let explicitCompany = ''
+
+      const paren = title.match(/^(.+?)\s*\(\s*(.+)$/)
+      if (paren && !title.includes(')')) {
+        // "Company (Title | Jul 2021 - Present)" — the period sits inside the parentheses
+        explicitCompany = paren[1].trim()
+        title = paren[2].replace(/[,·|\-–—\s]+$/, '').trim()
+      } else if (title.includes('|')) {
+        // "Title | Company | May 2022 - Present"
+        const parts = title.split('|').map(x => x.trim()).filter(Boolean)
+        title = parts[0] ?? ''
+        explicitCompany = parts[1] ?? ''
+        if (parts[2]) location = parts[2]
+      }
 
       // Akash-style: period-only line → the header line held "Company - Title"
-      if (!title && pendingCompany) {
+      if (!title && pendingCompany && !explicitCompany) {
         const dm = pendingCompany.match(/^(.+?)\s+[–—-]\s+(.+)$/)
-        if (dm) { company = dm[1].trim(); title = dm[2].trim() }
-        else    { title = '' }
+        if (dm) { company = dm[1].trim(); title = dm[2].replace(/[,·\s]+$/, '').trim() }
+        else    { title = pendingTitleLine }   // 3-line header: Title / Company / dates
       }
+      if (explicitCompany) company = explicitCompany
 
       flushExp()
       curExp = { title, company, location: location || undefined, period, bullets: [] }
+      plainDesc = false
       if (company)  lastCompany  = company
       if (location) lastLocation = location
       pendingCompany = ''
       pendingLocation = ''
+      pendingTitleLine = ''
       continue
     }
 
@@ -582,31 +852,90 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
       continue
     }
 
-    const sp = splitCompanyLocation(line)
-    const looksLikeHeader = sp.location !== '' && sp.company.split(/\s+/).length <= 8 && /^[A-Z(]/.test(sp.company)
+    // 3-line header: "Title" / "Company" / "dates" — remember the title line
+    if (!isBulletLine(expLines[i + 1] ?? '') && periodOnlyAt(i + 2) && !periodOnlyAt(i + 1) &&
+        line.length < 90 && !/[.!?]$/.test(line)) {
+      pendingTitleLine = line
+      continue
+    }
 
-    if (!inBulletZone) {
+    const sp = splitCompanyLocation(line)
+    // Company names don't contain commas; "Analytical tools - SAS, SQL, Tableau, MS Excel" is a
+    // description whose tail merely looks like "City, ST"
+    const looksLikeHeader = sp.location !== '' && sp.company.split(/\s+/).length <= 8 && /^[A-Z(]/.test(sp.company) &&
+      !sp.company.includes(',') && !/[.]$/.test(line)
+    // A line sitting directly above a date-only line is always the next role's header,
+    // even when its location isn't one we recognise
+    const nextIsPeriodOnly = periodOnlyAt(i + 1)
+    // A long sentence right after a role header is its description (the template has no bullet markers)
+    const isProse = line.length >= 45 || /[.;:]$/.test(line)
+
+    if (curExp && !inBulletZone && isProse && !looksLikeHeader && !nextIsPeriodOnly) {
+      curExp.bullets = [line]
+      plainDesc = true
+    } else if (!inBulletZone) {
       // Before any bullets → this is the company/location header for the upcoming entry
       pendingCompany = sp.company
       pendingLocation = sp.location
-    } else if (looksLikeHeader) {
+    } else if (looksLikeHeader || nextIsPeriodOnly) {
       // Inside bullet zone but this is clearly a new company header
       pendingCompany = sp.company
       pendingLocation = sp.location
     } else if (curExp) {
-      // Wrapped bullet continuation → append to the last bullet
       const b = curExp.bullets ?? []
-      if (b.length) curExp.bullets = [...b.slice(0, -1), (b[b.length - 1] + ' ' + line).trim()]
+      if (b.length) {
+        const prev = b[b.length - 1]
+        if (plainDesc && /[.;:!]$/.test(prev) && /^[A-Z]/.test(line)) curExp.bullets = [...b, line]
+        // Wrapped bullet continuation → append to the last bullet
+        else curExp.bullets = [...b.slice(0, -1), (prev + ' ' + line).trim()]
+      }
     }
   }
   flushExp()
 
   // ── Education ─────────────────────────────────────────────────────────────
-  const DEGREE_RE   = /\b(b\.?tech|b\.?e\b|b\.?sc\b|m\.?tech|m\.?sc\b|mba|phd|ph\.d|bachelor|master|doctor|b\.des|m\.des|bca|mca|b\.com|m\.com|diploma|pgdm|bba|llb|llm|b\.arch|associate|honours|honors|certificate)\b/i
+  const DEGREE_RE   = /\b(b\.?tech|b\.?e\b|b\.?sc\b|m\.?tech|m\.?sc\b|mba|phd|ph\.d|bachelor|master|doctor|b\.des|m\.des|bca|mca|b\.com|m\.com|diploma|pgdm|bba|llb|llm|b\.arch|[bm]\.[sa]|associate|honours|honors|certificate)\b/i
   const SCHOOL_RE   = /\b(university|college|institute|school|academy|polytechnic|iit|iim|nit|bits|nmims|johns\s+hop|harvard|stanford|wharton|columbia|yale|princeton|cornell|lse|insead|carey|business\s+school|technology|management|mukesh)\b/i
   const SPEC_RE     = /(?:with\s+)?specialization\s+(?:in|on)\s+([^;:,]+)/i
   const ACTIVITY_RE = /\b(president|co-president|delegate|volunteer|club|initiative|competition|council|team\s+leader|merit\s+list|honor\s+roll|clean\s+india|ambulance|csr|scholarship|award)\b/i
   const LOC_LINE_RE = /^(new york|san francisco|los angeles|chicago|seattle|boston|austin|atlanta|miami|denver|toronto|vancouver|montreal|mumbai|bangalore|bengaluru|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|baltimore|washington|lima|peru)[,\s]/i
+
+  const PERIOD_RE = /(\d{4})\s*[-–—]\s*(?:[A-Za-z]{3,9}\.?\s+)?(\d{4}|present|current|now)/i
+  const periodOf = (s: string): string => {
+    const full = s.match(PERIOD_RE)
+    if (full) return `${full[1]} — ${full[2].charAt(0).toUpperCase() + full[2].slice(1)}`
+    return s.match(/\b(\d{4})\b/)?.[1] ?? ''
+  }
+
+  // Strip the year range and a trailing "City, Country" fragment from a school/degree header line,
+  // without cutting place words that belong to the name ("University of Texas at Austin")
+  const EDU_PLACE = 'baltimore|new york|san francisco|los angeles|chicago|seattle|boston|austin|miami|denver|toronto|vancouver|montreal|mumbai|bengaluru|bangalore|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|washington|lima|peru|india|usa|canada|uk|singapore'
+  const cleanEduHeader = (s: string, pf: RegExpMatchArray | null): string => {
+    let t = s.replace(pf ? pf[0] : /\b\d{4}\b/, '').trim()
+    // comma-led location: "NMIMS University, Mumbai"
+    t = t.replace(new RegExp(`\\s*,\\s*(?:${EDU_PLACE})\\b.*$`, 'i'), '')
+    // location at the end of the line, unless the word before it makes it part of the name
+    const m = t.match(new RegExp(`^(.*)\\s+(?:${EDU_PLACE})(?:[\\s,]+(?:[A-Za-z]{2}|${EDU_PLACE}))*\\s*$`, 'i'))
+    if (m && m[1].trim() && !/\b(at|of|in|the|and|for|de)$/i.test(m[1].trim())) t = m[1]
+    // "Thapar Institute of Technology, Patiala" → keep the institution, drop the city
+    const comma = t.indexOf(',')
+    if (comma > 0 && SCHOOL_RE.test(t.slice(0, comma)) && !SCHOOL_RE.test(t.slice(comma + 1)) && t.slice(comma + 1).trim().split(/\s+/).length <= 4) t = t.slice(0, comma)
+    return t.replace(/[,·|\t]+$/, '').trim()
+  }
+
+  // Split on ";" but not inside parentheses, so "(Lima, Peru Feb-Mar 2020)" stays in one piece
+  const splitTopLevel = (s: string): string[] => {
+    const out: string[] = []
+    let depth = 0, cur = ''
+    for (const ch of s) {
+      if (ch === '(') depth++
+      else if (ch === ')') depth = Math.max(0, depth - 1)
+      if (ch === ';' && depth === 0) { out.push(cur); cur = ''; continue }
+      cur += ch
+    }
+    out.push(cur)
+    return out.map(p => p.replace(/[;,\s]+$/, '').trim()).filter(Boolean)
+  }
 
   interface RawEdu { degree: string; school: string; period: string; specialization?: string; activities: string[] }
   const edus: RawEdu[] = []
@@ -629,25 +958,48 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
   const rawEduLines = sec('education')
   const mergedEduLines: string[] = []
   for (let i = 0; i < rawEduLines.length; i++) {
-    const l = rawEduLines[i]
-    const next = rawEduLines[i + 1] ?? ''
-    if (
-      /\b(and|&|in|of|for|with)\s*$/i.test(l) &&
-      next && !/^\d{4}/.test(next) && !SCHOOL_RE.test(next) && !DEGREE_RE.test(next)
-    ) {
-      mergedEduLines.push(l + ' ' + next)
+    let acc = rawEduLines[i]
+    while (i + 1 < rawEduLines.length) {
+      const next = rawEduLines[i + 1]
+      // A wrapped line ends mid-phrase: dangling conjunction, trailing dash/pipe, or an unclosed "("
+      const dangling = /(?:\b(?:and|in|of|for|with)|&)\s*$/i.test(acc)
+      const otherWrap = /[–—|-]\s*$/.test(acc) || acc.split('(').length > acc.split(')').length
+      // Lines under a bullet that don't start a new bullet are its continuation
+      const bulletCont = acc.startsWith('• ') && !next.startsWith('• ')
+      const merge = bulletCont ||
+        (dangling && !/^\d{4}/.test(next)) ||
+        (otherWrap && !/^\d{4}/.test(next) && !SCHOOL_RE.test(next) && !DEGREE_RE.test(next))
+      if (!merge) break
+      acc += ' ' + next
       i++
-    } else {
-      mergedEduLines.push(l)
     }
+    mergedEduLines.push(acc)
   }
 
-  for (const line of mergedEduLines) {
-    const periodFull = line.match(/(\d{4})\s*[-–—]\s*(\d{4}|present|current|now)/i)
-    const singleYear = line.match(/\b(\d{4})\b/)
-    const period = periodFull
-      ? `${periodFull[1]} — ${periodFull[2].charAt(0).toUpperCase() + periodFull[2].slice(1)}`
-      : (singleYear ? singleYear[1] : '')
+  for (const rawLine of mergedEduLines) {
+    const line = rawLine.replace(/^•\s*/, '')
+    // Grades on their own line ("7.5 CGPA", "74.33%") are not part of any entry
+    if (/^\d{1,3}(?:\.\d+)?\s*(?:%|cgpa|gpa|\/\s*10)?$/i.test(line) || /^(?:cgpa|gpa|grade)\b/i.test(line)) continue
+
+    // "B.E – MBA | Computer Engineering [CGPA: 7.86/10] | Thapar Institute of Technology, Patiala | 2020"
+    if (line.includes('|') && DEGREE_RE.test(line) && SCHOOL_RE.test(line)) {
+      const parts = line.split('|').map(x => x.replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim()).filter(Boolean)
+      const schoolIdx = parts.findIndex(x => SCHOOL_RE.test(x) && !/^\d{4}$/.test(x))
+      if (schoolIdx > 0) {
+        flushEdu()
+        curEdu = {
+          degree: parts.slice(0, schoolIdx).join(' — '),
+          school: cleanEduHeader(parts[schoolIdx], null),
+          period: periodOf(line),
+          activities: [],
+        }
+        continue
+      }
+    }
+
+    // Accepts "2019-2021" and "Jun 2012 – May 2016"
+    const periodFull = line.match(PERIOD_RE)
+    const period = periodOf(line)
 
     const hasDegree  = DEGREE_RE.test(line)
     const hasSchool  = SCHOOL_RE.test(line)
@@ -655,37 +1007,58 @@ function parseResumeText(raw: string, linkMap: Record<string, string> = {}): Par
     const specMatch  = line.match(SPEC_RE)
     const isLocation = LOC_LINE_RE.test(line.trim())
 
-    // Clean: strip year range + trailing city/region fragments
-    const lineClean = line
-      .replace(periodFull ? periodFull[0] : /\b\d{4}\b/, '')
-      .replace(/\s+(?:,-?\s*)?(baltimore|new york|san francisco|los angeles|chicago|seattle|boston|austin|miami|denver|toronto|vancouver|montreal|mumbai|bengaluru|bangalore|hyderabad|pune|delhi|noida|gurugram|chennai|kochi|washington|lima|peru|india|usa|canada|uk|singapore|bc|on|ny|ca|md|il|tx|wa|maryland|california|texas|washington|illinois)\b.*/i, '')
-      .replace(/[,·|\t]+$/, '')
-      .trim()
+    const lineClean = cleanEduHeader(line, periodFull)
 
     // Degree takes priority over school when both match
     if (hasSchool && !hasDegree) {
-      flushEdu()
-      curEdu = { school: lineClean || line.replace(/\s*\d{4}.*$/, '').trim(), activities: [] }
-      if (period) curEdu.period = period
-    } else if (hasDegree) {
-      const degreeText = lineClean.replace(/:\s*.+$/, '').trim()
-      if (curEdu && !curEdu.degree) {
-        curEdu.degree = degreeText
+      const schoolName = lineClean || line.replace(/\s*\d{4}.*$/, '').trim()
+      if (curEdu && curEdu.degree && !curEdu.school) {
+        // Degree listed first, school on the next line
+        curEdu.school = schoolName
         if (period && !curEdu.period) curEdu.period = period
       } else {
         flushEdu()
-        curEdu = { degree: degreeText, activities: [] }
+        curEdu = { school: schoolName, activities: [] }
         if (period) curEdu.period = period
+      }
+    } else if (hasDegree) {
+      // "B.Tech Electrical & Tele-Communication: Placement team Lead; CSR club…" →
+      // degree is the part before the colon, the rest is specialization / activities.
+      const colonIdx = line.indexOf(':')
+      const hasTail = colonIdx > -1 && DEGREE_RE.test(line.slice(0, colonIdx))
+      const head = hasTail ? line.slice(0, colonIdx) : line
+      const tail = hasTail ? line.slice(colonIdx + 1).trim() : ''
+      const degreeText = cleanEduHeader(head, head.match(PERIOD_RE)).replace(/:\s*.+$/, '').trim()
+      const headPeriod = periodOf(head)
+
+      if (curEdu && !curEdu.degree) {
+        curEdu.degree = degreeText
+        if (headPeriod && !curEdu.period) curEdu.period = headPeriod
+      } else {
+        flushEdu()
+        curEdu = { degree: degreeText, activities: [] }
+        if (headPeriod) curEdu.period = headPeriod
+      }
+
+      for (const part of splitTopLevel(tail)) {
+        const spec = part.match(SPEC_RE)
+        if (spec) curEdu.specialization = spec[1].trim()
+        else if (part.length > 3) curEdu.activities = [...(curEdu.activities ?? []), part]
       }
     } else if (specMatch && curEdu) {
       // Capture specialization
       curEdu.specialization = specMatch[1].trim()
     } else if (isActivity && curEdu) {
-      // Capture educational activities
-      const activity = lineClean.length > 3 ? lineClean : line.replace(/\s*\d{4}.*$/, '').trim()
-      if (activity.length > 3 && !isLocation) {
-        curEdu.activities = [...(curEdu.activities ?? []), activity]
+      // Keep activity text intact (years, cities and parentheses are part of the content)
+      if (!isLocation) {
+        for (const part of splitTopLevel(line)) {
+          if (part.length > 3) curEdu.activities = [...(curEdu.activities ?? []), part]
+        }
       }
+    } else if (curEdu && curEdu.school && !curEdu.degree && /^[A-Za-z][A-Za-z &,.'()-]{3,80}?(?:\s+(?:19|20)\d{2})?$/.test(line) && line.split(/\s+/).length <= 9) {
+      // "Computer Science & Engineering 2018" under a school with no degree keyword
+      curEdu.degree = cleanEduHeader(line, periodFull)
+      if (period && !curEdu.period) curEdu.period = period
     } else if (period && curEdu && !curEdu.period) {
       curEdu.period = period
     }
@@ -823,6 +1196,7 @@ export default function ResumeBuilder() {
   const [analysisError, setAnalysisError] = useState('')
   const [showExportModal, setShowExportModal] = useState(false)
   const [appliedImprovements, setAppliedImprovements] = useState<Set<number>>(new Set())
+  const [applyNotice, setApplyNotice] = useState<Record<number, string>>({})
   const [preApplySnapshots, setPreApplySnapshots] = useState<Record<number, {
     workExp: WorkExp[]; skills: string[]; skillCategories: SkillCategory[]
     summary: string; education: EduEntry[]; certifications: string[]
@@ -871,6 +1245,7 @@ export default function ResumeBuilder() {
   const [keywords, setKeywords] = useState<{ found: string[]; missing: string[] }>({ found: [], missing: [] })
 
   const atsScore   = useMemo(() => computeScore(keywords.found.length, keywords.found.length + keywords.missing.length, analysed, resumeRawText), [keywords, analysed, resumeRawText])
+  const formatChecks = useMemo(() => computeFormatChecks(resumeRawText, email, phone, workExp), [resumeRawText, email, phone, workExp])
   const scoreColor = atsScore >= 85 ? '#10B981' : atsScore >= 65 ? '#F59E0B' : '#EF4444'
   const scorePct   = `${atsScore}%`
 
@@ -1435,7 +1810,7 @@ body { margin: 0; padding: 0; background: #fff; }
                 <div className="ats-kw-section">
                   <div className="ats-kw-head">FORMAT CHECKS</div>
                   <div className="ats-format-list">
-                    {FORMAT_CHECKS.map((fc, i) => (
+                    {formatChecks.map((fc, i) => (
                       <div key={i} className="ats-format-row">
                         <span className={`ats-format-ico ${fc.pass ? 'pass' : 'warn'}`}>
                           {fc.pass ? <IconCheck size={9} /> : <IcoWarn size={9} />}
@@ -2752,6 +3127,16 @@ body { margin: 0; padding: 0; background: #fff; }
                                   <button
                                     onClick={() => {
                                       if (analysisReport && issue.example) {
+                                        const res = applySuggestion(
+                                          { workExp, skills, skillCategories, summary, education, certifications },
+                                          issue.example.before,
+                                          issue.example.after,
+                                        )
+                                        if (!res.ok) {
+                                          setApplyNotice(prev => ({ ...prev, [idx]: res.message }))
+                                          return
+                                        }
+                                        setApplyNotice(prev => { const n = { ...prev }; delete n[idx]; return n })
                                         // Save snapshot before applying
                                         setPreApplySnapshots(prev => ({ ...prev, [idx]: {
                                           workExp: JSON.parse(JSON.stringify(workExp)),
@@ -2761,73 +3146,18 @@ body { margin: 0; padding: 0; background: #fff; }
                                           education: JSON.parse(JSON.stringify(education)),
                                           certifications: [...certifications],
                                         }}))
-
-                                        const rawBefore = issue.example.before
-                                          .replace(/^["']|["']$/g, '')
-                                          .replace(/^[•\-*]\s*/, '')
-                                          .replace(/^[A-Z\s&]+:\s*/i, '')
-                                          .trim()
-                                        const after = issue.example.after
-                                          .replace(/^["']|["']$/g, '')
-                                          .replace(/^[•\-*]\s*/, '')
-                                          .replace(/^[A-Z\s&]+:\s*/i, '')
-                                          .trim()
-
-                                        const toWords = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 2)
-                                        const beforeWords = toWords(rawBefore)
-
-                                        const matchText = (text: string) => {
-                                          if (!text) return false
-                                          const t = text.toLowerCase()
-                                          const b = rawBefore.toLowerCase()
-                                          if (t.includes(b) || b.includes(t)) return true
-                                          if (b.length > 10 && t.includes(b.slice(0, 40))) return true
-                                          if (beforeWords.length >= 2) {
-                                            const hits = beforeWords.filter(w => t.includes(w)).length
-                                            const threshold = beforeWords.length <= 4 ? 0.4 : 0.5
-                                            return hits / beforeWords.length >= threshold
-                                          }
-                                          return false
-                                        }
-
-                                        setWorkExp(prev => prev.map(exp => {
-                                          const newBullets = (exp.bullets || []).map(bullet =>
-                                            matchText(bullet) ? after : bullet
-                                          )
-                                          const newTitle = exp.title && matchText(exp.title) ? after : exp.title
-                                          return { ...exp, bullets: newBullets, title: newTitle }
-                                        }))
-
-                                        setSummary(prev => matchText(prev) ? after : prev)
-
-                                        const afterSkill = after.replace(/^[A-Z\s&]+:\s*/i, '').trim()
-                                        setSkills(prev =>
-                                          prev.map(skill => matchText(skill) ? afterSkill : skill)
-                                        )
-
-                                        setSkillCategories(prev =>
-                                          prev.map(cat => ({
-                                            ...cat,
-                                            skills: cat.skills.map(s => matchText(s) ? afterSkill : s),
-                                          }))
-                                        )
-
-                                        setEducation(prev => prev.map(edu => {
-                                          const newActivities = (edu.activities || []).map(b =>
-                                            matchText(b) ? after : b
-                                          )
-                                          const newDegree = matchText(edu.degree) ? after : edu.degree
-                                          return { ...edu, activities: newActivities, degree: newDegree }
-                                        }))
-
-                                        setCertifications(prev =>
-                                          prev.map(cert => matchText(cert) ? after : cert)
-                                        )
+                                        setWorkExp(res.next.workExp)
+                                        setSummary(res.next.summary)
+                                        setSkills(res.next.skills)
+                                        setSkillCategories(res.next.skillCategories)
+                                        setEducation(res.next.education)
+                                        setCertifications(res.next.certifications)
 
                                         setAppliedImprovements(prev => new Set([...prev, idx]))
                                       }
                                     }}
                                     disabled={appliedImprovements.has(idx)}
+                                    hidden={/\n/.test(issue.example.before)}
                                     style={{
                                       flex: 1,
                                       padding: '4px 8px',
@@ -2880,6 +3210,9 @@ body { margin: 0; padding: 0; background: #fff; }
                                     </button>
                                   )}
                                 </div>
+                                {applyNotice[idx] && (
+                                  <div style={{ marginTop: 6, fontSize: 11, color: '#b45309' }}>{applyNotice[idx]}</div>
+                                )}
                               </div>
                             </div>
                           )}

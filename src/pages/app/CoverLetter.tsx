@@ -151,7 +151,7 @@ export default function CoverLetterPage() {
         <p>Generate a tailored, AI-written cover letter for any role in seconds — then refine, save, and download it.</p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: 16, alignItems: 'start' }}>
+      <div className="split-380">
         {/* ── Left: Form ─────────────────────── */}
         <div className="perf-card">
           <div className="perf-card-title" style={{ marginBottom: 12 }}>Your Details</div>

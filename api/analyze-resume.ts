@@ -1,5 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node'
 import Anthropic from '@anthropic-ai/sdk'
+import { EXAMPLE_RULES, sanitizeExample } from './_lib/suggestions.js'
 
 function repairJson(raw: string): string {
   // 1. Extract the outermost JSON object
@@ -48,15 +49,6 @@ function repairJson(raw: string): string {
   return result
 }
 
-// Drop leading/trailing ellipses the model adds when it truncates excerpts
-function cleanExample(value: unknown): string {
-  return String(value || '')
-    .trim()
-    .replace(/^(\.{2,}|…)\s*/, '')
-    .replace(/\s*(\.{3,}|…)$/, '')
-    .slice(0, 400)
-}
-
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
@@ -87,7 +79,8 @@ ${resumeText.slice(0, 6000)}
 Job Description:
 ${jobDescription.slice(0, 2000)}
 
-Return ONLY valid JSON with no markdown, no code blocks, no explanation. Escape any quotes inside string values. For "example", "before" must be a COMPLETE bullet or sentence copied verbatim from the resume (never truncated, never starting or ending with "..." or "…"), and "after" must be the COMPLETE rewritten version of that same bullet, starting with a real word (never an ellipsis or fragment). Each may be up to 300 characters:
+Return ONLY valid JSON with no markdown, no code blocks, no explanation. Escape any quotes inside string values.
+${EXAMPLE_RULES}
 {
   "grade": "B",
   "status": "GOOD",
@@ -102,8 +95,8 @@ Return ONLY valid JSON with no markdown, no code blocks, no explanation. Escape 
       "whyImportant": "Why this matters",
       "howToImprove": "Specific actionable fix",
       "example": {
-        "before": "Complete original bullet copied verbatim from the resume",
-        "after": "Complete rewritten version of that same bullet"
+        "before": "One complete bullet copied verbatim from the resume",
+        "after": "The complete improved version of that bullet"
       }
     }
   ],
@@ -143,10 +136,7 @@ Return ONLY valid JSON with no markdown, no code blocks, no explanation. Escape 
     report.summary = report.summary || 'Analysis complete.'
     report.issues = (report.issues || []).map((issue: any) => ({
       ...issue,
-      example: issue.example ? {
-        before: cleanExample(issue.example.before),
-        after:  cleanExample(issue.example.after),
-      } : undefined,
+      example: sanitizeExample(issue.example, resumeText),
     }))
     report.urgentCount   = report.urgentCount   ?? report.issues.filter((i: any) => i.category === 'urgent').length
     report.criticalCount = report.criticalCount ?? report.issues.filter((i: any) => i.category === 'critical').length

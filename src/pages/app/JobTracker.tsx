@@ -188,7 +188,7 @@ export default function JobTracker() {
         </div>
 
         {/* Search + sort */}
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div className="jm-search-row" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <div className="jm-search">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
             <input placeholder="Search company or role…" value={search} onChange={e => setSearch(e.target.value)} style={{ width: 180 }} />

@@ -3,12 +3,13 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { GmailProvider } from './context/GmailContext'
 import Landing from './pages/Landing'
+import RouteSeo from './components/site/RouteSeo'
 import SignIn from './pages/SignIn'
 import SignUp from './pages/SignUp'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import Sitemap from './pages/Sitemap'
-import { Privacy, Terms, Security, Dpa, Cookies } from './pages/LegalPages'
+import { Privacy, Terms, Security, Dpa, Cookies, Refund } from './pages/LegalPages'
 import { About, Careers, Customers, Press, Contact } from './pages/CompanyPages'
 import AppLayout from './pages/app/Layout'
 import Dashboard from './pages/app/Dashboard'
@@ -19,11 +20,22 @@ import Performance from './pages/app/Performance'
 import Outreach from './pages/app/Outreach'
 import Settings from './pages/app/Settings'
 import Support from './pages/app/Support'
+import { useSubscription } from './hooks/useSubscription'
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth()
   if (loading) return null
   if (!user) return <Navigate to="/signin" replace />
+  return <>{children}</>
+}
+
+// Cover Letters, Job Tracker, Analytics and Outreach are Pro features. A free user who opens one
+// (e.g. by typing the URL) is sent to the dashboard, where the layout shows the "Pro feature" pop-up.
+function ProRoute({ feature, children }: { feature: string; children: ReactNode }) {
+  const { user } = useAuth()
+  const { isPro, loading } = useSubscription(user?.id)
+  if (loading) return null
+  if (!isPro) return <Navigate to="/app/dashboard" replace state={{ proLocked: feature }} />
   return <>{children}</>
 }
 
@@ -45,6 +57,7 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
       <GmailProvider>
+        <RouteSeo />
         <Routes>
           <Route path="/" element={<Landing theme={theme} toggleTheme={toggleTheme} />} />
           <Route path="/signin" element={<SignIn />} />
@@ -57,6 +70,7 @@ export default function App() {
           <Route path="/security" element={<Security theme={theme} toggleTheme={toggleTheme} />} />
           <Route path="/dpa" element={<Dpa theme={theme} toggleTheme={toggleTheme} />} />
           <Route path="/cookies" element={<Cookies theme={theme} toggleTheme={toggleTheme} />} />
+          <Route path="/refund" element={<Refund theme={theme} toggleTheme={toggleTheme} />} />
           <Route path="/about" element={<About theme={theme} toggleTheme={toggleTheme} />} />
           <Route path="/careers" element={<Careers theme={theme} toggleTheme={toggleTheme} />} />
           <Route path="/customers" element={<Customers theme={theme} toggleTheme={toggleTheme} />} />
@@ -70,10 +84,10 @@ export default function App() {
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="resume-builder" element={<ResumeBuilder />} />
-            <Route path="cover-letter" element={<CoverLetter />} />
-            <Route path="job-match" element={<JobTracker />} />
-            <Route path="performance" element={<Performance />} />
-            <Route path="outreach" element={<Outreach />} />
+            <Route path="cover-letter" element={<ProRoute feature="Cover Letters"><CoverLetter /></ProRoute>} />
+            <Route path="job-match" element={<ProRoute feature="Job Tracker"><JobTracker /></ProRoute>} />
+            <Route path="performance" element={<ProRoute feature="Analytics"><Performance /></ProRoute>} />
+            <Route path="outreach" element={<ProRoute feature="Outreach"><Outreach /></ProRoute>} />
             <Route path="settings" element={<Settings />} />
             <Route path="help" element={<Support />} />
           </Route>

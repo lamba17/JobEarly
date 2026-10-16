@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import Navbar from '../components/site/Navbar'
 import Footer from '../components/site/Footer'
 import { TESTIMONIALS } from '../data/testimonials'
+import { STATUS_META } from '../lib/jobTracker'
+import { PLANS, PLAN_ORDER, rupees, type Interval } from '../lib/plans'
 import {
   IconSparkle, IconDoc, IconSend, IconMail, IconChart,
   IconArrowRight, IconCheck, IconPlus, IconShield,
@@ -28,7 +30,7 @@ function MockDashboard() {
   ]
   const cards = [
     { icon: <IconDoc size={16} />,     lbl: 'RESUMES CREATED', num: '24',  delta: '+12% from last month' },
-    { icon: <IconSparkle size={16} />, lbl: 'JOBS MATCHED',    num: '142', delta: '8 High-Probability Leads' },
+    { icon: <IconBriefcase size={16} />, lbl: 'JOBS TRACKED', num: '48',  delta: '6 Interviews scheduled' },
     { icon: <IconSend size={16} />,    lbl: 'OUTREACH SENT',   num: '38',  delta: '15 Responses received' },
   ]
   const recentDocs = [
@@ -60,7 +62,7 @@ function MockDashboard() {
       <div className="mock-main">
         <h2 className="mock-greeting">{greeting()}, Alex.</h2>
         <p className="mock-sub">
-          Your AI career architect has identified <b>12 new matches</b> aligned with your Senior Product Designer trajectory.
+          Your AI career architect is keeping tabs on <b>48 applications</b> across your Senior Product Designer search.
         </p>
         <div className="mock-cards">
           {cards.map(({ icon, lbl, num, delta }) => (
@@ -208,7 +210,7 @@ function ProductPreview() {
         <div className="section-head">
           <div className="section-eyebrow"><IconSparkle size={12} /> Product</div>
           <h2>Your career, <span className="ital">organized</span>.</h2>
-          <p className="sub">One dashboard for every resume, match, and outreach — so nothing falls through the cracks.</p>
+          <p className="sub">One dashboard for every resume, application, and outreach — so nothing falls through the cracks.</p>
         </div>
         <div className="hero-mock-wrap">
           <div className="hero-mock">
@@ -269,6 +271,13 @@ function Stats() {
 }
 
 /* ── Bento ──────────────────────────────────── */
+const TRACKER_BOARD = [
+  { status: 'applied',     jobs: ['Stripe · Product Designer', 'Linear · Design Lead'] },
+  { status: 'interview',   jobs: ['Figma · Senior Designer'] },
+  { status: 'final_round', jobs: ['Notion · Product Lead'] },
+  { status: 'offer',       jobs: ['Vercel · Staff Designer'] },
+] as const
+
 function Bento() {
   return (
     <section className="section" id="features">
@@ -318,6 +327,23 @@ function Bento() {
               </div>
             </div>
           </div>
+          <div id="feature-tracker" className="bento-card span-6">
+            <div className="ico-tile"><IconBriefcase size={20} /></div>
+            <h3>Job Tracker</h3>
+            <p>Every application on one board, from Wishlist to Offer. Add follow-up dates, salary and notes, and never lose track of a role.</p>
+            <div className="bento-vis tracker-vis" aria-hidden="true">
+              {TRACKER_BOARD.map(col => (
+                <div key={col.status} className="tcol">
+                  <div className="thead">
+                    <span className="dot" style={{ background: STATUS_META[col.status].color }} />
+                    {STATUS_META[col.status].label}
+                    <b>{col.jobs.length}</b>
+                  </div>
+                  {col.jobs.map(j => <div key={j} className="tjob">{j}</div>)}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -327,19 +353,21 @@ function Bento() {
 /* ── How It Works ───────────────────────────── */
 function HowItWorks() {
   const steps = [
-    { n: '01', title: 'Upload your resume',    body: 'Or start from a template. We parse roles, achievements, and keywords automatically.' },
-    { n: '02', title: 'Pick a target role',    body: 'Paste a job link or describe your dream role. JobEarly extracts what matters.' },
-    { n: '03', title: 'AI tailors everything', body: 'Resume, summary, and bullet impact rewritten to match the role — in seconds.' },
-    { n: '04', title: 'ATS score + fix',       body: 'See exactly which keywords are missing and accept one-click fixes.' },
-    { n: '05', title: 'Generate cover letter', body: 'Personalized to the company, the team, and your story — no more templates.' },
-    { n: '06', title: 'Outreach + apply',      body: 'Send recruiter emails, track replies, and apply with one click.' },
+    { n: '01', title: 'Upload your resume',      body: 'Or start from a template. We parse roles, achievements, and keywords automatically.' },
+    { n: '02', title: 'Pick a target role',      body: 'Paste a job link or describe your dream role. JobEarly extracts what matters.' },
+    { n: '03', title: 'AI tailors everything',   body: 'Resume, summary, and bullet impact rewritten to match the role — in seconds.' },
+    { n: '04', title: 'ATS score + fix',         body: 'See exactly which keywords are missing and accept one-click fixes.' },
+    { n: '05', title: 'Generate cover letter',   body: 'Personalized to the company, the team, and your story — no more templates.' },
+    { n: '06', title: 'Reach recruiters',        body: 'Send recruiter emails from your own Gmail and see when they reply.' },
+    { n: '07', title: 'Track every application', body: 'Log each job on one board, from Wishlist to Offer, with follow-up dates so nothing slips through.' },
+    { n: '08', title: "See what's working",      body: 'Analytics show your applications by status, portal, and company, so you know where to focus.' },
   ]
   return (
     <section className="section" id="how" style={{ background: 'var(--bg-soft)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
       <div className="container">
         <div className="section-head">
           <div className="section-eyebrow"><IconSparkle size={12} /> How it works</div>
-          <h2>From résumé to reply in <span className="ital">six steps</span>.</h2>
+          <h2>Résumé to offer in <span className="ital">eight steps</span>.</h2>
           <p className="sub">A guided workflow, not a blank page. Each step takes seconds and stacks toward an offer.</p>
         </div>
         <div className="steps">
@@ -348,7 +376,7 @@ function HowItWorks() {
               <div className="num">{s.n}</div>
               <h3>{s.title}</h3>
               <p>{s.body}</p>
-              {i < steps.length - 1 && (i + 1) % 3 !== 0 && <div className="arrow" />}
+              {i < steps.length - 1 && (i + 1) % 4 !== 0 && <div className="arrow" />}
             </div>
           ))}
         </div>
@@ -392,20 +420,21 @@ function Testimonials() {
 
 /* ── Pricing ────────────────────────────────── */
 function Pricing() {
-  const [annual, setAnnual] = useState(true)
+  const [plan, setPlan] = useState<Interval>('quarterly')
   const toggleRef = useRef<HTMLDivElement>(null)
   const [pillStyle, setPillStyle] = useState<CSSProperties>({})
 
   useLayoutEffect(() => {
     if (!toggleRef.current) return
-    const btn = toggleRef.current.querySelector<HTMLButtonElement>(`button[data-key="${annual ? 'a' : 'm'}"]`)
+    const btn = toggleRef.current.querySelector<HTMLButtonElement>(`button[data-key="${plan}"]`)
     if (btn) setPillStyle({ left: btn.offsetLeft, width: btn.offsetWidth })
-  }, [annual])
+  }, [plan])
 
-  const proPrice  = annual ? '₹99' : '₹199'
-  const proStrike = annual ? '₹199' : null
-  const freeFeatures = ['1 AI-tailored resume / month', 'Basic ATS scoring', '5 cover letter drafts', 'Unlimited job matching', 'Standard email support']
-  const proFeatures  = ['Unlimited AI-tailored resumes', 'Advanced ATS readiness audits', 'Unlimited cover letters', 'Smart Outreach with reply tracking', 'Performance analytics + insights', 'Priority human + AI support']
+  const chosen    = PLANS[plan]
+  const proPrice  = rupees(chosen.perMonth)
+  const proStrike = plan === 'monthly' ? null : rupees(PLANS.monthly.perMonth)
+  const freeFeatures = ['1 AI-tailored resume / month', 'Basic ATS scoring', 'Standard email support']
+  const proFeatures  = ['Unlimited AI-tailored resumes', 'Advanced ATS readiness audits', 'Unlimited cover letters', 'Job application tracker', 'Smart Outreach with reply tracking', 'Performance analytics + insights', 'Priority human + AI support']
 
   return (
     <section className="section" id="pricing">
@@ -418,8 +447,11 @@ function Pricing() {
         <div style={{ textAlign: 'center' }}>
           <div className="pricing-toggle" ref={toggleRef}>
             <div className="pill-bg" style={pillStyle} />
-            <button data-key="m" className={!annual ? 'active' : ''} onClick={() => setAnnual(false)}>Monthly</button>
-            <button data-key="a" className={annual ? 'active' : ''} onClick={() => setAnnual(true)}>Annual <span className="save-tag">SAVE 50%</span></button>
+            {PLAN_ORDER.map(k => (
+              <button key={k} data-key={k} className={plan === k ? 'active' : ''} onClick={() => setPlan(k)}>
+                {PLANS[k].label}{PLANS[k].save && <> <span className="save-tag">{PLANS[k].save.toUpperCase()}</span></>}
+              </button>
+            ))}
           </div>
         </div>
         <div className="pricing-grid">
@@ -436,11 +468,11 @@ function Pricing() {
             <div className="price">
               {proStrike && <span className="strike">{proStrike}</span>}
               <div className="amt">{proPrice}</div>
-              <div className="per">/ month{annual && ', billed yearly'}</div>
+              <div className="per">/ month{plan === 'monthly' ? ', billed once' : `, billed once for ${chosen.months === 12 ? '12 months' : `${chosen.months} months`} (${rupees(chosen.price)})`} · no auto-renewal</div>
             </div>
             <p className="desc">For serious job seekers. Unlimited everything, plus recruiter outreach + analytics.</p>
             <ul>{proFeatures.map(f => <li key={f}><span className="check"><IconCheck size={11} /></span>{f}</li>)}</ul>
-            <Link to="/signup" className="price-cta">Start 14-day Pro trial</Link>
+            <Link to="/signup" className="price-cta">Get Pro</Link>
           </div>
         </div>
       </div>
@@ -449,13 +481,13 @@ function Pricing() {
 }
 
 /* ── FAQ ────────────────────────────────────── */
-const FAQS = [
+export const FAQS = [
   { q: 'How does JobEarly beat ATS filters?',   a: 'We parse the actual job description, extract scoring keywords and structural requirements, and rewrite your resume to match — without keyword stuffing. Our scoring engine is benchmarked against the same parsers used by Workday, Greenhouse, Lever, and Taleo.' },
   { q: 'Will my resume sound like AI?',         a: 'No. Our models are tuned on hiring-manager-approved writing — concise, specific, quantitative. We preserve your voice and only edit for impact, clarity, and keyword alignment. You can review every change before accepting.' },
   { q: 'Do you support international roles?',   a: 'Yes. JobEarly works for English-language roles globally and includes filters for sponsorship-friendly companies, regional ATS systems, and salary band detection in 20+ markets including India, US, UK, and EU.' },
   { q: 'Is my data private?',                   a: 'Your resume, job search history, and outreach inbox are encrypted at rest and never used to train shared models. You can export or delete everything in one click. SOC 2 Type II audit completed Q1 2026.' },
-  { q: 'Can I cancel anytime?',                 a: "Yes. Pro is month-to-month or annual — cancel from your account any time, and you'll keep access until the end of the period. No questions asked." },
-  { q: "What's included in the free plan?",     a: '1 AI-tailored resume per month, basic ATS scoring, 5 cover letter drafts, and unlimited job matching. Plenty to land your next role — most free users land an interview within 3 weeks.' },
+  { q: 'Can I cancel anytime?',                 a: "Yes. Pro is a one-time payment for 1 month, 3 months or 1 year — it never renews on its own, so there's nothing to cancel and you won't be charged again unless you choose to. No questions asked." },
+  { q: "What's included in the free plan?",     a: '1 AI-tailored resume per month and basic ATS scoring, so you can see what JobEarly does for free. Cover letters, the job tracker, analytics and recruiter outreach are part of Pro.' },
 ]
 function FAQ() {
   const [open, setOpen] = useState(0)
@@ -465,7 +497,7 @@ function FAQ() {
         <div className="section-head">
           <div className="section-eyebrow"><IconSparkle size={12} /> FAQ</div>
           <h2>Questions, <span className="ital">answered</span>.</h2>
-          <p className="sub">Still curious? <a href="mailto:hello@jobearly.ai" style={{ color: 'var(--accent)', fontWeight: 600 }}>Talk to a human →</a></p>
+          <p className="sub">Still curious? <a href="mailto:jobearlyteam@gmail.com" style={{ color: 'var(--accent)', fontWeight: 600 }}>Talk to a human →</a></p>
         </div>
         <div className="faq-list">
           {FAQS.map((f, i) => (
@@ -491,7 +523,7 @@ function CtaBanner() {
         <p>Join 10,000+ candidates already using JobEarly to beat ATS filters and land interviews at the companies they actually want.</p>
         <div className="ctas">
           <Link to="/signup" className="btn btn-primary btn-lg">Start free <IconArrowRight size={16} /></Link>
-          <a href="mailto:hello@jobearly.ai?subject=Demo%20request" className="btn btn-ghost btn-lg">Book a 15-min demo</a>
+          <a href="mailto:jobearlyteam@gmail.com?subject=Demo%20request" className="btn btn-ghost btn-lg">Book a 15-min demo</a>
         </div>
       </div>
     </div>
