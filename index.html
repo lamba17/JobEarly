@@ -4,17 +4,39 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Jobearly — AI-powered job application platform. Get hired before everyone else with ATS-optimized resumes, smart cover letters, and recruiter outreach." />
-    <title>Jobearly — Get Hired Before Everyone Else</title>
+    <!-- Per-page title/description/canonical are filled in at build time (scripts/prerender.mjs) and kept in step
+         while navigating (src/components/site/RouteSeo.tsx). The values below are the home page's. -->
+    <meta name="description" content="Tailor your resume to every job, beat ATS filters, write cover letters, reach recruiters and track applications — all in one AI workspace. Start free." />
+    <title>JobEarly — AI Resume Builder, ATS Checker &amp; Job Tracker</title>
     <link rel="canonical" href="https://www.getjobearly.com/" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="JobEarly" />
+    <meta property="og:locale" content="en_IN" />
     <meta property="og:url" content="https://www.getjobearly.com/" />
-    <meta property="og:title" content="Jobearly — Get Hired Before Everyone Else" />
-    <meta property="og:description" content="AI-powered job application platform. Get hired before everyone else with ATS-optimized resumes, smart cover letters, and recruiter outreach." />
-    <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="Jobearly — Get Hired Before Everyone Else" />
-    <meta name="twitter:description" content="AI-powered job application platform. Get hired before everyone else with ATS-optimized resumes, smart cover letters, and recruiter outreach." />
+    <meta property="og:title" content="JobEarly — AI Resume Builder, ATS Checker &amp; Job Tracker" />
+    <meta property="og:description" content="Tailor your resume to every job, beat ATS filters, write cover letters, reach recruiters and track applications — all in one AI workspace. Start free." />
+    <meta property="og:image" content="https://www.getjobearly.com/brand/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="JobEarly — Get hired before everyone else" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="JobEarly — AI Resume Builder, ATS Checker &amp; Job Tracker" />
+    <meta name="twitter:description" content="Tailor your resume to every job, beat ATS filters, write cover letters, reach recruiters and track applications — all in one AI workspace. Start free." />
+    <meta name="twitter:image" content="https://www.getjobearly.com/brand/og-image.png" />
+    <script type="application/ld+json">
+      {"@context":"https://schema.org","@graph":[
+        {"@type":"Organization","name":"JobEarly","url":"https://www.getjobearly.com","logo":"https://www.getjobearly.com/brand/jobearly-icon-1024.png","sameAs":["https://www.instagram.com/jobearly.official/"]},
+        {"@type":"WebSite","name":"JobEarly","url":"https://www.getjobearly.com"}
+      ]}
+    </script>
+    <!-- Apply the saved light/dark choice before first paint, so the prerendered page doesn't flash the wrong theme. -->
+    <script>
+      try {
+        var t = localStorage.getItem('je-theme');
+        if (!t) t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />

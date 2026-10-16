@@ -8,7 +8,7 @@
     "server": "node dist-server/server.js",
     "vite:only": "vite",
     "build:server": "tsc --project tsconfig.server.json",
-    "build": "npm run build:server && tsc && vite build",
+    "build": "npm run build:server && tsc && vite build && node scripts/prerender.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

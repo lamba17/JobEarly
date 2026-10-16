@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { GmailProvider } from './context/GmailContext'
 import Landing from './pages/Landing'
+import RouteSeo from './components/site/RouteSeo'
 import SignIn from './pages/SignIn'
 import SignUp from './pages/SignUp'
 import ForgotPassword from './pages/ForgotPassword'
@@ -56,6 +57,7 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
       <GmailProvider>
+        <RouteSeo />
         <Routes>
           <Route path="/" element={<Landing theme={theme} toggleTheme={toggleTheme} />} />
           <Route path="/signin" element={<SignIn />} />

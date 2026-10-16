@@ -1,13 +1,15 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { IconRocket, IconSun, IconMoon, IconArrowRight } from '../../icons'
 
 export default function Navbar({ theme, toggleTheme }: { theme: string; toggleTheme: () => void }) {
   const [scrolled, setScrolled] = useState(false)
-  useState(() => {
+  useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 8)
+    fn()
     window.addEventListener('scroll', fn, { passive: true })
-  })
+    return () => window.removeEventListener('scroll', fn)
+  }, [])
   return (
     <nav className={`nav${scrolled ? ' scrolled' : ''}`}>
       <div className="container nav-row">

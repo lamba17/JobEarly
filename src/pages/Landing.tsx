@@ -481,7 +481,7 @@ function Pricing() {
 }
 
 /* ── FAQ ────────────────────────────────────── */
-const FAQS = [
+export const FAQS = [
   { q: 'How does JobEarly beat ATS filters?',   a: 'We parse the actual job description, extract scoring keywords and structural requirements, and rewrite your resume to match — without keyword stuffing. Our scoring engine is benchmarked against the same parsers used by Workday, Greenhouse, Lever, and Taleo.' },
   { q: 'Will my resume sound like AI?',         a: 'No. Our models are tuned on hiring-manager-approved writing — concise, specific, quantitative. We preserve your voice and only edit for impact, clarity, and keyword alignment. You can review every change before accepting.' },
   { q: 'Do you support international roles?',   a: 'Yes. JobEarly works for English-language roles globally and includes filters for sponsorship-friendly companies, regional ATS systems, and salary band detection in 20+ markets including India, US, UK, and EU.' },
