@@ -24,6 +24,15 @@ const PRICES_MINOR = {
 export function currencyForCountry(country) {
     return country && country.toUpperCase() !== 'IN' ? 'USD' : 'INR';
 }
+/**
+ * What to charge in. Dollars are available to everyone (a customer in India may choose them); rupee prices are
+ * only for India, so a request for rupees from anywhere else is billed in dollars.
+ */
+export function chooseCurrency(country, requested) {
+    if (requested === 'USD')
+        return 'USD';
+    return currencyForCountry(country);
+}
 const MONTHS = { monthly: 1, quarterly: 3, annual: 12 };
 function parseInterval(value) {
     return value === 'monthly' || value === 'quarterly' || value === 'annual' ? value : undefined;
@@ -241,9 +250,12 @@ async function assertCurrencySupported(currency) {
     if (!error)
         await db.from('purchases').delete().eq('razorpay_payment_id', probeId); // cannot happen (FK), but never leave a row
 }
-export async function createOrder(authHeader, requested, country) {
+export async function createOrder(authHeader, requested, country, requestedCurrency) {
     const interval = parseInterval(requested) ?? 'monthly';
-    const currency = currencyForCountry(country);
+    // The yearly plan is no longer sold. (Old yearly passes and in-flight yearly payments are still honoured elsewhere.)
+    if (interval === 'annual')
+        throw new BillingError(410, 'The yearly plan is no longer available. Please choose Monthly or Quarterly.');
+    const currency = chooseCurrency(country, requestedCurrency);
     const user = await authenticate(authHeader);
     if (interval === 'quarterly')
         await assertPlanSupported(interval);

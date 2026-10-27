@@ -24,7 +24,9 @@ export const PLANS: Record<Interval, PlanInfo> = {
   annual:    { label: 'Annual',    pass: 'one-year',    months: 12, period: 'year' },
 }
 
-export const PLAN_ORDER: Interval[] = ['monthly', 'quarterly', 'annual']
+// Plans offered for sale. 'annual' stays in the table above so existing yearly passes still display and work,
+// but it is no longer offered to new customers (the server refuses new yearly orders too).
+export const PLAN_ORDER: Interval[] = ['monthly', 'quarterly']
 
 export const priceOf = (plan: Interval, currency: Currency) => PRICES[currency][plan]
 

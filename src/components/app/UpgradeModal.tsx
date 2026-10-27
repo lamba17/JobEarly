@@ -4,6 +4,7 @@ import { useSubscription } from '../../hooks/useSubscription'
 import { startCheckout } from '../../lib/billing'
 import { IconCheck, IconSparkle } from '../../icons'
 import { useCurrency } from '../../hooks/useCurrency'
+import CurrencyToggle from '../site/CurrencyToggle'
 import { PLANS, PLAN_ORDER, money, priceOf, perMonthOf, savePct, monthsLabel, type Interval } from '../../lib/plans'
 
 const PRO_FEATURES = [
@@ -24,7 +25,7 @@ export default function UpgradeModal({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
   const [extended, setExtended] = useState(false)
-  const currency = useCurrency()
+  const { currency, setCurrency, canSwitch } = useCurrency()
   const chosen = PLANS[plan]
   const price = priceOf(plan, currency)
   const save = savePct(plan, currency)
@@ -34,7 +35,7 @@ export default function UpgradeModal({ onClose }: { onClose: () => void }) {
     setError(null)
     setBusy(true)
     try {
-      const result = await startCheckout(plan, { name: user.name, email: user.email })
+      const result = await startCheckout(plan, currency, { name: user.name, email: user.email })
       if (result === 'paid') { setExtended(isPro); setDone(true) }
     } catch (e: any) {
       setError(e.message || 'Something went wrong. Please try again.')
@@ -96,6 +97,7 @@ export default function UpgradeModal({ onClose }: { onClose: () => void }) {
               </button>
             ))}
           </div>
+          {canSwitch && <div style={{ marginTop: 10 }}><CurrencyToggle currency={currency} onChange={setCurrency} /></div>}
         </div>
 
         {isPro && subscription && (

@@ -33,7 +33,7 @@ export function Terms({ theme, toggleTheme }: PageProps) {
       <p>By creating an account you agree to use JobEarly for lawful job-search purposes only. You're responsible for the accuracy of the resume and application content you submit — JobEarly tailors and scores what you give it, but doesn't fabricate work history or credentials on your behalf.</p>
 
       <h2>Plans and billing</h2>
-      <p>What the Free plan and Pro include is described on the <a href="/#pricing">Pricing</a> page. Pro is sold as a one-month pass (₹199 / $9), a three-month pass (₹449 / $24) or a one-year pass (₹1,188 / $79). Customers in India pay in Indian rupees; customers elsewhere pay in US dollars. Each is a single payment that does not renew automatically, so you will not be charged again unless you choose to buy again. You keep Pro access through the end of the period you paid for. See our <a href="/refund">Refund &amp; Cancellation Policy</a> for details.</p>
+      <p>What the Free plan and Pro include is described on the <a href="/#pricing">Pricing</a> page. Pro is sold as a one-month pass (₹199 / $9) or a three-month pass (₹449 / $24). Customers in India pay in Indian rupees; customers elsewhere pay in US dollars. Each is a single payment that does not renew automatically, so you will not be charged again unless you choose to buy again. You keep Pro access through the end of the period you paid for. See our <a href="/refund">Refund &amp; Cancellation Policy</a> for details.</p>
 
       <h2>Acceptable use</h2>
       <ul>
@@ -143,7 +143,7 @@ export function Refund({ theme, toggleTheme }: PageProps) {
       <p>Approved refunds are issued to the original payment method (UPI, card, or netbanking) through our payment partner, Razorpay. They typically reach your account within 5–7 business days, depending on your bank.</p>
 
       <h2>Pricing and payments</h2>
-      <p>In India, Pro costs ₹199 for one month, ₹449 for three months or ₹1,188 for one year. Elsewhere it costs $9, $24 or $79 respectively (US dollars), each as a single payment with no automatic renewal. Payments are processed securely by Razorpay; JobEarly never sees or stores your card or UPI details.</p>
+      <p>In India, Pro costs ₹199 for one month or ₹449 for three months. Elsewhere it costs $9 or $24 respectively (US dollars), each as a single payment with no automatic renewal. Payments are processed securely by Razorpay; JobEarly never sees or stores your card or UPI details.</p>
 
       <h2>Contact</h2>
       <p>To request a refund or ask about a charge, email <a href="mailto:jobearlyteam@gmail.com">jobearlyteam@gmail.com</a> from your account email and include the date of the payment.</p>

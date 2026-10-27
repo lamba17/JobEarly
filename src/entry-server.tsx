@@ -60,10 +60,8 @@ export function homeJsonLd() {
         offer('Free', '0'),
         offer('Pro — 1 month', '199'),
         offer('Pro — 3 months', '449'),
-        offer('Pro — 1 year', '1188'),
         offer('Pro — 1 month (USD)', '9', 'USD'),
         offer('Pro — 3 months (USD)', '24', 'USD'),
-        offer('Pro — 1 year (USD)', '79', 'USD'),
       ],
     },
     {

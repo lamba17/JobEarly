@@ -5,6 +5,7 @@ import Footer from '../components/site/Footer'
 import { TESTIMONIALS } from '../data/testimonials'
 import { STATUS_META } from '../lib/jobTracker'
 import { useCurrency } from '../hooks/useCurrency'
+import CurrencyToggle from '../components/site/CurrencyToggle'
 import { PLANS, PLAN_ORDER, money, priceOf, perMonthOf, savePct, type Interval } from '../lib/plans'
 import {
   IconSparkle, IconDoc, IconSend, IconMail, IconChart,
@@ -431,7 +432,7 @@ function Pricing() {
     if (btn) setPillStyle({ left: btn.offsetLeft, width: btn.offsetWidth })
   }, [plan])
 
-  const currency  = useCurrency()
+  const { currency, setCurrency, canSwitch } = useCurrency()
   const chosen    = PLANS[plan]
   const proPrice  = money(perMonthOf(plan, currency), currency)
   const proStrike = plan === 'monthly' ? null : money(perMonthOf('monthly', currency), currency)
@@ -455,6 +456,7 @@ function Pricing() {
               </button>
             ))}
           </div>
+          {canSwitch && <div style={{ marginTop: 14 }}><CurrencyToggle currency={currency} onChange={setCurrency} /></div>}
         </div>
         <div className="pricing-grid">
           <div className="price-card free">
@@ -488,7 +490,7 @@ export const FAQS = [
   { q: 'Will my resume sound like AI?',         a: 'No. Our models are tuned on hiring-manager-approved writing — concise, specific, quantitative. We preserve your voice and only edit for impact, clarity, and keyword alignment. You can review every change before accepting.' },
   { q: 'Do you support international roles?',   a: 'Yes. JobEarly works for English-language roles globally and includes filters for sponsorship-friendly companies, regional ATS systems, and salary band detection in 20+ markets including India, US, UK, and EU.' },
   { q: 'Is my data private?',                   a: 'Your resume, job search history, and outreach inbox are encrypted at rest and never used to train shared models. You can export or delete everything in one click. SOC 2 Type II audit completed Q1 2026.' },
-  { q: 'Can I cancel anytime?',                 a: "Yes. Pro is a one-time payment for 1 month, 3 months or 1 year — it never renews on its own, so there's nothing to cancel and you won't be charged again unless you choose to. No questions asked." },
+  { q: 'Can I cancel anytime?',                 a: "Yes. Pro is a one-time payment for 1 month or 3 months — it never renews on its own, so there's nothing to cancel and you won't be charged again unless you choose to. No questions asked." },
   { q: "What's included in the free plan?",     a: '1 AI-tailored resume per month and basic ATS scoring, so you can see what JobEarly does for free. Cover letters, the job tracker, analytics and recruiter outreach are part of Pro.' },
 ]
 function FAQ() {

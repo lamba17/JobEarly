@@ -1,7 +1,7 @@
 import { supabase } from './supabaseClient'
 import { PLANS } from './plans'
 
-import type { Interval } from './plans'
+import type { Currency, Interval } from './plans'
 export type { Interval }
 
 export const SUBSCRIPTION_CHANGED = 'subscription-changed'
@@ -37,8 +37,8 @@ export function notifySubscriptionChanged() {
 }
 
 /** Opens Razorpay Checkout for a one-time Pro pass. Resolves 'paid' or 'dismissed'; rejects with a readable message on failure. */
-export async function startCheckout(interval: Interval, user: { name: string; email: string }): Promise<'paid' | 'dismissed'> {
-  const created = await authedPost<{ orderId: string; keyId: string; email: string }>('/api/create-order', { interval })
+export async function startCheckout(interval: Interval, currency: Currency, user: { name: string; email: string }): Promise<'paid' | 'dismissed'> {
+  const created = await authedPost<{ orderId: string; keyId: string; email: string }>('/api/create-order', { interval, currency })
   await loadCheckoutScript()
 
   return new Promise((resolve, reject) => {

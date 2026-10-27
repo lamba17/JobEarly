@@ -259,7 +259,7 @@ const billing = (run: (req: Request) => Promise<unknown>) => async (req: Request
 }
 
 app.post('/api/create-order', billing(req =>
-  createOrder(req.headers.authorization, req.body?.interval, req.headers['x-vercel-ip-country'] as string | undefined)))
+  createOrder(req.headers.authorization, req.body?.interval, req.headers['x-vercel-ip-country'] as string | undefined, req.body?.currency)))
 app.get('/api/pricing', (req, res) => {
   const country = (req.headers['x-vercel-ip-country'] as string | undefined) ?? null
   res.json({ country, currency: currencyForCountry(country) })
