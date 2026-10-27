@@ -3,7 +3,8 @@ import { useAuth } from '../../context/AuthContext'
 import { useSubscription } from '../../hooks/useSubscription'
 import { startCheckout } from '../../lib/billing'
 import { IconCheck, IconSparkle } from '../../icons'
-import { PLANS, PLAN_ORDER, rupees, type Interval } from '../../lib/plans'
+import { useCurrency } from '../../hooks/useCurrency'
+import { PLANS, PLAN_ORDER, money, priceOf, perMonthOf, savePct, monthsLabel, type Interval } from '../../lib/plans'
 
 const PRO_FEATURES = [
   'Unlimited AI-tailored resumes',
@@ -23,7 +24,10 @@ export default function UpgradeModal({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
   const [extended, setExtended] = useState(false)
+  const currency = useCurrency()
   const chosen = PLANS[plan]
+  const price = priceOf(plan, currency)
+  const save = savePct(plan, currency)
 
   const handleUpgrade = async () => {
     if (!user) return
@@ -65,16 +69,16 @@ export default function UpgradeModal({ onClose }: { onClose: () => void }) {
         {/* Price toggle */}
         <div style={{ padding: '18px 24px 0' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 8, marginBottom: 4 }}>
-            <span style={{ fontSize: 34, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.02em' }}>{rupees(chosen.perMonth)}</span>
+            <span style={{ fontSize: 34, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.02em' }}>{money(perMonthOf(plan, currency), currency)}</span>
             <span style={{ fontSize: 13, color: 'var(--text-mute)' }}>/ month{plan === 'monthly' ? '' : `, billed once for ${chosen.months === 12 ? '12 months' : `${chosen.months} months`}`}</span>
-            {chosen.save && (
+            {save !== null && (
               <span style={{ fontSize: 11, fontWeight: 700, color: '#16A34A', background: 'rgba(22,163,74,0.12)', borderRadius: 10, padding: '2px 8px' }}>
-                {plan === 'quarterly' ? '★ Most popular · ' : ''}{chosen.save}
+                {plan === 'quarterly' ? '★ Most popular · ' : ''}Save {save}%
               </span>
             )}
           </div>
           <div style={{ fontSize: 12.5, color: 'var(--text-mute)', margin: '2px 0 10px' }}>
-            One payment of {rupees(chosen.price)} covers {chosen.months === 1 ? '1 month' : `${chosen.months} months`}. No auto-renewal — you're never charged again unless you choose to.
+            One payment of {money(price, currency)} covers {monthsLabel(chosen.months)}. No auto-renewal — you're never charged again unless you choose to.
           </div>
           <div style={{ display: 'inline-flex', border: '1px solid var(--border)', borderRadius: 20, padding: 3, gap: 2 }}>
             {PLAN_ORDER.map(k => (
@@ -131,11 +135,11 @@ export default function UpgradeModal({ onClose }: { onClose: () => void }) {
                 className="btn btn-primary"
                 style={{ width: '100%', justifyContent: 'center', padding: '11px 0', fontSize: 14, opacity: busy ? 0.7 : 1 }}
               >
-                {busy ? 'Opening secure checkout…' : `${isPro ? 'Extend' : 'Upgrade'} — ${rupees(chosen.price)} / ${chosen.period}`}
+                {busy ? 'Opening secure checkout…' : `${isPro ? 'Extend' : 'Upgrade'} — ${money(price, currency)} / ${chosen.period}`}
               </button>
               {error && <div style={{ color: '#DC2626', fontSize: 12.5, marginTop: 10, lineHeight: 1.5 }}>{error}</div>}
               <div style={{ fontSize: 11.5, color: 'var(--text-mute)', marginTop: 10, textAlign: 'center', lineHeight: 1.5 }}>
-                Secure payment by Razorpay (UPI, cards, netbanking). One payment, no auto-renewal.
+                {currency === 'USD' ? 'Secure payment by Razorpay (Visa, Mastercard, Amex). One payment, no auto-renewal.' : 'Secure payment by Razorpay (UPI, cards, netbanking). One payment, no auto-renewal.'}
               </div>
               <button onClick={onClose} style={{ width: '100%', marginTop: 8, padding: '10px 0', background: 'none', border: 'none', color: 'var(--text-mute)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
                 Maybe later

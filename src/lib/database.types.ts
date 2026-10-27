@@ -172,6 +172,7 @@ export type Database = {
         Row: {
           amount_paise: number
           created_at: string
+          currency: string
           id: string
           paid_at: string
           payment_method: string | null
@@ -186,6 +187,7 @@ export type Database = {
         Insert: {
           amount_paise: number
           created_at?: string
+          currency?: string
           id?: string
           paid_at?: string
           payment_method?: string | null
@@ -200,6 +202,7 @@ export type Database = {
         Update: {
           amount_paise?: number
           created_at?: string
+          currency?: string
           id?: string
           paid_at?: string
           payment_method?: string | null

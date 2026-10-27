@@ -46,7 +46,7 @@ export function render(path: string): string {
 
 /** Structured data for the home page: what the product is, what it costs, and the FAQ. */
 export function homeJsonLd() {
-  const offer = (name: string, price: string) => ({ '@type': 'Offer', name, price, priceCurrency: 'INR', availability: 'https://schema.org/InStock' })
+  const offer = (name: string, price: string, priceCurrency = 'INR') => ({ '@type': 'Offer', name, price, priceCurrency, availability: 'https://schema.org/InStock' })
   return [
     {
       '@context': 'https://schema.org',
@@ -61,6 +61,9 @@ export function homeJsonLd() {
         offer('Pro — 1 month', '199'),
         offer('Pro — 3 months', '449'),
         offer('Pro — 1 year', '1188'),
+        offer('Pro — 1 month (USD)', '9', 'USD'),
+        offer('Pro — 3 months (USD)', '24', 'USD'),
+        offer('Pro — 1 year (USD)', '79', 'USD'),
       ],
     },
     {

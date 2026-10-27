@@ -18,9 +18,19 @@ export class BillingError extends Error {
 }
 
 export type Interval = 'monthly' | 'quarterly' | 'annual'
+export type Currency = 'INR' | 'USD'
 
-// Prices live on the server so a browser can never choose its own amount (paise).
-const PRICES_PAISE: Record<Interval, number> = { monthly: 19900, quarterly: 44900, annual: 118800 }
+// Prices live on the server so a browser can never choose its own amount. Smallest currency unit
+// (paise / cents). Keep in step with PRICES in src/lib/plans.ts, which is what customers see.
+const PRICES_MINOR: Record<Currency, Record<Interval, number>> = {
+  INR: { monthly: 19900, quarterly: 44900, annual: 118800 },
+  USD: { monthly: 900,   quarterly: 2400,  annual: 7900 },
+}
+
+/** India pays in rupees, everywhere else in dollars. Unknown country (e.g. local dev) -> rupees. */
+export function currencyForCountry(country?: string | null): Currency {
+  return country && country.toUpperCase() !== 'IN' ? 'USD' : 'INR'
+}
 const MONTHS: Record<Interval, number> = { monthly: 1, quarterly: 3, annual: 12 }
 
 function parseInterval(value: unknown): Interval | undefined {
@@ -103,13 +113,14 @@ export function addPeriod(from: Date, interval: Interval): Date {
 async function sendPaymentEmails(args: {
   userId: string
   interval: Interval
+  currency: Currency
   payment: any
   orderId: string
   paidAt: Date
   periodEnd: Date
   isRenewal: boolean
 }) {
-  const { userId, interval, payment, orderId, paidAt, periodEnd, isRenewal } = args
+  const { userId, interval, currency, payment, orderId, paidAt, periodEnd, isRenewal } = args
   try {
     const db = admin()
     const { data: userRes } = await db.auth.admin.getUserById(userId)
@@ -122,7 +133,8 @@ async function sendPaymentEmails(args: {
     const receipt = {
       firstName: name.split(' ')[0] || 'there',
       interval,
-      amountRupees: payment.amount / 100,
+      amount: payment.amount / 100,
+      currency,
       method: payment.method as string | undefined,
       paymentId: payment.id as string,
       orderId,
@@ -155,13 +167,15 @@ async function fulfilPayment(paymentId: string, expectedUserId?: string) {
   const interval = parseInterval(order.notes?.interval)
   if (!userId || !interval) throw new BillingError(400, 'Unrecognised order.')
   if (expectedUserId && userId !== expectedUserId) throw new BillingError(403, 'This payment belongs to a different account.')
-  if (order.amount !== PRICES_PAISE[interval] || payment.amount !== order.amount) {
+  const currency: Currency | undefined = order.currency === 'INR' || order.currency === 'USD' ? order.currency : undefined
+  if (!currency) throw new BillingError(400, 'Unsupported currency.')
+  if (order.amount !== PRICES_MINOR[currency][interval] || payment.amount !== order.amount || payment.currency !== order.currency) {
     throw new BillingError(400, 'Payment amount does not match the plan price.')
   }
 
   let status: string = payment.status
   if (status === 'authorized') {
-    await rzp(`/payments/${paymentId}/capture`, { method: 'POST', body: { amount: payment.amount, currency: 'INR' } })
+    await rzp(`/payments/${paymentId}/capture`, { method: 'POST', body: { amount: payment.amount, currency: payment.currency } })
     status = 'captured'
   }
   if (status !== 'captured') throw new BillingError(402, 'Payment has not been completed.')
@@ -186,6 +200,8 @@ async function fulfilPayment(paymentId: string, expectedUserId?: string) {
         razorpay_payment_id: payment.id,
         plan_interval: interval,
         amount_paise: payment.amount,
+        // Only written for non-rupee payments, so rupee purchases keep working before migration 0007 is applied.
+        ...(currency !== 'INR' ? { currency } : {}),
         payment_method: payment.method ?? null,
         paid_at: paidAt.toISOString(),
         period_end: periodEnd.toISOString(),
@@ -201,7 +217,7 @@ async function fulfilPayment(paymentId: string, expectedUserId?: string) {
   const isNew = (inserted?.length ?? 0) > 0
   if (isNew) {
     // Emails go out before we respond: serverless functions may be frozen once the response is sent.
-    await sendPaymentEmails({ userId, interval, payment, orderId: payment.order_id, paidAt, periodEnd, isRenewal: !!latest })
+    await sendPaymentEmails({ userId, interval, currency, payment, orderId: payment.order_id, paidAt, periodEnd, isRenewal: !!latest })
   }
   return { periodEnd: periodEnd.toISOString(), interval, alreadyRecorded: !isNew }
 }
@@ -228,21 +244,47 @@ async function assertPlanSupported(interval: Interval) {
   if (!error) await db.from('purchases').delete().eq('razorpay_payment_id', probeId) // cannot happen (FK), but never leave a row
 }
 
-export async function createOrder(authHeader: string | undefined, requested: unknown) {
+/**
+ * Same idea as assertPlanSupported, for the currency column (migration 0007): never take a dollar payment
+ * we could not record. A foreign-key violation means the column exists; a missing-column error means it
+ * does not. Nothing is ever stored.
+ */
+async function assertCurrencySupported(currency: Currency) {
+  if (currency === 'INR') return
+  const db = admin()
+  const probeId = `probe_${Date.now()}`
+  const { error } = await db.from('purchases').insert({
+    user_id: '00000000-0000-0000-0000-000000000000',
+    razorpay_order_id: 'probe',
+    razorpay_payment_id: probeId,
+    plan_interval: 'monthly',
+    amount_paise: 0,
+    currency,
+    period_end: new Date().toISOString(),
+  })
+  if (error && (error.code === '42703' || error.code === 'PGRST204' || /currency/i.test(error.message))) {
+    throw new BillingError(503, 'International payments are not available yet.')
+  }
+  if (!error) await db.from('purchases').delete().eq('razorpay_payment_id', probeId) // cannot happen (FK), but never leave a row
+}
+
+export async function createOrder(authHeader: string | undefined, requested: unknown, country?: string | null) {
   const interval: Interval = parseInterval(requested) ?? 'monthly'
+  const currency = currencyForCountry(country)
   const user = await authenticate(authHeader)
   if (interval === 'quarterly') await assertPlanSupported(interval)
+  await assertCurrencySupported(currency)
 
   const order = await rzp('/orders', {
     method: 'POST',
     body: {
-      amount: PRICES_PAISE[interval],
-      currency: 'INR',
+      amount: PRICES_MINOR[currency][interval],
+      currency,
       receipt: `je_${user.id.slice(0, 8)}_${Date.now()}`,
-      notes: { user_id: user.id, interval },
+      notes: { user_id: user.id, interval, currency },
     },
   })
-  return { orderId: order.id as string, keyId: rzpCredentials().id, email: user.email }
+  return { orderId: order.id as string, keyId: rzpCredentials().id, email: user.email, currency, amount: order.amount as number }
 }
 
 export async function verifyPayment(
@@ -294,7 +336,7 @@ export async function cancelAndRefund(authHeader: string | undefined) {
 
   const { data: rows, error } = await db
     .from('purchases')
-    .select('id, razorpay_payment_id, amount_paise, plan_interval, paid_at, refunded_at')
+    .select('*')
     .eq('user_id', user.id)
     .order('paid_at', { ascending: true })
   if (error) throw new BillingError(500, `Database error: ${error.message}`)
@@ -305,6 +347,7 @@ export async function cancelAndRefund(authHeader: string | undefined) {
     throw new BillingError(400, 'Cancel & refund is only available for your first payment. Your pass will simply end on its date.')
   }
   const first = purchases[0]
+  const currency: Currency = first.currency === 'USD' ? 'USD' : 'INR'
   if (Date.now() - new Date(first.paid_at).getTime() > REFUND_WINDOW_MS) {
     throw new BillingError(400, 'The 7-day refund window has passed. Your pass will simply end on its date and will not renew.')
   }
@@ -333,7 +376,7 @@ export async function cancelAndRefund(authHeader: string | undefined) {
     if (authUser?.email) {
       const { data: profile } = await db.from('profiles').select('name').eq('id', user.id).maybeSingle()
       const name: string = profile?.name || (authUser.user_metadata?.name as string) || ''
-      const data = { firstName: name.split(' ')[0] || 'there', amountRupees: first.amount_paise / 100, paymentId: first.razorpay_payment_id as string }
+      const data = { firstName: name.split(' ')[0] || 'there', amount: first.amount_paise / 100, currency, paymentId: first.razorpay_payment_id as string }
       await sendBrandedMail(authUser.email, refundEmail(data))
       if (process.env.GMAIL_USER) {
         await sendBrandedMail(process.env.GMAIL_USER, ownerRefundNoticeEmail({ ...data, customerName: name, customerEmail: authUser.email }))
@@ -344,5 +387,5 @@ export async function cancelAndRefund(authHeader: string | undefined) {
     console.error('Refund email failed:', e)
   }
 
-  return { refunded: true, amountRupees: first.amount_paise / 100 }
+  return { refunded: true, amount: first.amount_paise / 100, currency }
 }

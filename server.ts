@@ -4,7 +4,7 @@ import 'dotenv/config'
 import { mailerConfigured } from './api/_lib/mailer.js'
 import { sendSignupEmails } from './api/_lib/signup.js'
 import { EXAMPLE_RULES, sanitizeExample } from './api/_lib/suggestions.js'
-import { BillingError, createOrder, verifyPayment, cancelAndRefund, handleWebhook } from './api/_lib/billing.js'
+import { BillingError, createOrder, verifyPayment, cancelAndRefund, handleWebhook, currencyForCountry } from './api/_lib/billing.js'
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -259,7 +259,11 @@ const billing = (run: (req: Request) => Promise<unknown>) => async (req: Request
 }
 
 app.post('/api/create-order', billing(req =>
-  createOrder(req.headers.authorization, req.body?.interval)))
+  createOrder(req.headers.authorization, req.body?.interval, req.headers['x-vercel-ip-country'] as string | undefined)))
+app.get('/api/pricing', (req, res) => {
+  const country = (req.headers['x-vercel-ip-country'] as string | undefined) ?? null
+  res.json({ country, currency: currencyForCountry(country) })
+})
 app.post('/api/verify-payment', billing(req => verifyPayment(req.headers.authorization, req.body ?? {})))
 app.post('/api/cancel-and-refund', billing(req => cancelAndRefund(req.headers.authorization)))
 app.post('/api/razorpay-webhook', billing(req =>

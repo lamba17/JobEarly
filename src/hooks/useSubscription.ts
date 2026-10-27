@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { SUBSCRIPTION_CHANGED } from '../lib/billing'
-import type { Interval } from '../lib/plans'
+import type { Currency, Interval } from '../lib/plans'
 
 const REFUND_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
 
-/** The user's current one-time Pro pass (a 1-month or 1-year purchase). */
+/** The user's current one-time Pro pass (a 1-month, 3-month or 1-year purchase). */
 export interface ProAccess {
   plan_interval: Interval
   current_period_end: string
+  /** What the latest purchase cost, in whole currency units (0 for a complimentary pass). */
+  amount: number
+  currency: Currency
   /** Set while the customer can still cancel for a full refund (first payment, within 7 days). */
   refundableUntil: string | null
 }
@@ -18,7 +21,16 @@ export function hasProAccess(access: ProAccess | null): boolean {
   return !!access && new Date(access.current_period_end).getTime() > Date.now()
 }
 
-interface Row { plan_interval: string; period_end: string; paid_at: string; refunded_at?: string | null }
+// select('*') on purpose: columns added by later migrations (refunded_at, currency) may not exist yet,
+// and asking for a missing column would otherwise make Pro disappear.
+interface Row {
+  plan_interval: string
+  period_end: string
+  paid_at: string
+  amount_paise: number
+  refunded_at?: string | null
+  currency?: string | null
+}
 
 export function useSubscription(userId: string | undefined) {
   const [subscription, setSubscription] = useState<ProAccess | null>(null)
@@ -27,11 +39,7 @@ export function useSubscription(userId: string | undefined) {
   const refresh = useCallback(async () => {
     if (!userId) { setSubscription(null); setLoading(false); return }
 
-    const query = (columns: string) => supabase.from('purchases').select(columns).eq('user_id', userId).order('paid_at', { ascending: true })
-    let { data, error } = await query('plan_interval, period_end, paid_at, refunded_at')
-    // Until the refund migration is applied the column doesn't exist: fall back so Pro never disappears.
-    if (error) ({ data } = await query('plan_interval, period_end, paid_at'))
-
+    const { data } = await supabase.from('purchases').select('*').eq('user_id', userId).order('paid_at', { ascending: true })
     const rows = ((data ?? []) as unknown) as Row[]
     const active = rows.filter(r => !r.refunded_at)
     if (!active.length) { setSubscription(null); setLoading(false); return }
@@ -42,8 +50,10 @@ export function useSubscription(userId: string | undefined) {
     const refundable = rows.length === 1 && !first.refunded_at && windowEnd > Date.now()
 
     setSubscription({
-      plan_interval: latest.plan_interval as ProAccess['plan_interval'],
+      plan_interval: latest.plan_interval as Interval,
       current_period_end: latest.period_end,
+      amount: (latest.amount_paise ?? 0) / 100,
+      currency: latest.currency === 'USD' ? 'USD' : 'INR',
       refundableUntil: refundable ? new Date(windowEnd).toISOString() : null,
     })
     setLoading(false)

@@ -4,7 +4,8 @@ import Navbar from '../components/site/Navbar'
 import Footer from '../components/site/Footer'
 import { TESTIMONIALS } from '../data/testimonials'
 import { STATUS_META } from '../lib/jobTracker'
-import { PLANS, PLAN_ORDER, rupees, type Interval } from '../lib/plans'
+import { useCurrency } from '../hooks/useCurrency'
+import { PLANS, PLAN_ORDER, money, priceOf, perMonthOf, savePct, type Interval } from '../lib/plans'
 import {
   IconSparkle, IconDoc, IconSend, IconMail, IconChart,
   IconArrowRight, IconCheck, IconPlus, IconShield,
@@ -430,9 +431,10 @@ function Pricing() {
     if (btn) setPillStyle({ left: btn.offsetLeft, width: btn.offsetWidth })
   }, [plan])
 
+  const currency  = useCurrency()
   const chosen    = PLANS[plan]
-  const proPrice  = rupees(chosen.perMonth)
-  const proStrike = plan === 'monthly' ? null : rupees(PLANS.monthly.perMonth)
+  const proPrice  = money(perMonthOf(plan, currency), currency)
+  const proStrike = plan === 'monthly' ? null : money(perMonthOf('monthly', currency), currency)
   const freeFeatures = ['1 AI-tailored resume / month', 'Basic ATS scoring', 'Standard email support']
   const proFeatures  = ['Unlimited AI-tailored resumes', 'Advanced ATS readiness audits', 'Unlimited cover letters', 'Job application tracker', 'Smart Outreach with reply tracking', 'Performance analytics + insights', 'Priority human + AI support']
 
@@ -449,7 +451,7 @@ function Pricing() {
             <div className="pill-bg" style={pillStyle} />
             {PLAN_ORDER.map(k => (
               <button key={k} data-key={k} className={plan === k ? 'active' : ''} onClick={() => setPlan(k)}>
-                {PLANS[k].label}{PLANS[k].save && <> <span className="save-tag">{PLANS[k].save.toUpperCase()}</span></>}
+                {PLANS[k].label}{savePct(k, currency) !== null && <> <span className="save-tag">SAVE {savePct(k, currency)}%</span></>}
               </button>
             ))}
           </div>
@@ -457,7 +459,7 @@ function Pricing() {
         <div className="pricing-grid">
           <div className="price-card free">
             <div className="tier">Free</div>
-            <div className="price"><div className="amt">₹0</div><div className="per">/ forever</div></div>
+            <div className="price"><div className="amt">{money(0, currency)}</div><div className="per">/ forever</div></div>
             <p className="desc">For candidates testing the waters. Generous limits, no card required.</p>
             <ul>{freeFeatures.map(f => <li key={f}><span className="check"><IconCheck size={11} /></span>{f}</li>)}</ul>
             <Link to="/signup" className="price-cta">Get started free</Link>
@@ -468,7 +470,7 @@ function Pricing() {
             <div className="price">
               {proStrike && <span className="strike">{proStrike}</span>}
               <div className="amt">{proPrice}</div>
-              <div className="per">/ month{plan === 'monthly' ? ', billed once' : `, billed once for ${chosen.months === 12 ? '12 months' : `${chosen.months} months`} (${rupees(chosen.price)})`} · no auto-renewal</div>
+              <div className="per">/ month{plan === 'monthly' ? ', billed once' : `, billed once for ${chosen.months === 12 ? '12 months' : `${chosen.months} months`} (${money(priceOf(plan, currency), currency)})`} · no auto-renewal</div>
             </div>
             <p className="desc">For serious job seekers. Unlimited everything, plus recruiter outreach + analytics.</p>
             <ul>{proFeatures.map(f => <li key={f}><span className="check"><IconCheck size={11} /></span>{f}</li>)}</ul>

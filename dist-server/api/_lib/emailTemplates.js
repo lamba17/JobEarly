@@ -11,8 +11,10 @@ const FONT = "'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, 
 function esc(s) {
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
-export function formatRupees(amount) {
-    return `₹${amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+export function formatMoney(amount, currency) {
+    if (currency === 'INR')
+        return `₹${amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+    return `$${amount.toLocaleString('en-US', { minimumFractionDigits: Number.isInteger(amount) ? 0 : 2, maximumFractionDigits: 2 })}`;
 }
 export function formatDate(d) {
     return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' });
@@ -110,9 +112,9 @@ export function welcomeEmail(opts) {
 }
 // ── Payment receipt (to the customer) ──────────────────────────────────────
 const PLAN_INFO = {
-    monthly: { label: 'JobEarly Pro — 1 month', pass: 'one-month', price: '₹199' },
-    quarterly: { label: 'JobEarly Pro — 3 months', pass: 'three-month', price: '₹449' },
-    annual: { label: 'JobEarly Pro — 1 year', pass: 'one-year', price: '₹1,188' },
+    monthly: { label: 'JobEarly Pro — 1 month', pass: 'one-month' },
+    quarterly: { label: 'JobEarly Pro — 3 months', pass: 'three-month' },
+    annual: { label: 'JobEarly Pro — 1 year', pass: 'one-year' },
 };
 const PRO_FEATURES = [
     'Unlimited AI-tailored resumes',
@@ -132,7 +134,7 @@ function detailRow(label, value, strong = false) {
 export function receiptEmail(d) {
     const first = esc(d.firstName);
     const planLabel = PLAN_INFO[d.interval].label;
-    const amount = formatRupees(d.amountRupees);
+    const amount = formatMoney(d.amount, d.currency);
     const method = d.method ? METHOD_LABELS[d.method] ?? d.method : null;
     const renews = formatDate(d.periodEnd);
     const heading = d.isRenewal ? 'Your JobEarly Pro has been extended ✅' : "You're on JobEarly Pro! 🚀";
@@ -199,14 +201,14 @@ export function receiptEmail(d) {
 }
 // ── New-subscriber notice (to the JobEarly team) ───────────────────────────
 export function ownerNoticeEmail(d) {
-    const amount = formatRupees(d.amountRupees);
+    const amount = formatMoney(d.amount, d.currency);
     const body = `
     <h1 style="margin:0 0 6px;font-family:${FONT};font-size:24px;font-weight:800;color:${INK};">${d.isRenewal ? '🔁 Pro extended' : '💰 New Pro subscriber'}</h1>
     <p style="margin:0 0 18px;font-family:${FONT};font-size:15px;color:${MUTE};">${esc(d.customerName || 'A customer')} just paid <strong style="color:${INK};">${amount}</strong>.</p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
       ${detailRow('Name', esc(d.customerName || '—'))}
       ${detailRow('Email', esc(d.customerEmail))}
-      ${detailRow('Plan', `${PLAN_INFO[d.interval].pass[0].toUpperCase()}${PLAN_INFO[d.interval].pass.slice(1)} pass (${PLAN_INFO[d.interval].price})`)}
+      ${detailRow('Plan', `${PLAN_INFO[d.interval].pass[0].toUpperCase()}${PLAN_INFO[d.interval].pass.slice(1)} pass (${amount})`)}
       ${detailRow('Amount', amount, true)}
       ${d.method ? detailRow('Method', esc(METHOD_LABELS[d.method] ?? d.method)) : ''}
       ${detailRow('Payment ID', esc(d.paymentId))}
@@ -222,7 +224,7 @@ export function ownerNoticeEmail(d) {
 // ── Refund confirmation (to the customer) ──────────────────────────────────
 export function refundEmail(d) {
     const first = esc(d.firstName);
-    const amount = formatRupees(d.amountRupees);
+    const amount = formatMoney(d.amount, d.currency);
     const body = `
     <span style="display:inline-block;padding:5px 12px;border-radius:999px;background:#DBEAFE;color:#1E40AF;font-family:${FONT};font-size:11px;font-weight:800;letter-spacing:1px;">REFUND ON ITS WAY</span>
     <h1 style="margin:16px 0 12px;font-family:${FONT};font-size:28px;line-height:1.2;font-weight:800;color:${INK};">Your refund of ${amount} is on its way</h1>
@@ -247,7 +249,7 @@ export function refundEmail(d) {
     };
 }
 export function ownerRefundNoticeEmail(d) {
-    const amount = formatRupees(d.amountRupees);
+    const amount = formatMoney(d.amount, d.currency);
     const body = `
     <h1 style="margin:0 0 6px;font-family:${FONT};font-size:24px;font-weight:800;color:${INK};">↩️ Pro cancelled & refunded</h1>
     <p style="margin:0 0 18px;font-family:${FONT};font-size:15px;color:${MUTE};">${esc(d.customerName || 'A customer')} cancelled within 7 days and was refunded <strong style="color:${INK};">${amount}</strong>.</p>
