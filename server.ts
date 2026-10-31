@@ -2,7 +2,7 @@ import express, { Request, Response } from 'express'
 import Anthropic from '@anthropic-ai/sdk'
 import 'dotenv/config'
 import { mailerConfigured } from './api/_lib/mailer.js'
-import { sendSignupEmails } from './api/_lib/signup.js'
+import { SignupEmailError, sendSignupEmails, sendSignupEmailsForSession } from './api/_lib/signup.js'
 import { EXAMPLE_RULES, sanitizeExample } from './api/_lib/suggestions.js'
 import { BillingError, createOrder, verifyPayment, cancelAndRefund, handleWebhook, currencyForCountry } from './api/_lib/billing.js'
 
@@ -235,6 +235,11 @@ Return ONLY the letter text. No explanations, no markdown, no surrounding quotes
 // Endpoint for the post-signup emails (welcome to the user, alert to the team)
 app.post('/api/send-welcome-email', async (req: Request, res: Response) => {
   try {
+    // A signed-in app asking again with the user's token (a second chance), or the sign-up page with { email }.
+    if (req.headers.authorization) {
+      return res.json(await sendSignupEmailsForSession(req.headers.authorization))
+    }
+
     const { email } = req.body
 
     if (!email || typeof email !== 'string') {
@@ -244,7 +249,7 @@ app.post('/api/send-welcome-email', async (req: Request, res: Response) => {
     res.json(await sendSignupEmails(email))
   } catch (error: any) {
     console.error('Signup email error:', error)
-    res.status(500).json({ error: error.message || 'Failed to send signup emails' })
+    res.status(error instanceof SignupEmailError ? error.status : 500).json({ error: error.message || 'Failed to send signup emails' })
   }
 })
 

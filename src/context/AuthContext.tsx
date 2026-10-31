@@ -55,6 +55,27 @@ function authErrorMessage(message: string): string {
   return message
 }
 
+/**
+ * Second chance for the signup emails. The sign-up page fires its request and moves on, so it can be lost (tab
+ * closed, phone switched apps). A newly created account that is signed in and was never marked as welcomed asks
+ * the server to finish the job, using its login token. The server checks everything again and does it once.
+ */
+function maybeSendWelcome(session: Session | null) {
+  const u = session?.user
+  if (!session || !u || u.user_metadata?.welcome_sent) return
+  if (Date.now() - new Date(u.created_at).getTime() > 7 * 24 * 60 * 60 * 1000) return // only brand-new accounts
+  const key = `je-welcome-asked:${u.id}`
+  try {
+    if (sessionStorage.getItem(key)) return // once per browser tab session
+    sessionStorage.setItem(key, '1')
+  } catch { /* storage blocked: the server still dedupes */ }
+  fetch('/api/send-welcome-email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+    body: '{}',
+  }).catch(() => {})
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
@@ -65,11 +86,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       const u = await loadUser(session)
       if (!cancelled) { setUser(u); setLoading(false) }
+      maybeSendWelcome(session)
     })
 
     const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const u = await loadUser(session)
       if (!cancelled) setUser(u)
+      maybeSendWelcome(session)
     })
 
     return () => { cancelled = true; listener.subscription.unsubscribe() }
