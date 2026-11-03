@@ -103,7 +103,7 @@ export default function AppLayout({ theme, toggleTheme }: { theme: string; toggl
         <nav className="sidebar-nav">
           <SidebarItem to="/app/dashboard"     icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>} label="Dashboard" />
           <SidebarItem to="/app/resume-builder" icon={<IconDoc size={15} />}       label="Resumes" />
-          <SidebarItem to="/app/find-jobs" icon={<IconBriefcase size={15} />} label="Find Jobs" />
+          <SidebarItem to="/app/find-jobs" icon={<IconBriefcase size={15} />} label="Find Jobs" locked={locked} onLocked={() => setLockedFeature('Find Jobs')} />
           <SidebarItem to="/app/cover-letter"   icon={<IconFeather size={15} />}   label="Cover Letters" locked={locked} onLocked={() => setLockedFeature('Cover Letters')} />
           <SidebarItem to="/app/job-match"      icon={<IconBriefcase size={15} />} label="Job Tracker" locked={locked} onLocked={() => setLockedFeature('Job Tracker')} />
           <SidebarItem to="/app/performance"    icon={<IconChart size={15} />}     label="Analytics" locked={locked} onLocked={() => setLockedFeature('Analytics')} />
@@ -118,7 +118,7 @@ export default function AppLayout({ theme, toggleTheme }: { theme: string; toggl
         <div className="sidebar-footer">
           <div className="sidebar-upgrade">
             <div className="upg-label">{isPro ? 'PRO PLAN ✓' : 'PRO PLAN'}</div>
-            <div className="upg-text">{isPro ? "You're on Pro — unlimited AI tailoring is unlocked." : 'Unlock cover letters, job tracker, analytics, outreach & unlimited tailoring.'}</div>
+            <div className="upg-text">{isPro ? "You're on Pro — unlimited AI tailoring is unlocked." : 'Unlock job search, cover letters, job tracker, analytics, outreach & unlimited tailoring.'}</div>
             {isPro
               ? <button className="upg-btn" onClick={() => navigate('/app/settings#plan')}>Manage plan</button>
               : <button className="upg-btn" onClick={() => setShowUpgrade(true)}>Upgrade to Pro</button>}
@@ -143,6 +143,7 @@ export default function AppLayout({ theme, toggleTheme }: { theme: string; toggl
             <NavLink to="/app/dashboard"      className={({ isActive }) => `app-tab${isActive ? ' active' : ''}`}>Dashboard</NavLink>
             <NavLink to="/app/resume-builder" className={({ isActive }) => `app-tab${isActive ? ' active' : ''}`}>Resume Builder</NavLink>
             <NavLink to="/app/cover-letter"   className={({ isActive }) => `app-tab${isActive ? ' active' : ''}`}>Cover Letters</NavLink>
+            <NavLink to="/app/find-jobs"      className={({ isActive }) => `app-tab${isActive ? ' active' : ''}`}>Find Jobs</NavLink>
             <NavLink to="/app/job-match"      className={({ isActive }) => `app-tab${isActive ? ' active' : ''}`}>Job Tracker</NavLink>
             <NavLink to="/app/performance"    className={({ isActive }) => `app-tab${isActive ? ' active' : ''}`}>Analytics</NavLink>
             <NavLink to="/app/outreach"       className={({ isActive }) => `app-tab${isActive ? ' active' : ''}`}>Outreach</NavLink>

@@ -4,9 +4,9 @@ import 'dotenv/config'
 import { mailerConfigured } from './api/_lib/mailer.js'
 import { SignupEmailError, sendSignupEmails, sendSignupEmailsForSession } from './api/_lib/signup.js'
 import { EXAMPLE_RULES, sanitizeExample } from './api/_lib/suggestions.js'
-import { findJobs } from './api/_lib/jobsHandler.js'
+import { findJobs, requirePro } from './api/_lib/jobsHandler.js'
 import { scoreJobFit } from './api/_lib/jobFit.js'
-import { authenticate, BillingError, createOrder, verifyPayment, cancelAndRefund, handleWebhook, currencyForCountry } from './api/_lib/billing.js'
+import { BillingError, createOrder, verifyPayment, cancelAndRefund, handleWebhook, currencyForCountry } from './api/_lib/billing.js'
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -266,7 +266,7 @@ const billing = (run: (req: Request) => Promise<unknown>) => async (req: Request
 }
 
 app.get('/api/jobs', billing(async req => {
-  await authenticate(req.headers.authorization)
+  await requirePro(req.headers.authorization)
   const one = (v: unknown) => (Array.isArray(v) ? String(v[0] ?? '') : String(v ?? ''))
   return findJobs({
     mode: one(req.query.mode), q: one(req.query.q), where: one(req.query.where),

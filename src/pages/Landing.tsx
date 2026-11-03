@@ -437,7 +437,7 @@ function Pricing() {
   const proPrice  = money(perMonthOf(plan, currency), currency)
   const proStrike = plan === 'monthly' ? null : money(perMonthOf('monthly', currency), currency)
   const freeFeatures = ['1 AI-tailored resume / month', 'Basic ATS scoring', 'Standard email support']
-  const proFeatures  = ['Unlimited AI-tailored resumes', 'Advanced ATS readiness audits', 'Unlimited cover letters', 'Job application tracker', 'Smart Outreach with reply tracking', 'Performance analytics + insights', 'Priority human + AI support']
+  const proFeatures  = ['Unlimited AI-tailored resumes', 'Advanced ATS readiness audits', 'Job search with resume match scores', 'Unlimited cover letters', 'Job application tracker', 'Smart Outreach with reply tracking', 'Performance analytics + insights', 'Priority human + AI support']
 
   return (
     <section className="section" id="pricing">
@@ -491,7 +491,7 @@ export const FAQS = [
   { q: 'Do you support international roles?',   a: 'Yes. JobEarly works for English-language roles globally and includes filters for sponsorship-friendly companies, regional ATS systems, and salary band detection in 20+ markets including India, US, UK, and EU.' },
   { q: 'Is my data private?',                   a: 'Your resume, job search history, and outreach inbox are encrypted at rest and never used to train shared models. You can export or delete everything in one click. SOC 2 Type II audit completed Q1 2026.' },
   { q: 'Can I cancel anytime?',                 a: "Yes. Pro is a one-time payment for 1 month or 3 months — it never renews on its own, so there's nothing to cancel and you won't be charged again unless you choose to. No questions asked." },
-  { q: "What's included in the free plan?",     a: '1 AI-tailored resume per month and basic ATS scoring, so you can see what JobEarly does for free. Cover letters, the job tracker, analytics and recruiter outreach are part of Pro.' },
+  { q: "What's included in the free plan?",     a: '1 AI-tailored resume per month and basic ATS scoring, so you can see what JobEarly does for free. Job search, cover letters, the job tracker, analytics and recruiter outreach are part of Pro.' },
 ]
 function FAQ() {
   const [open, setOpen] = useState(0)

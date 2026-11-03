@@ -48,15 +48,6 @@ export default function FindJobs() {
   const [searched, setSearched] = useState(false)
   const [sort, setSort] = useState<'match' | 'new'>('match')
   const [openId, setOpenId] = useState<string | null>(null)
-  // Wide screens get a list on the left and the chosen job's details on the right; phones expand in place.
-  const [wide, setWide] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 980px)').matches)
-  useEffect(() => {
-    const mq = window.matchMedia('(min-width: 980px)')
-    const on = () => setWide(mq.matches)
-    mq.addEventListener('change', on)
-    return () => mq.removeEventListener('change', on)
-  }, [])
-
   const [draft, setDraft] = useState<JobProfile>({ resumeText: '', targetRole: '', city: '', country: '' })
   const [showProfile, setShowProfile] = useState(false)
   const [savedNote, setSavedNote] = useState('')
@@ -68,6 +59,7 @@ export default function FindJobs() {
   const [fits, setFits] = useState<Record<string, JobFit>>({})
   const [fitBusy, setFitBusy] = useState<string | null>(null)
   const [fitError, setFitError] = useState('')
+  const [fitErrorId, setFitErrorId] = useState<string | null>(null)
   const [tracked, setTracked] = useState<Set<string>>(new Set())
 
   // Fill the form from the saved profile once it arrives; open the profile card when there is no resume yet.
@@ -145,11 +137,6 @@ export default function FindJobs() {
     if (await save(next)) { setDraft(next); setFileName('') }
   }
 
-  // With the side panel there is always a job to show, so pick the top one when nothing is selected.
-  useEffect(() => {
-    if (wide && shown.length && !shown.some(x => x.job.id === openId)) setOpenId(shown[0].job.id)
-  }, [wide, shown, openId])
-
   async function saveProfile() {
     const next = { ...draft, country }
     const ok = await save(next)
@@ -164,6 +151,7 @@ export default function FindJobs() {
 
   async function runFit(job: JobListing) {
     setFitError('')
+    setFitErrorId(job.id)
     setFitBusy(job.id)
     try {
       const r = await jobFit(profile.resumeText, job)
@@ -188,50 +176,55 @@ export default function FindJobs() {
     v === 'apply' ? chip('#ECFDF5', '#047857') : v === 'stretch' ? chip('#FFFBEB', '#B45309') : chip('#F3F4F6', '#4B5563')
   const verdictText = { apply: 'Apply', stretch: 'Worth a stretch', skip: 'Probably skip' }
 
-  const selected = shown.find(x => x.job.id === openId) ?? null
-
-  function renderDetail(job: JobListing, sc: QuickScore, header: boolean) {
+  function renderActions(job: JobListing, open: boolean) {
     const fit = fits[job.id]
+    return (
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', padding: '0 16px 14px' }}>
+        <button type="button" className="btn-jc-secondary" onClick={() => setOpenId(open ? null : job.id)}>
+          {open ? 'Hide description' : 'Job description'}
+        </button>
+        <a className="btn-jc-primary" href={job.url} target="_blank" rel="noopener noreferrer"
+          style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Apply now ↗</a>
+        {isPro ? (
+          <>
+            <button type="button" className="btn-jc-secondary" disabled={!hasResume || fitBusy === job.id} onClick={() => runFit(job)}
+              title={hasResume ? '' : 'Upload your resume to enable this'}>
+              {fitBusy === job.id ? 'Scoring…' : fit ? 'Re-score' : 'Detailed fit check'}
+            </button>
+            <button type="button" className="btn-jc-secondary" disabled={tracked.has(job.id)} onClick={() => saveToTracker(job)}>
+              {tracked.has(job.id) ? 'Saved to tracker ✓' : 'Save to tracker'}
+            </button>
+          </>
+        ) : (
+          <Link to="/app/settings" className="btn-jc-secondary" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+            Detailed fit check &amp; tracker: Pro
+          </Link>
+        )}
+      </div>
+    )
+  }
+
+  function renderFit(job: JobListing) {
+    const fit = fits[job.id]
+    if (!fit) return null
+    return (
+      <div style={{ margin: '0 16px 14px', background: 'var(--bg-soft)', borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 22, fontWeight: 800, color: scoreColor(fit.score) }}>{fit.score}%</span>
+          <span style={verdictStyle(fit.verdict)}>{verdictText[fit.verdict]}</span>
+        </div>
+        <div style={{ fontSize: 13 }}>{fit.summary}</div>
+        {fit.strengths.length > 0 && <div style={{ fontSize: 12.5 }}><b>Strengths:</b> {fit.strengths.join(' · ')}</div>}
+        {fit.gaps.length > 0 && <div style={{ fontSize: 12.5 }}><b>Gaps:</b> {fit.gaps.join(' · ')}</div>}
+        {fit.tip && <div style={{ fontSize: 12.5 }}><b>Before you apply:</b> {fit.tip}</div>}
+      </div>
+    )
+  }
+
+  function renderDescription(job: JobListing, sc: QuickScore) {
     const text = job.description.replace(/^#{1,6}\s*/gm, '')
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {header && (
-          <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', justifyContent: 'space-between' }}>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontWeight: 800, fontSize: 19, letterSpacing: '-0.02em' }}>{job.title}</div>
-              <div style={{ fontSize: 13.5, color: 'var(--text-soft)', marginTop: 3 }}>{job.company} · {job.location}</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-                {job.remote && <span style={chip('#EFF6FF', '#1D4ED8')}>Remote</span>}
-                {job.eligibility && job.eligibility.toLowerCase() !== 'worldwide' && <span style={chip('var(--bg-soft)', 'var(--text-soft)')}>Open to: {job.eligibility}</span>}
-                {job.type && <span style={chip('var(--bg-soft)', 'var(--text-soft)')}>{job.type}</span>}
-                {job.salary && <span style={chip('#ECFDF5', '#047857')}>{job.salary}</span>}
-                {job.postedAt && <span style={chip('var(--bg-soft)', 'var(--text-mute)')}>{daysAgo(job.postedAt)}</span>}
-              </div>
-            </div>
-            <ScoreBadge q={sc} hasResume={hasResume} />
-          </div>
-        )}
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-          <a className="btn-jc-primary" href={job.url} target="_blank" rel="noopener noreferrer"
-            style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Apply now ↗</a>
-          {isPro ? (
-            <>
-              <button type="button" className="btn-jc-secondary" disabled={!hasResume || fitBusy === job.id} onClick={() => runFit(job)}>
-                {fitBusy === job.id ? 'Scoring…' : fit ? 'Re-score' : 'Detailed fit check'}
-              </button>
-              <button type="button" className="btn-jc-secondary" disabled={tracked.has(job.id)} onClick={() => saveToTracker(job)}>
-                {tracked.has(job.id) ? 'Saved to tracker ✓' : 'Save to tracker'}
-              </button>
-            </>
-          ) : (
-            <Link to="/app/settings" className="btn-jc-secondary" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
-              Detailed fit check &amp; tracker: Pro
-            </Link>
-          )}
-          {!hasResume && <span style={{ fontSize: 12, color: 'var(--text-mute)' }}>Upload your resume to enable scoring.</span>}
-        </div>
-
+      <div style={{ borderTop: '1px solid var(--border)', padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
         {hasResume && (
           <div>
             <div style={lbl}>QUICK MATCH · {sc.label.toUpperCase()}</div>
@@ -242,28 +235,12 @@ export default function FindJobs() {
             <div style={{ fontSize: 11.5, color: 'var(--text-mute)', marginTop: 6 }}>Green words are already on your resume. Red ones appear in the job but not in your resume.</div>
           </div>
         )}
-
-        {fit && (
-          <div style={{ background: 'var(--bg-soft)', borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 22, fontWeight: 800, color: scoreColor(fit.score) }}>{fit.score}%</span>
-              <span style={verdictStyle(fit.verdict)}>{verdictText[fit.verdict]}</span>
-            </div>
-            <div style={{ fontSize: 13 }}>{fit.summary}</div>
-            {fit.strengths.length > 0 && <div style={{ fontSize: 12.5 }}><b>Strengths:</b> {fit.strengths.join(' · ')}</div>}
-            {fit.gaps.length > 0 && <div style={{ fontSize: 12.5 }}><b>Gaps:</b> {fit.gaps.join(' · ')}</div>}
-            {fit.tip && <div style={{ fontSize: 12.5 }}><b>Before you apply:</b> {fit.tip}</div>}
-          </div>
-        )}
-        {fitError && openId === job.id && <div style={{ fontSize: 12.5, color: '#B91C1C' }}>{fitError}</div>}
-
         <div>
           <div style={lbl}>JOB DESCRIPTION</div>
-          <div style={{ fontSize: 13, lineHeight: 1.65, color: 'var(--text-soft)', whiteSpace: 'pre-line', ...(header ? {} : { maxHeight: 220, overflowY: 'auto' }) }}>
+          <div style={{ fontSize: 13, lineHeight: 1.65, color: 'var(--text-soft)', whiteSpace: 'pre-line', maxHeight: 360, overflowY: 'auto' }}>
             {text.slice(0, 8000)}{text.length > 8000 ? '…' : ''}
           </div>
         </div>
-
         <div style={{ fontSize: 11, color: 'var(--text-mute)' }}>
           Listing from <a href={job.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>{job.source}</a>. JobEarly does not post or verify these jobs.
         </div>
@@ -391,45 +368,34 @@ export default function FindJobs() {
         </div>
       )}
 
-      {shown.length > 0 && (
-        <div style={wide
-          ? { display: 'grid', gridTemplateColumns: 'minmax(320px, 420px) 1fr', gap: 16, alignItems: 'start' }
-          : { display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, ...(wide ? { maxHeight: 'calc(100vh - 150px)', overflowY: 'auto', paddingRight: 4 } : {}) }}>
-            {shown.map(({ job, q: sc }) => {
-              const open = openId === job.id
-              return (
-                <div key={job.id} className="perf-card" style={{ padding: 0, overflow: 'hidden', ...(wide && open ? { borderColor: 'var(--accent)', boxShadow: '0 0 0 1px var(--accent)' } : {}) }}>
-                  <button type="button" onClick={() => setOpenId(wide ? job.id : open ? null : job.id)}
-                    style={{ all: 'unset', boxSizing: 'border-box', display: 'flex', gap: 14, alignItems: 'center', width: '100%', padding: 14, cursor: 'pointer' }}>
-                    <ScoreBadge q={sc} hasResume={hasResume} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: 14.5 }}>{job.title}</div>
-                      <div style={{ fontSize: 12.5, color: 'var(--text-soft)', marginTop: 2 }}>{job.company} · {job.location}</div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-                        {job.remote && <span style={chip('#EFF6FF', '#1D4ED8')}>Remote</span>}
-                        {job.type && <span style={chip('var(--bg-soft)', 'var(--text-soft)')}>{job.type}</span>}
-                        {job.salary && <span style={chip('#ECFDF5', '#047857')}>{job.salary}</span>}
-                        {job.postedAt && <span style={chip('var(--bg-soft)', 'var(--text-mute)')}>{daysAgo(job.postedAt)}</span>}
-                      </div>
-                    </div>
-                  </button>
-                  {!wide && open && (
-                    <div style={{ borderTop: '1px solid var(--border)', padding: 16 }}>{renderDetail(job, sc, false)}</div>
-                  )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {shown.map(({ job, q: sc }) => {
+          const open = openId === job.id
+          return (
+            <div key={job.id} className="perf-card" style={{ padding: 0, overflow: 'hidden', flexShrink: 0 }}>
+              <button type="button" onClick={() => setOpenId(open ? null : job.id)}
+                style={{ all: 'unset', boxSizing: 'border-box', display: 'flex', gap: 14, alignItems: 'center', width: '100%', padding: 16, cursor: 'pointer' }}>
+                <ScoreBadge q={sc} hasResume={hasResume} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14.5 }}>{job.title}</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--text-soft)', marginTop: 2 }}>{job.company} · {job.location}</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                    {job.remote && <span style={chip('#EFF6FF', '#1D4ED8')}>Remote</span>}
+                    {job.eligibility && job.eligibility.toLowerCase() !== 'worldwide' && <span style={chip('var(--bg-soft)', 'var(--text-soft)')}>Open to: {job.eligibility}</span>}
+                    {job.type && <span style={chip('var(--bg-soft)', 'var(--text-soft)')}>{job.type}</span>}
+                    {job.salary && <span style={chip('#ECFDF5', '#047857')}>{job.salary}</span>}
+                    {job.postedAt && <span style={chip('var(--bg-soft)', 'var(--text-mute)')}>{daysAgo(job.postedAt)}</span>}
+                  </div>
                 </div>
-              )
-            })}
-          </div>
-
-          {wide && (
-            <div className="perf-card" style={{ position: 'sticky', top: 0, maxHeight: 'calc(100vh - 150px)', overflowY: 'auto' }}>
-              {selected ? renderDetail(selected.job, selected.q, true) : null}
+              </button>
+              {renderActions(job, open)}
+              {renderFit(job)}
+              {fitError && fitErrorId === job.id && <div style={{ margin: '0 16px 14px', fontSize: 12.5, color: '#B91C1C' }}>{fitError}</div>}
+              {open && renderDescription(job, sc)}
             </div>
-          )}
-        </div>
-      )}
-
+          )
+        })}
+      </div>
       {tab === 'local' && searched && jobs.length >= 10 && (
         <div style={{ textAlign: 'center', marginTop: 14 }}>
           <button type="button" className="btn-jc-secondary" disabled={loading} onClick={() => run(page + 1)}>{loading ? 'Loading…' : 'Load more'}</button>

@@ -85,7 +85,7 @@ export default function App() {
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="resume-builder" element={<ResumeBuilder />} />
-            <Route path="find-jobs" element={<FindJobs />} />
+            <Route path="find-jobs" element={<ProRoute feature="Find Jobs"><FindJobs /></ProRoute>} />
             <Route path="cover-letter" element={<ProRoute feature="Cover Letters"><CoverLetter /></ProRoute>} />
             <Route path="job-match" element={<ProRoute feature="Job Tracker"><JobTracker /></ProRoute>} />
             <Route path="performance" element={<ProRoute feature="Analytics"><Performance /></ProRoute>} />

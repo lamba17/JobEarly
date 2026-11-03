@@ -1,9 +1,15 @@
 // Turns raw query-string values into a job search, so api/jobs.ts and server.ts behave identically.
-import { BillingError } from './billing.js'
+import { authenticate, userIsPro, BillingError } from './billing.js'
 import { searchLocalJobs, searchRemoteJobs, type JobListing } from './jobs.js'
 
 export interface JobsQuery {
   mode: string; q: string; where: string; country: string; page: string; distance: string
+}
+
+/** Find Jobs is a Pro feature: check the session and the plan before any search is paid for. */
+export async function requirePro(authHeader: string | undefined) {
+  const user = await authenticate(authHeader)
+  if (!(await userIsPro(user.id))) throw new BillingError(403, 'Find Jobs is a Pro feature. Upgrade to search jobs.')
 }
 
 export async function findJobs(query: JobsQuery): Promise<{ jobs: JobListing[]; total: number | null; page: number }> {

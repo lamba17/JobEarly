@@ -1,6 +1,6 @@
 import { IconSparkle } from '../../icons'
 
-const PRO_SCREENS = ['Cover Letters', 'Job Tracker', 'Analytics', 'Outreach']
+const PRO_SCREENS = ['Find Jobs', 'Cover Letters', 'Job Tracker', 'Analytics', 'Outreach']
 
 /** Shown when a free user opens a Pro-only screen. */
 export default function ProLockedModal({ feature, onClose, onUpgrade }: {

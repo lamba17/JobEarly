@@ -1,12 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { authenticate, BillingError } from './_lib/billing.js'
-import { findJobs } from './_lib/jobsHandler.js'
+import { BillingError } from './_lib/billing.js'
+import { findJobs, requirePro } from './_lib/jobsHandler.js'
 
 // GET /api/jobs?mode=local|remote&q=&where=&country=&page=
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
   try {
-    await authenticate(req.headers.authorization)
+    await requirePro(req.headers.authorization)
     const one = (v: unknown) => (Array.isArray(v) ? String(v[0] ?? '') : String(v ?? ''))
     res.setHeader('Cache-Control', 'private, no-store')
     res.status(200).json(await findJobs({

@@ -10,6 +10,7 @@ import { PLANS, PLAN_ORDER, money, priceOf, perMonthOf, savePct, monthsLabel, ty
 const PRO_FEATURES = [
   'Unlimited AI-tailored resumes',
   'Advanced ATS readiness audits',
+  'Job search with resume match scores',
   'Unlimited cover letters',
   'Job application tracker',
   'Smart Outreach with reply tracking',
