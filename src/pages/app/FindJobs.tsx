@@ -38,6 +38,7 @@ export default function FindJobs() {
   const [tab, setTab] = useState<'local' | 'remote'>('local')
   const [q, setQ] = useState('')
   const [city, setCity] = useState('')
+  const [company, setCompany] = useState('')
   const [country, setCountry] = useState(guessCountry())
   const [openToMe, setOpenToMe] = useState(true)
   const [jobs, setJobs] = useState<JobListing[]>([])
@@ -78,10 +79,10 @@ export default function FindJobs() {
 
   async function run(nextPage = 1) {
     setError('')
-    if (tab === 'local' && !city.trim()) { setError('Enter the city you want to work in.'); return }
+    if (tab === 'local' && !city.trim() && !company.trim()) { setError('Enter a city or a company to search.'); return }
     setLoading(true)
     try {
-      const r = await searchJobs({ mode: tab, q: q.trim(), where: city.trim(), country: tab === 'remote' && !openToMe ? '' : country, page: nextPage })
+      const r = await searchJobs({ mode: tab, q: q.trim(), company: company.trim(), where: city.trim(), country: tab === 'remote' && !openToMe ? '' : country, page: nextPage })
       setJobs(prev => (nextPage === 1 ? r.jobs : [...prev, ...r.jobs]))
       setTotal(r.total)
       setPage(nextPage)
@@ -325,6 +326,10 @@ export default function FindJobs() {
           <div>
             <div style={lbl}>JOB TITLE OR SKILL</div>
             <input style={inp} placeholder="e.g. React developer" value={q} onChange={e => setQ(e.target.value)} />
+          </div>
+          <div>
+            <div style={lbl}>COMPANY <span style={{ fontWeight: 400 }}>(optional)</span></div>
+            <input style={inp} placeholder="e.g. Deloitte" value={company} onChange={e => setCompany(e.target.value)} />
           </div>
           {tab === 'local' && (
             <div>

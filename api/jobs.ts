@@ -10,7 +10,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const one = (v: unknown) => (Array.isArray(v) ? String(v[0] ?? '') : String(v ?? ''))
     res.setHeader('Cache-Control', 'private, no-store')
     res.status(200).json(await findJobs({
-      mode: one(req.query.mode), q: one(req.query.q), where: one(req.query.where),
+      mode: one(req.query.mode), q: one(req.query.q), company: one(req.query.company), where: one(req.query.where),
       country: one(req.query.country), page: one(req.query.page), distance: one(req.query.distance),
     }))
   } catch (error: any) {

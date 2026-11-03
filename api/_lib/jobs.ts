@@ -47,21 +47,28 @@ function money(min?: number, max?: number, currency = ''): string {
   return one ? `${currency}${fmt(one)}` : ''
 }
 
-export async function searchLocalJobs(opts: { country: string; where: string; what: string; page: number; distanceKm: number }): Promise<JobListing[]> {
+/** True when the listing's employer name contains what the person typed (ignores case, spacing and punctuation). */
+export function matchesCompany(employer: string, wanted: string): boolean {
+  const norm = (v: string) => v.toLowerCase().replace(/[^a-z0-9]+/g, '')
+  const w = norm(wanted)
+  return !w || norm(employer).includes(w)
+}
+
+export async function searchLocalJobs(opts: { country: string; where: string; what: string; company: string; page: number; distanceKm: number }): Promise<JobListing[]> {
   const key = process.env.OPENWEBNINJA_API_KEY
   if (!key) throw new BillingError(503, 'Local job search is not set up yet.')
   if (!/^[a-z]{2}$/i.test(opts.country)) throw new BillingError(400, 'Pick a country to search in.')
 
   // JSearch takes one free-text query; "role in city" is how it expects a location.
-  const query = `${opts.what || 'jobs'} in ${opts.where}`
+  const query = [opts.what || 'jobs', opts.company && `at ${opts.company}`, opts.where && `in ${opts.where}`].filter(Boolean).join(' ')
   const params = new URLSearchParams({
     query,
     page: String(Math.max(1, opts.page)),
     num_pages: '1',
     country: opts.country.toLowerCase(),
     date_posted: 'month',
-    radius: String(opts.distanceKm),
   })
+  if (opts.where) params.set('radius', String(opts.distanceKm))
 
   // The free plan allows only a couple of hundred searches a month, so repeat searches come from memory.
   const cacheKey = `jsearch:${params}`
@@ -97,13 +104,13 @@ export async function searchLocalJobs(opts: { country: string; where: string; wh
       source: 'JSearch',
       sourceUrl: 'https://www.openwebninja.com',
     }
-  }).filter((j: JobListing) => j.title && j.url)
+  }).filter((j: JobListing) => j.title && j.url && matchesCompany(j.company, opts.company))
 
   remember(cacheKey, jobs)
   return jobs
 }
 
-async function remotiveJobs(opts: { what: string; country: string }): Promise<JobListing[]> {
+async function remotiveJobs(opts: { what: string; country: string; company: string }): Promise<JobListing[]> {
   let feed = cached<JobListing[]>('remotive:all', 3 * 60 * 60 * 1000)
   if (!feed) {
     const res = await fetch('https://remotive.com/api/remote-jobs', { headers: { Accept: 'application/json' } })
@@ -140,6 +147,7 @@ async function remotiveJobs(opts: { what: string; country: string }): Promise<Jo
       return words.every(w => hay.includes(w))
     })
   }
+  if (opts.company) list = list.filter(j => matchesCompany(j.company, opts.company))
   if (country) {
     // Keep jobs a person in that country may actually apply to: worldwide ones and ones naming the country or its region.
     list = list.filter(j => isOpenTo(j.eligibility, country))
@@ -148,9 +156,10 @@ async function remotiveJobs(opts: { what: string; country: string }): Promise<Jo
 }
 
 /** Himalayas: a large remote board with server-side search and a country filter. */
-async function himalayasJobs(opts: { what: string; country: string; page: number }): Promise<{ jobs: JobListing[]; total: number }> {
+async function himalayasJobs(opts: { what: string; country: string; company: string; page: number }): Promise<{ jobs: JobListing[]; total: number }> {
   const params = new URLSearchParams({ sort: 'recent', page: String(opts.page) })
-  if (opts.what) params.set('q', opts.what)
+  const q = [opts.what, opts.company].filter(Boolean).join(' ')
+  if (q) params.set('q', q)
   if (opts.country) params.set('country', opts.country.toUpperCase())
   const cacheKey = `himalayas:${params}`
   const hit = cached<{ jobs: JobListing[]; total: number }>(cacheKey, 10 * 60 * 1000)
@@ -176,17 +185,17 @@ async function himalayasJobs(opts: { what: string; country: string; page: number
       source: 'Himalayas',
       sourceUrl: 'https://himalayas.app',
     }
-  }).filter((j: JobListing) => j.title && j.url)
+  }).filter((j: JobListing) => j.title && j.url && matchesCompany(j.company, opts.company))
   const out = { jobs, total: Number(json.totalCount) || jobs.length }
   remember(cacheKey, out)
   return out
 }
 
-export async function searchRemoteJobs(opts: { what: string; country: string; page: number }): Promise<{ jobs: JobListing[]; total: number }> {
+export async function searchRemoteJobs(opts: { what: string; country: string; company: string; page: number }): Promise<{ jobs: JobListing[]; total: number }> {
   const countryName = COUNTRY_NAMES[opts.country.toLowerCase()] ?? ''
   const [him, rem] = await Promise.allSettled([
-    himalayasJobs({ what: opts.what, country: opts.country, page: opts.page }),
-    opts.page === 1 ? remotiveJobs({ what: opts.what, country: opts.country }) : Promise.resolve([] as JobListing[]),
+    himalayasJobs({ what: opts.what, country: opts.country, company: opts.company, page: opts.page }),
+    opts.page === 1 ? remotiveJobs({ what: opts.what, country: opts.country, company: opts.company }) : Promise.resolve([] as JobListing[]),
   ])
   if (him.status === 'rejected' && rem.status === 'rejected') {
     console.error('Remote feeds failed:', him.reason, rem.reason)

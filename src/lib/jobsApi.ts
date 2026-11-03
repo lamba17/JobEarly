@@ -39,9 +39,10 @@ async function authed<T>(path: string, init?: RequestInit): Promise<T> {
   return json as T
 }
 
-export function searchJobs(p: { mode: 'local' | 'remote'; q: string; where?: string; country: string; page?: number; distance?: number }) {
+export function searchJobs(p: { mode: 'local' | 'remote'; q: string; company?: string; where?: string; country: string; page?: number; distance?: number }) {
   const qs = new URLSearchParams({ mode: p.mode, q: p.q, country: p.country, page: String(p.page ?? 1) })
   if (p.where) qs.set('where', p.where)
+  if (p.company) qs.set('company', p.company)
   if (p.distance) qs.set('distance', String(p.distance))
   return authed<{ jobs: JobListing[]; total: number | null; page: number }>(`/api/jobs?${qs}`)
 }

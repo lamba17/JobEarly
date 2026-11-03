@@ -240,7 +240,7 @@ app.get('/api/jobs', billing(async (req) => {
     await requirePro(req.headers.authorization);
     const one = (v) => (Array.isArray(v) ? String(v[0] ?? '') : String(v ?? ''));
     return findJobs({
-        mode: one(req.query.mode), q: one(req.query.q), where: one(req.query.where),
+        mode: one(req.query.mode), q: one(req.query.q), company: one(req.query.company), where: one(req.query.where),
         country: one(req.query.country), page: one(req.query.page), distance: one(req.query.distance),
     });
 }));
