@@ -603,6 +603,16 @@ a.eyebrow:hover { border-color: var(--border-strong); box-shadow: var(--shadow-m
 .tracker-vis .thead .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 .tracker-vis .thead b { margin-left: auto; font-weight: 700; color: var(--text-mute); }
 .tracker-vis .tjob { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; font-size: 11.5px; font-weight: 600; color: var(--text); line-height: 1.3; }
+.jobs-vis { right: 24px; top: 22px; bottom: 22px; width: 50%; display: flex; flex-direction: column; gap: 8px; }
+.jobs-vis .jtabs { display: flex; gap: 6px; }
+.jobs-vis .jtabs span { font-size: 11px; font-weight: 700; padding: 4px 11px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-soft); background: var(--card); }
+.jobs-vis .jtabs span.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.jobs-vis .jrow { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; }
+.jobs-vis .jscore { min-width: 46px; text-align: center; font-size: 17px; font-weight: 800; line-height: 1; }
+.jobs-vis .jscore small { display: block; margin-top: 3px; font-size: 8.5px; font-weight: 700; letter-spacing: .05em; }
+.jobs-vis .jinfo { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.jobs-vis .jinfo b { font-size: 12.5px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jobs-vis .jinfo span { font-size: 11px; color: var(--text-mute); }
 .gmail-stack { position: relative; width: 100%; height: 105px; }
 .gmail-stack .card-shot { position: absolute; width: 118px; }
 .gmail-stack .g1 { top: 0; left: 0; transform: rotate(-4deg); }
@@ -894,6 +904,7 @@ a.eyebrow:hover { border-color: var(--border-strong); box-shadow: var(--shadow-m
   .bento-card.span-4 { grid-column: span 4; }
   .bento-card.span-6 { grid-column: span 4; }
   .tracker-vis { width: 58%; }
+  .jobs-vis { width: 56%; }
   .stats-row { grid-template-columns: repeat(2,1fr); gap: 28px; }
   .stats-row > div + div { padding-left: 0; border-left: none; }
   .footer-grid { grid-template-columns: 1.6fr repeat(2,1fr); }
@@ -911,6 +922,7 @@ a.eyebrow:hover { border-color: var(--border-strong); box-shadow: var(--shadow-m
   .bento { grid-template-columns: 1fr; }
   .bento-card.span-3, .bento-card.span-2, .bento-card.span-4, .bento-card.span-6 { grid-column: span 1; }
   .tracker-vis { display: none; }
+  .jobs-vis { display: none; }
   .steps { grid-template-columns: 1fr; }
   .footer-grid { grid-template-columns: 1fr 1fr; }
   .mock-cards { grid-template-columns: 1fr; }

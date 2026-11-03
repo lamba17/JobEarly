@@ -3,6 +3,7 @@ import { IconRocket, IconInstagram } from '../../icons'
 
 const PRODUCT_LINKS: [string, string][] = [
   ['Resume Builder', '/#feature-resume'],
+  ['Find Jobs', '/#feature-find-jobs'],
   ['ATS Score', '/#feature-ats'],
   ['Cover Letters', '/#feature-cover-letters'],
   ['Smart Outreach', '/#feature-outreach'],

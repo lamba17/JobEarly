@@ -20,7 +20,7 @@ export const SEO_ROUTES: SeoRoute[] = [
   {
     path: '/',
     title: 'JobEarly — AI Resume Builder, ATS Checker & Job Tracker',
-    description: 'Tailor your resume to every job, beat ATS filters, write cover letters, reach recruiters and track applications — all in one AI workspace. Start free.',
+    description: 'Find jobs scored against your resume, tailor it to each role, beat ATS filters, write cover letters, reach recruiters and track applications — all in one AI workspace. Start free.',
     priority: 1.0,
   },
   {

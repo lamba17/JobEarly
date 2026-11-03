@@ -4,13 +4,14 @@ import Navbar from '../components/site/Navbar'
 import Footer from '../components/site/Footer'
 import { TESTIMONIALS } from '../data/testimonials'
 import { STATUS_META } from '../lib/jobTracker'
+import { scoreColor } from '../lib/jobScore'
 import { useCurrency } from '../hooks/useCurrency'
 import CurrencyToggle from '../components/site/CurrencyToggle'
 import { PLANS, PLAN_ORDER, money, priceOf, perMonthOf, savePct, type Interval } from '../lib/plans'
 import {
   IconSparkle, IconDoc, IconSend, IconMail, IconChart,
   IconArrowRight, IconCheck, IconPlus, IconShield,
-  IconBriefcase, IconUsers, IconFeather, IconRocket,
+  IconBriefcase, IconUsers, IconFeather, IconRocket, IconSearch,
 } from '../icons'
 
 function greeting() {
@@ -25,6 +26,7 @@ function MockDashboard() {
   const navItems = [
     { label: 'Dashboard',     active: true,  icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg> },
     { label: 'Resumes',       active: false, icon: <IconDoc size={14} /> },
+    { label: 'Find Jobs',     active: false, icon: <IconSearch size={14} /> },
     { label: 'Cover Letters', active: false, icon: <IconFeather size={14} /> },
     { label: 'Job Tracker',   active: false, icon: <IconBriefcase size={14} /> },
     { label: 'Analytics',     active: false, icon: <IconChart size={14} /> },
@@ -126,9 +128,9 @@ function Hero() {
       <div className="container">
         <div className="hero-split">
           <div className="hero-inner">
-            <a href="/#feature-ats" className="eyebrow">
+            <a href="/#feature-find-jobs" className="eyebrow">
               <span className="pill">NEW</span>
-              AI-powered ATS scoring is here
+              Find jobs scored against your resume
               <span className="arrow">→</span>
             </a>
             <h1>
@@ -137,8 +139,8 @@ function Hero() {
               <br />everyone else.
             </h1>
             <p className="lede">
-              JobEarly tailors resumes, beats ATS filters, writes cover letters, and sends recruiter
-              outreach — so you apply faster, smarter, and earlier than the competition.
+              JobEarly finds jobs that fit you, tailors resumes, beats ATS filters, writes cover letters, and sends
+              recruiter outreach — so you apply faster, smarter, and earlier than the competition.
             </p>
             <div className="hero-ctas">
               <Link to="/signup" className="btn btn-primary btn-lg">
@@ -280,6 +282,12 @@ const TRACKER_BOARD = [
   { status: 'offer',       jobs: ['Vercel · Staff Designer'] },
 ] as const
 
+// Illustrative examples for the Find Jobs card, not live listings.
+const JOB_PREVIEW = [
+  { title: 'Product Designer',        meta: 'Figma · Bengaluru',     score: 94 },
+  { title: 'Senior Frontend Engineer', meta: 'Remote · Worldwide',    score: 88 },
+] as const
+
 function Bento() {
   return (
     <section className="section" id="features">
@@ -287,7 +295,7 @@ function Bento() {
         <div className="section-head">
           <div className="section-eyebrow"><IconSparkle size={12} /> Features</div>
           <h2>Every step from resume to <span className="ital">offer</span>.</h2>
-          <p className="sub">Built for the modern job hunt. JobEarly combines ATS-grade tooling, AI personalization, and recruiter-ready outreach — all in one workspace.</p>
+          <p className="sub">Built for the modern job hunt. JobEarly combines live job search, ATS-grade tooling, AI personalization, and recruiter-ready outreach — all in one workspace.</p>
         </div>
         <div className="bento">
           <div id="feature-resume" className="bento-card span-3 row-2">
@@ -329,6 +337,22 @@ function Bento() {
               </div>
             </div>
           </div>
+          <div id="feature-find-jobs" className="bento-card span-6">
+            <div className="ico-tile"><IconSearch size={20} /></div>
+            <h3>Find Jobs, Scored for You</h3>
+            <p>Search real openings near you or fully remote. Every job shows how well your resume matches, so you know where to apply first.</p>
+            <div className="bento-vis jobs-vis" aria-hidden="true">
+              <div className="jtabs"><span className="on">Near me</span><span>Remote</span></div>
+              {JOB_PREVIEW.map(j => (
+                <div key={j.title} className="jrow">
+                  <div className="jscore" style={{ color: scoreColor(j.score) }}>
+                    {j.score}%<small>{j.score >= 80 ? 'STRONG' : 'GOOD'}</small>
+                  </div>
+                  <div className="jinfo"><b>{j.title}</b><span>{j.meta}</span></div>
+                </div>
+              ))}
+            </div>
+          </div>
           <div id="feature-tracker" className="bento-card span-6">
             <div className="ico-tile"><IconBriefcase size={20} /></div>
             <h3>Job Tracker</h3>
@@ -356,7 +380,7 @@ function Bento() {
 function HowItWorks() {
   const steps = [
     { n: '01', title: 'Upload your resume',      body: 'Or start from a template. We parse roles, achievements, and keywords automatically.' },
-    { n: '02', title: 'Pick a target role',      body: 'Paste a job link or describe your dream role. JobEarly extracts what matters.' },
+    { n: '02', title: 'Find jobs that fit',      body: 'Search openings near you or fully remote, each scored against your resume, or paste a job link.' },
     { n: '03', title: 'AI tailors everything',   body: 'Resume, summary, and bullet impact rewritten to match the role — in seconds.' },
     { n: '04', title: 'ATS score + fix',         body: 'See exactly which keywords are missing and accept one-click fixes.' },
     { n: '05', title: 'Generate cover letter',   body: 'Personalized to the company, the team, and your story — no more templates.' },
@@ -487,6 +511,7 @@ function Pricing() {
 /* ── FAQ ────────────────────────────────────── */
 export const FAQS = [
   { q: 'How does JobEarly beat ATS filters?',   a: 'We parse the actual job description, extract scoring keywords and structural requirements, and rewrite your resume to match — without keyword stuffing. Our scoring engine is benchmarked against the same parsers used by Workday, Greenhouse, Lever, and Taleo.' },
+  { q: 'Can JobEarly find jobs for me?',        a: 'Yes. Find Jobs searches real, current openings by role, company and city, or fully remote ones you are allowed to apply for from your country. Upload your resume once and every listing shows an instant match score, with the keywords you already have and the ones you are missing. Pro adds a detailed AI fit check for any job and one-click saving to your tracker. Listings come from public job sources and you apply on the employer or job board page.' },
   { q: 'Will my resume sound like AI?',         a: 'No. Our models are tuned on hiring-manager-approved writing — concise, specific, quantitative. We preserve your voice and only edit for impact, clarity, and keyword alignment. You can review every change before accepting.' },
   { q: 'Do you support international roles?',   a: 'Yes. JobEarly works for English-language roles globally and includes filters for sponsorship-friendly companies, regional ATS systems, and salary band detection in 20+ markets including India, US, UK, and EU.' },
   { q: 'Is my data private?',                   a: 'Your resume, job search history, and outreach inbox are encrypted at rest and never used to train shared models. You can export or delete everything in one click. SOC 2 Type II audit completed Q1 2026.' },
