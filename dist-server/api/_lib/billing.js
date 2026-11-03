@@ -74,7 +74,8 @@ function admin() {
         throw new BillingError(503, 'Payments are not configured yet.');
     return createClient(supabaseUrl(), key, { auth: { persistSession: false } });
 }
-async function authenticate(authHeader) {
+/** Who is calling? Throws BillingError(401) for a missing or invalid session token. */
+export async function authenticate(authHeader) {
     const token = authHeader?.replace(/^Bearer\s+/i, '');
     const anon = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
     if (!token || !anon)
@@ -367,4 +368,9 @@ export async function cancelAndRefund(authHeader) {
         console.error('Refund email failed:', e);
     }
     return { refunded: true, amount: first.amount_paise / 100, currency };
+}
+/** Server-side Pro check: the latest non-refunded purchase still has time left. */
+export async function userIsPro(userId) {
+    const { data } = await admin().from('purchases').select('period_end, refunded_at').eq('user_id', userId);
+    return (data ?? []).some((r) => !r.refunded_at && new Date(r.period_end).getTime() > Date.now());
 }

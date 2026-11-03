@@ -85,7 +85,8 @@ function admin(): SupabaseClient {
   return createClient(supabaseUrl(), key, { auth: { persistSession: false } })
 }
 
-async function authenticate(authHeader: string | undefined) {
+/** Who is calling? Throws BillingError(401) for a missing or invalid session token. */
+export async function authenticate(authHeader: string | undefined) {
   const token = authHeader?.replace(/^Bearer\s+/i, '')
   const anon = process.env.VITE_SUPABASE_PUBLISHABLE_KEY
   if (!token || !anon) throw new BillingError(401, 'Please sign in again.')
@@ -399,4 +400,11 @@ export async function cancelAndRefund(authHeader: string | undefined) {
   }
 
   return { refunded: true, amount: first.amount_paise / 100, currency }
+}
+
+/** Server-side Pro check: the latest non-refunded purchase still has time left. */
+export async function userIsPro(userId: string): Promise<boolean> {
+  const { data } = await admin().from('purchases').select('period_end, refunded_at').eq('user_id', userId)
+  return (data ?? []).some((r: { period_end: string; refunded_at?: string | null }) =>
+    !r.refunded_at && new Date(r.period_end).getTime() > Date.now())
 }

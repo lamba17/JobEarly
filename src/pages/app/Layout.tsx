@@ -103,6 +103,7 @@ export default function AppLayout({ theme, toggleTheme }: { theme: string; toggl
         <nav className="sidebar-nav">
           <SidebarItem to="/app/dashboard"     icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>} label="Dashboard" />
           <SidebarItem to="/app/resume-builder" icon={<IconDoc size={15} />}       label="Resumes" />
+          <SidebarItem to="/app/find-jobs" icon={<IconBriefcase size={15} />} label="Find Jobs" />
           <SidebarItem to="/app/cover-letter"   icon={<IconFeather size={15} />}   label="Cover Letters" locked={locked} onLocked={() => setLockedFeature('Cover Letters')} />
           <SidebarItem to="/app/job-match"      icon={<IconBriefcase size={15} />} label="Job Tracker" locked={locked} onLocked={() => setLockedFeature('Job Tracker')} />
           <SidebarItem to="/app/performance"    icon={<IconChart size={15} />}     label="Analytics" locked={locked} onLocked={() => setLockedFeature('Analytics')} />

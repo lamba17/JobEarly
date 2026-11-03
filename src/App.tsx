@@ -16,6 +16,7 @@ import Dashboard from './pages/app/Dashboard'
 import ResumeBuilder from './pages/app/ResumeBuilder'
 import CoverLetter from './pages/app/CoverLetter'
 import JobTracker from './pages/app/JobTracker'
+import FindJobs from './pages/app/FindJobs'
 import Performance from './pages/app/Performance'
 import Outreach from './pages/app/Outreach'
 import Settings from './pages/app/Settings'
@@ -84,6 +85,7 @@ export default function App() {
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="resume-builder" element={<ResumeBuilder />} />
+            <Route path="find-jobs" element={<FindJobs />} />
             <Route path="cover-letter" element={<ProRoute feature="Cover Letters"><CoverLetter /></ProRoute>} />
             <Route path="job-match" element={<ProRoute feature="Job Tracker"><JobTracker /></ProRoute>} />
             <Route path="performance" element={<ProRoute feature="Analytics"><Performance /></ProRoute>} />
