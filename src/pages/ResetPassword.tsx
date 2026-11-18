@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { supabase, recoveryPending, clearRecovery } from '../lib/supabaseClient'
+import { supabase, recoveryPending, clearRecovery, markRecovery, sessionIsFromRecoveryLink } from '../lib/supabaseClient'
 import { IconRocket, IconArrowRight, IconCheck } from '../icons'
 
 export default function ResetPassword() {
@@ -21,18 +21,28 @@ export default function ResetPassword() {
     // password here. Any other signed-in visitor is sent to Settings, where changing the password
     // requires the current one.
     let cancelled = false
+    let settled = false
+    let graceTimer: ReturnType<typeof setTimeout> | undefined
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (cancelled) return
-      if (session && recoveryPending()) setReady(true)
-      else if (session) navigate('/app/settings', { replace: true })
-      else setInvalidLink(true)
+      // The session counts as a recovery session if supabase-js already said so, or if it is the very session
+      // the link in the address bar created. The event can arrive a moment after getSession() resolves.
+      if (session && (recoveryPending() || sessionIsFromRecoveryLink(session.access_token))) {
+        settled = true
+        markRecovery()
+        setReady(true)
+      } else if (session) {
+        // Signed in some other way. Give a late PASSWORD_RECOVERY event a moment to arrive before concluding
+        // this is an ordinary session, which must change its password from Settings with the current one.
+        graceTimer = setTimeout(() => { if (!cancelled && !settled) navigate('/app/settings', { replace: true }) }, 2000)
+      } else setInvalidLink(true)
     })
     const { data: listener } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') setReady(true)
+      if (event === 'PASSWORD_RECOVERY') { settled = true; clearTimeout(graceTimer); setReady(true) }
     })
     // Safety net if getSession never settles
-    const timer = setTimeout(() => { if (!cancelled) setInvalidLink(true) }, 5000)
-    return () => { cancelled = true; clearTimeout(timer); listener.subscription.unsubscribe() }
+    const timer = setTimeout(() => { if (!cancelled && !settled) setInvalidLink(true) }, 5000)
+    return () => { cancelled = true; clearTimeout(timer); clearTimeout(graceTimer); listener.subscription.unsubscribe() }
   }, [navigate])
 
   const handleSubmit = async (e: FormEvent) => {
